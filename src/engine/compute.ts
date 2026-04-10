@@ -3,36 +3,47 @@ import type { HardwareInputs, AdvancedSettings, ComputeResult } from './types'
 /**
  * Compute CPU and memory capacity for the cluster.
  *
- * Data flow mirrors the "Compute Report" sheet (98 formulas):
- *   Hardware Inputs → physicalCores → (minus systemReserved) → usableVCpus
+ * Data flow mirrors the "Compute Report" sheet:
+ *   Hardware Inputs → physicalCores → hyperthreading → logicalCores
+ *   → (minus systemReserved) → usableVCpus
  *   Hardware Inputs → physicalMemory → (minus systemReserved) → usableMemory
+ *
+ * Hyperthreading: when enabled, logical vCPUs = physical cores × 2.
+ * The oversubscription ratio is applied to LOGICAL cores.
  */
 export function computeCompute(
   inputs: HardwareInputs,
   settings: AdvancedSettings
 ): ComputeResult {
-  // CPU
-  const physicalCores = inputs.coresPerNode * inputs.nodeCount
-  const systemReservedVCpus = settings.systemReservedVCpus * inputs.nodeCount
-  // Usable vCPUs = (physical cores × oversubscription ratio) - reserved
-  const rawVCpus = physicalCores * settings.vCpuOversubscriptionRatio
-  const usableVCpus = Math.max(0, rawVCpus - systemReservedVCpus)
+  const { nodeCount, coresPerNode, memoryPerNodeGB, hyperthreadingEnabled } = inputs
+  const { vCpuOversubscriptionRatio, systemReservedVCpus, systemReservedMemoryGB } = settings
+
+  // CPU — hyperthreading doubles logical core count
+  const physicalCores = coresPerNode * nodeCount
+  const logicalCoresPerNode = hyperthreadingEnabled ? coresPerNode * 2 : coresPerNode
+  const logicalCores = logicalCoresPerNode * nodeCount
+
+  const systemReservedVCpusTotal = systemReservedVCpus * nodeCount
+  // Usable vCPUs = (logical cores × oversubscription ratio) - reserved
+  const rawVCpus = logicalCores * vCpuOversubscriptionRatio
+  const usableVCpus = Math.max(0, rawVCpus - systemReservedVCpusTotal)
 
   // Memory
-  const physicalMemoryGB = inputs.memoryPerNodeGB * inputs.nodeCount
-  const systemReservedMemoryGB = settings.systemReservedMemoryGB * inputs.nodeCount
-  const usableMemoryGB = Math.max(0, physicalMemoryGB - systemReservedMemoryGB)
+  const physicalMemoryGB = memoryPerNodeGB * nodeCount
+  const systemReservedMemoryGBTotal = systemReservedMemoryGB * nodeCount
+  const usableMemoryGB = Math.max(0, physicalMemoryGB - systemReservedMemoryGBTotal)
 
-  // NUMA — rough estimate: modern Intel/AMD server CPUs typically have 2 NUMA domains per node
-  // Azure Local does not officially expose NUMA count via a formula; we estimate for planning.
-  const numaDomainsEstimate = inputs.nodeCount * 2
+  // NUMA — modern Intel/AMD server CPUs typically have 2 NUMA domains per node
+  const numaDomainsEstimate = nodeCount * 2
 
   return {
     physicalCores,
-    systemReservedVCpus,
+    logicalCores,
+    hyperthreadingEnabled,
+    systemReservedVCpus: systemReservedVCpusTotal,
     usableVCpus,
     physicalMemoryGB,
-    systemReservedMemoryGB,
+    systemReservedMemoryGB: systemReservedMemoryGBTotal,
     usableMemoryGB,
     numaDomainsEstimate,
   }

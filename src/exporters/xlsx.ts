@@ -42,11 +42,13 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   const capSheet = XLSX.utils.aoa_to_sheet([
     ['Metric', 'Value'],
     ['Raw Pool (TB)', capacity.rawPoolTB],
-    ['Pool Reserve (TB)', capacity.poolReserveTB],
-    ['Net Pool (TB)', capacity.netPoolTB],
+    ['Reserve Drives', capacity.reserveDrives],
+    ['Reserve (TB)', capacity.reserveTB],
+    ['Infra Volume (TB)', capacity.infraVolumeTB],
+    ['Available for Volumes (TB)', capacity.availableForVolumesTB],
+    ['Available for Volumes (TiB)', capacity.availableForVolumesTiB],
     ['Resiliency Type', capacity.resiliencyType],
     ['Resiliency Factor', capacity.resiliencyFactor],
-    ['Usable After Resiliency (TB)', capacity.usableAfterResiliencyTB],
     ['Effective Usable (TB)', capacity.effectiveUsableTB],
   ])
   XLSX.utils.book_append_sheet(wb, capSheet, 'Capacity Report')

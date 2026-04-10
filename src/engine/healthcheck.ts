@@ -92,15 +92,15 @@ export function runHealthCheck(params: {
     })
   }
 
-  // ── Sub-4-node MAP restriction ─────────────────────────────────────────────
+  // ── Sub-4-node dual-parity restriction ────────────────────────────────────
 
   if (hardware.nodeCount < 4) {
-    const mapVolumes = volumes.filter((v) => v.resiliency === 'mirror-accelerated-parity')
-    if (mapVolumes.length > 0) {
+    const dpVolumes = volumes.filter((v) => v.resiliency === 'dual-parity')
+    if (dpVolumes.length > 0) {
       issues.push({
-        code: 'HC_MAP_REQUIRES_4_NODES',
+        code: 'HC_DUAL_PARITY_REQUIRES_4_NODES',
         severity: 'error',
-        message: `Mirror-Accelerated Parity is not supported on fewer than 4 nodes. Affected volumes: ${mapVolumes.map((v) => v.name).join(', ')}.`,
+        message: `Dual Parity requires at least 4 nodes. Affected volumes: ${dpVolumes.map((v) => v.name).join(', ')}.`,
       })
     }
   }
@@ -115,28 +115,28 @@ export function runHealthCheck(params: {
 
 function isResiliencyAllowed(resiliency: ResiliencyType, nodeCount: number): boolean {
   switch (resiliency) {
-    case '2-way-mirror':
-      return nodeCount >= 2
-    case '3-way-mirror':
-      return nodeCount >= 3
-    case 'mirror-accelerated-parity':
-      return nodeCount >= 4
+    case 'two-way-mirror':    return nodeCount >= 2
+    case 'three-way-mirror':  return nodeCount >= 3
+    case 'dual-parity':       return nodeCount >= 4
+    case 'nested-two-way':    return nodeCount >= 2
   }
 }
 
 function minNodesForResiliency(resiliency: ResiliencyType): number {
   switch (resiliency) {
-    case '2-way-mirror': return 2
-    case '3-way-mirror': return 3
-    case 'mirror-accelerated-parity': return 4
+    case 'two-way-mirror':    return 2
+    case 'three-way-mirror':  return 3
+    case 'dual-parity':       return 4
+    case 'nested-two-way':    return 2
   }
 }
 
 function formatResiliency(r: ResiliencyType): string {
   const labels: Record<ResiliencyType, string> = {
-    '2-way-mirror': '2-way mirror',
-    '3-way-mirror': '3-way mirror',
-    'mirror-accelerated-parity': 'mirror-accelerated parity',
+    'two-way-mirror':   'Two-Way Mirror',
+    'three-way-mirror': 'Three-Way Mirror',
+    'dual-parity':      'Dual Parity',
+    'nested-two-way':   'Nested Two-Way Mirror',
   }
   return labels[r]
 }

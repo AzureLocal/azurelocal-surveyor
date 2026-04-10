@@ -77,20 +77,35 @@ describe('SOFS engine', () => {
 // ─── Compute Tests ────────────────────────────────────────────────────────────
 
 describe('Compute engine', () => {
-  it('4-node, 32 cores, 256 GB RAM with defaults', () => {
+  it('4-node, 32 cores, 256 GB RAM — no hyperthreading', () => {
     const hw: HardwareInputs = {
       nodeCount: 4, capacityDrivesPerNode: 6, capacityDriveSizeTB: 3.84,
       cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none',
       capacityMediaType: 'nvme', coresPerNode: 32, memoryPerNodeGB: 256,
+      hyperthreadingEnabled: false, volumeProvisioning: 'fixed',
     }
     const result = computeCompute(hw, DEFAULT_ADVANCED_SETTINGS)
     expect(result.physicalCores).toBe(128)       // 32 × 4
-    expect(result.physicalMemoryGB).toBe(1024)    // 256 × 4
+    expect(result.logicalCores).toBe(128)        // no HT → same as physical
+    expect(result.physicalMemoryGB).toBe(1024)   // 256 × 4
     expect(result.systemReservedVCpus).toBe(16)  // 4 × 4
-    // usableVCpus = (128 × 4) - 16 = 496
+    // usableVCpus = (128 logical × 4 oversubscription) - 16 reserved = 496
     expect(result.usableVCpus).toBe(496)
-    // usableMemoryGB = 1024 - (8 × 4) = 992
-    expect(result.usableMemoryGB).toBe(992)
+    expect(result.usableMemoryGB).toBe(992)      // 1024 - (8 × 4)
+  })
+
+  it('4-node, 32 cores, 256 GB RAM — hyperthreading enabled doubles logical cores', () => {
+    const hw: HardwareInputs = {
+      nodeCount: 4, capacityDrivesPerNode: 6, capacityDriveSizeTB: 3.84,
+      cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none',
+      capacityMediaType: 'nvme', coresPerNode: 32, memoryPerNodeGB: 256,
+      hyperthreadingEnabled: true, volumeProvisioning: 'fixed',
+    }
+    const result = computeCompute(hw, DEFAULT_ADVANCED_SETTINGS)
+    expect(result.physicalCores).toBe(128)       // 32 × 4
+    expect(result.logicalCores).toBe(256)        // HT: 64 × 4
+    // usableVCpus = (256 × 4) - 16 = 1008
+    expect(result.usableVCpus).toBe(1008)
   })
 })
 
@@ -101,14 +116,20 @@ describe('Health check engine', () => {
     nodeCount: 4, capacityDrivesPerNode: 6, capacityDriveSizeTB: 3.84,
     cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none',
     capacityMediaType: 'nvme', coresPerNode: 32, memoryPerNodeGB: 256,
+    hyperthreadingEnabled: true, volumeProvisioning: 'fixed',
   }
 
-  it('MAP on 2-node cluster → error', () => {
+  it('dual-parity on 2-node cluster → error', () => {
     const hw2: HardwareInputs = { ...hw4, nodeCount: 2 }
     const vols: VolumeSpec[] = [
-      { id: '1', name: 'Vol1', resiliency: 'mirror-accelerated-parity', plannedSizeTB: 5 },
+      { id: '1', name: 'Vol1', resiliency: 'dual-parity', plannedSizeTB: 5 },
     ]
-    const capacity = { rawPoolTB: 46.08, poolReserveTB: 3.84, netPoolTB: 42.24, resiliencyType: '2-way-mirror' as const, resiliencyFactor: 0.5, usableAfterResiliencyTB: 21.12, effectiveUsableTB: 19.43 }
+    const capacity = {
+      nodeCount: 2, rawPoolTB: 46.08, usablePerDriveTB: 3.5328, totalUsableTB: 42.3936,
+      reserveDrives: 2, reserveTB: 7.0656, infraVolumeTB: 0.5,
+      availableForVolumesTB: 34.828, availableForVolumesTiB: 31.665,
+      resiliencyType: 'two-way-mirror' as const, resiliencyFactor: 0.5, effectiveUsableTB: 17.41,
+    }
     const compute = computeCompute(hw2, DEFAULT_ADVANCED_SETTINGS)
     const result = runHealthCheck({
       hardware: hw2, settings: DEFAULT_ADVANCED_SETTINGS,
@@ -116,14 +137,19 @@ describe('Health check engine', () => {
       workloadSummary: { totalVCpus: 0, totalMemoryGB: 0, totalStorageTB: 0 },
     })
     expect(result.passed).toBe(false)
-    expect(result.issues.some(i => i.code === 'HC_MAP_REQUIRES_4_NODES')).toBe(true)
+    expect(result.issues.some(i => i.code === 'HC_DUAL_PARITY_REQUIRES_4_NODES')).toBe(true)
   })
 
   it('over-capacity volumes → error', () => {
     const vols: VolumeSpec[] = [
-      { id: '1', name: 'Vol1', resiliency: '3-way-mirror', plannedSizeTB: 100 },
+      { id: '1', name: 'Vol1', resiliency: 'three-way-mirror', plannedSizeTB: 100 },
     ]
-    const capacity = { rawPoolTB: 92.16, poolReserveTB: 3.84, netPoolTB: 88.32, resiliencyType: '3-way-mirror' as const, resiliencyFactor: 1/3, usableAfterResiliencyTB: 29.44, effectiveUsableTB: 27.09 }
+    const capacity = {
+      nodeCount: 4, rawPoolTB: 92.16, usablePerDriveTB: 3.5328, totalUsableTB: 84.7872,
+      reserveDrives: 4, reserveTB: 14.1312, infraVolumeTB: 0.75,
+      availableForVolumesTB: 69.906, availableForVolumesTiB: 63.546,
+      resiliencyType: 'three-way-mirror' as const, resiliencyFactor: 1/3, effectiveUsableTB: 23.30,
+    }
     const compute = computeCompute(hw4, DEFAULT_ADVANCED_SETTINGS)
     const result = runHealthCheck({
       hardware: hw4, settings: DEFAULT_ADVANCED_SETTINGS,
@@ -136,9 +162,14 @@ describe('Health check engine', () => {
 
   it('healthy config passes with no errors', () => {
     const vols: VolumeSpec[] = [
-      { id: '1', name: 'ClusterSharedVol', resiliency: '3-way-mirror', plannedSizeTB: 10 },
+      { id: '1', name: 'ClusterSharedVol', resiliency: 'three-way-mirror', plannedSizeTB: 10 },
     ]
-    const capacity = { rawPoolTB: 92.16, poolReserveTB: 3.84, netPoolTB: 88.32, resiliencyType: '3-way-mirror' as const, resiliencyFactor: 1/3, usableAfterResiliencyTB: 29.44, effectiveUsableTB: 27.09 }
+    const capacity = {
+      nodeCount: 4, rawPoolTB: 92.16, usablePerDriveTB: 3.5328, totalUsableTB: 84.7872,
+      reserveDrives: 4, reserveTB: 14.1312, infraVolumeTB: 0.75,
+      availableForVolumesTB: 69.906, availableForVolumesTiB: 63.546,
+      resiliencyType: 'three-way-mirror' as const, resiliencyFactor: 1/3, effectiveUsableTB: 23.30,
+    }
     const compute = computeCompute(hw4, DEFAULT_ADVANCED_SETTINGS)
     const result = runHealthCheck({
       hardware: hw4, settings: DEFAULT_ADVANCED_SETTINGS,
@@ -152,10 +183,16 @@ describe('Health check engine', () => {
 // ─── Volume WAC size tests ────────────────────────────────────────────────────
 
 describe('Volume WAC size calculation', () => {
+  const capacity = {
+    nodeCount: 4, rawPoolTB: 92.16, usablePerDriveTB: 3.5328, totalUsableTB: 84.7872,
+    reserveDrives: 4, reserveTB: 14.1312, infraVolumeTB: 0.75,
+    availableForVolumesTB: 69.906, availableForVolumesTiB: 63.546,
+    resiliencyType: 'three-way-mirror' as const, resiliencyFactor: 1/3, effectiveUsableTB: 23.30,
+  }
+
   it('5 TB planned → 5120 GB WAC, 5.00 TB WAC', () => {
-    const capacity = { rawPoolTB: 92.16, poolReserveTB: 3.84, netPoolTB: 88.32, resiliencyType: '3-way-mirror' as const, resiliencyFactor: 1/3, usableAfterResiliencyTB: 29.44, effectiveUsableTB: 27.09 }
     const vols: VolumeSpec[] = [
-      { id: '1', name: 'Test', resiliency: '3-way-mirror', plannedSizeTB: 5 },
+      { id: '1', name: 'Test', resiliency: 'three-way-mirror', plannedSizeTB: 5 },
     ]
     const summary = computeVolumeSummary(vols, capacity)
     expect(summary.volumes[0].wacSizeGB).toBe(5120)
@@ -163,9 +200,8 @@ describe('Volume WAC size calculation', () => {
   })
 
   it('2.5 TB planned → 2560 GB WAC', () => {
-    const capacity = { rawPoolTB: 92.16, poolReserveTB: 3.84, netPoolTB: 88.32, resiliencyType: '3-way-mirror' as const, resiliencyFactor: 1/3, usableAfterResiliencyTB: 29.44, effectiveUsableTB: 27.09 }
     const vols: VolumeSpec[] = [
-      { id: '1', name: 'Test', resiliency: '3-way-mirror', plannedSizeTB: 2.5 },
+      { id: '1', name: 'Test', resiliency: 'three-way-mirror', plannedSizeTB: 2.5 },
     ]
     const summary = computeVolumeSummary(vols, capacity)
     expect(summary.volumes[0].wacSizeGB).toBe(2560)

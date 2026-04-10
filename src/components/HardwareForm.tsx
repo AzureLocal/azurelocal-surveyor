@@ -85,7 +85,7 @@ export default function HardwareForm() {
           </select>
         </Field>
 
-        <Field label="CPU cores / node">
+        <Field label="CPU cores / node" hint="physical">
           <input type="number" min={1} value={hardware.coresPerNode}
             onChange={(e) => setHardware({ coresPerNode: +e.target.value })}
             className="input" />
@@ -95,6 +95,24 @@ export default function HardwareForm() {
           <input type="number" min={16} value={hardware.memoryPerNodeGB}
             onChange={(e) => setHardware({ memoryPerNodeGB: +e.target.value })}
             className="input" />
+        </Field>
+
+        <Field label="Hyperthreading" hint="doubles logical vCPU count">
+          <select value={hardware.hyperthreadingEnabled ? 'yes' : 'no'}
+            onChange={(e) => setHardware({ hyperthreadingEnabled: e.target.value === 'yes' })}
+            className="input">
+            <option value="yes">Enabled</option>
+            <option value="no">Disabled</option>
+          </select>
+        </Field>
+
+        <Field label="Volume provisioning">
+          <select value={hardware.volumeProvisioning}
+            onChange={(e) => setHardware({ volumeProvisioning: e.target.value as 'fixed'|'thin' })}
+            className="input">
+            <option value="fixed">Fixed</option>
+            <option value="thin">Thin</option>
+          </select>
         </Field>
       </div>
     </div>

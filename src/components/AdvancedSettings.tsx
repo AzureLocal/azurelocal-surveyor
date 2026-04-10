@@ -8,7 +8,7 @@ export default function AdvancedSettings() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-500">
-        These settings match the "Advanced Settings" sheet (82 formulas) in the original workbook.
+        These settings match the "Advanced Settings" sheet in the original workbook.
         Defaults are tuned for Azure Local — change only if you know what you're doing.
       </p>
 
@@ -17,21 +17,24 @@ export default function AdvancedSettings() {
           <input type="number" min={0.5} max={1} step={0.01} className="input"
             value={advanced.capacityEfficiencyFactor}
             onChange={(e) => setAdvanced({ capacityEfficiencyFactor: +e.target.value })} />
-          <p className="text-xs text-gray-400 mt-1">Accounts for ReFS metadata and filesystem overhead.</p>
+          <p className="text-xs text-gray-400 mt-1">Applied per drive. Accounts for ReFS metadata and filesystem overhead.</p>
         </Field>
 
-        <Field label="Pool reserve drives" hint="default 1">
-          <input type="number" min={0} max={4} step={1} className="input"
-            value={advanced.poolReserveDrives}
-            onChange={(e) => setAdvanced({ poolReserveDrives: +e.target.value })} />
-          <p className="text-xs text-gray-400 mt-1">Drives held back for rebuild operations.</p>
+        <Field label="Infra volume size (TB)" hint="default 0.25">
+          <input type="number" min={0.1} max={2} step={0.05} className="input"
+            value={advanced.infraVolumeSizeTB}
+            onChange={(e) => setAdvanced({ infraVolumeSizeTB: +e.target.value })} />
+          <p className="text-xs text-gray-400 mt-1">
+            Logical size of the Azure Local system CSV. Pool footprint = this ÷ resiliency factor.
+            Reserve drives (min(nodeCount,4)) are computed automatically from node count.
+          </p>
         </Field>
 
         <Field label="vCPU oversubscription ratio" hint="default 4">
           <input type="number" min={1} max={10} step={0.5} className="input"
             value={advanced.vCpuOversubscriptionRatio}
             onChange={(e) => setAdvanced({ vCpuOversubscriptionRatio: +e.target.value })} />
-          <p className="text-xs text-gray-400 mt-1">Physical cores × this ratio = total vCPUs before reservation.</p>
+          <p className="text-xs text-gray-400 mt-1">Logical cores × this ratio = total vCPUs before reservation.</p>
         </Field>
 
         <Field label="System reserved memory / node (GB)" hint="default 8">
@@ -50,9 +53,10 @@ export default function AdvancedSettings() {
         <Field label="Default resiliency">
           <select className="input" value={advanced.defaultResiliency}
             onChange={(e) => setAdvanced({ defaultResiliency: e.target.value as ResiliencyType })}>
-            <option value="2-way-mirror">2-way mirror</option>
-            <option value="3-way-mirror">3-way mirror</option>
-            <option value="mirror-accelerated-parity">Mirror-accelerated parity (MAP)</option>
+            <option value="two-way-mirror">Two-Way Mirror (50%)</option>
+            <option value="three-way-mirror">Three-Way Mirror (33%)</option>
+            <option value="dual-parity">Dual Parity (50–80%, node-count dependent)</option>
+            <option value="nested-two-way">Nested Two-Way (25%)</option>
           </select>
         </Field>
       </div>

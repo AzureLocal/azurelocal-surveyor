@@ -8,70 +8,109 @@ import type {
 /**
  * Returns the storage efficiency multiplier for a given resiliency type.
  *
- * 2-way mirror  → 0.5   (one copy retained out of two)
- * 3-way mirror  → 0.333 (one copy retained out of three)
- * MAP (4+ nodes) → 0.667 (20% mirror + 80% parity, net ~2/3 usable)
- *
- * These match the values used in the S2D_Capacity_Calculator.xlsx.
+ * Dual Parity efficiency is node-count dependent (matches Excel workbook):
+ *   4–6 nodes  → 50%
+ *   7–8 nodes  → 66.7%
+ *   9–15 nodes → 75%   (all-flash tiers)
+ *   16 nodes   → 80%   (all-flash tiers)
  */
-export function getResiliencyFactor(resiliency: ResiliencyType): number {
+export function getResiliencyFactor(resiliency: ResiliencyType, nodeCount: number): number {
   switch (resiliency) {
-    case '2-way-mirror':
+    case 'two-way-mirror':
       return 0.5
-    case '3-way-mirror':
+    case 'three-way-mirror':
       return 1 / 3
-    case 'mirror-accelerated-parity':
-      return 2 / 3
+    case 'dual-parity':
+      if (nodeCount <= 6)  return 0.5
+      if (nodeCount <= 8)  return 2 / 3
+      if (nodeCount <= 15) return 0.75
+      return 0.8
+    case 'nested-two-way':
+      return 0.25
   }
 }
 
 /**
- * Core capacity calculation.
+ * Returns the minimum node count required for a resiliency type.
+ */
+export function minNodesForResiliency(resiliency: ResiliencyType): number {
+  switch (resiliency) {
+    case 'two-way-mirror':    return 2
+    case 'three-way-mirror':  return 3
+    case 'dual-parity':       return 4
+    case 'nested-two-way':    return 2
+  }
+}
+
+/**
+ * Core capacity calculation — mirrors the Excel formula chain exactly.
  *
- * Data flow (mirrors the Excel DAG):
- *   Hardware Inputs → rawPoolTB → poolReserveTB → netPoolTB
- *   → resiliencyFactor → usableAfterResiliencyTB
- *   → capacityEfficiencyFactor → effectiveUsableTB
- *
- * effectiveUsableTB is the number to plan workloads against.
+ *   1. usablePerDriveTB  = driveSizeTB × efficiencyFactor  (applied PER DRIVE, not pool)
+ *   2. totalUsableTB     = usablePerDrive × drivesPerNode × nodeCount
+ *   3. reserveDrives     = min(nodeCount, 4)               (S2D formula — not user-configurable)
+ *   4. reserveTB         = reserveDrives × usablePerDriveTB
+ *   5. infraVolumeTB     = infraVolumeSizeTB / resiliencyFactor  (pool footprint of system CSV)
+ *   6. availableForVolumesTB = totalUsable − reserve − infraVolume
+ *   7. effectiveUsableTB = availableForVolumesTB × resiliencyFactor  (planning number)
+ *   8. TiB equivalent    = TB × (1 000 000 000 000 / 1 099 511 627 776) ≈ × 0.909099
  */
 export function computeCapacity(
   inputs: HardwareInputs,
   settings: AdvancedSettings
 ): CapacityResult {
   const { nodeCount, capacityDrivesPerNode, capacityDriveSizeTB } = inputs
-  const { poolReserveDrives, capacityEfficiencyFactor, defaultResiliency } = settings
+  const { capacityEfficiencyFactor, infraVolumeSizeTB, defaultResiliency } = settings
 
-  // Step 1: raw pool — total physical capacity across all nodes
+  // Step 1: per-drive usable (filesystem overhead applied here, not at pool level)
+  const usablePerDriveTB = capacityDriveSizeTB * capacityEfficiencyFactor
+
+  // Step 2: total usable raw → all drives across all nodes after per-drive overhead
   const rawPoolTB = capacityDriveSizeTB * capacityDrivesPerNode * nodeCount
+  const totalUsableTB = usablePerDriveTB * capacityDrivesPerNode * nodeCount
 
-  // Step 2: pool reserve — one drive's worth set aside for rebuild operations
-  const poolReserveTB = capacityDriveSizeTB * poolReserveDrives
+  // Step 3–4: reserve — S2D keeps min(nodeCount, 4) drives for rebuild
+  const reserveDrives = Math.min(nodeCount, 4)
+  const reserveTB = reserveDrives * usablePerDriveTB
 
-  // Step 3: net pool after reserve
-  const netPoolTB = Math.max(0, rawPoolTB - poolReserveTB)
+  // Step 5: resiliency factor (dual-parity is node-count dependent)
+  const resiliencyFactor = getResiliencyFactor(defaultResiliency, nodeCount)
 
-  // Step 4: resiliency factor
-  const resiliencyFactor = getResiliencyFactor(defaultResiliency)
+  // Infra volume pool footprint: logical size ÷ resiliency factor
+  // (system CSV always created with the cluster's default resiliency)
+  const infraVolumeTB = infraVolumeSizeTB / resiliencyFactor
 
-  // Step 5: usable after resiliency overhead
-  const usableAfterResiliencyTB = netPoolTB * resiliencyFactor
+  // Step 6: pool space available for user volumes
+  const availableForVolumesTB = Math.max(0, totalUsableTB - reserveTB - infraVolumeTB)
 
-  // Step 6: effective usable — apply the 92% efficiency factor (filesystem + ReFS metadata)
-  const effectiveUsableTB = usableAfterResiliencyTB * capacityEfficiencyFactor
+  // Step 7: planning number — how much data fits with the selected resiliency
+  const effectiveUsableTB = availableForVolumesTB * resiliencyFactor
+
+  // Step 8: TiB conversion (1 TB = 10^12 bytes; 1 TiB = 2^40 bytes)
+  const TB_TO_TiB = 1e12 / Math.pow(1024, 4)  // ≈ 0.909099
+  const availableForVolumesTiB = availableForVolumesTB * TB_TO_TiB
 
   return {
-    rawPoolTB: round2(rawPoolTB),
-    poolReserveTB: round2(poolReserveTB),
-    netPoolTB: round2(netPoolTB),
+    nodeCount,
+    rawPoolTB: round4(rawPoolTB),
+    usablePerDriveTB: round4(usablePerDriveTB),
+    totalUsableTB: round4(totalUsableTB),
+    reserveDrives,
+    reserveTB: round4(reserveTB),
+    infraVolumeTB: round4(infraVolumeTB),
+    availableForVolumesTB: round4(availableForVolumesTB),
+    availableForVolumesTiB: round4(availableForVolumesTiB),
     resiliencyType: defaultResiliency,
     resiliencyFactor,
-    usableAfterResiliencyTB: round2(usableAfterResiliencyTB),
-    effectiveUsableTB: round2(effectiveUsableTB),
+    effectiveUsableTB: round4(effectiveUsableTB),
   }
 }
 
-/** Round to 2 decimal places (matches Excel's display precision). */
-function round2(n: number): number {
+/** Round to 4 decimal places for internal precision; display rounds as needed. */
+export function round4(n: number): number {
+  return Math.round(n * 10000) / 10000
+}
+
+/** Round to 2 decimal places (display precision). */
+export function round2(n: number): number {
   return Math.round(n * 100) / 100
 }

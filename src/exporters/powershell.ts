@@ -46,12 +46,13 @@ export function generatePowerShell(state: Pick<SurveyorState, 'hardware' | 'adva
 
 function generateNewVolumeCmd(vol: VolumeDetail): string {
   const resiliencyMap: Record<string, string> = {
-    '2-way-mirror': 'Mirror',
-    '3-way-mirror': 'Mirror',
-    'mirror-accelerated-parity': 'MirrorAcceleratedParity',
+    'two-way-mirror':   'Mirror',
+    'three-way-mirror': 'Mirror',
+    'dual-parity':      'Parity',
+    'nested-two-way':   'Mirror',
   }
   const storageLayout = resiliencyMap[vol.resiliency] ?? 'Mirror'
-  const physicalDiskRedundancy = vol.resiliency === '3-way-mirror' ? 2 : 1
+  const physicalDiskRedundancy = (vol.resiliency === 'three-way-mirror' || vol.resiliency === 'nested-two-way') ? 2 : 1
   const sizeBytes = BigInt(vol.wacSizeGB) * BigInt(1024) * BigInt(1024) * BigInt(1024)
 
   return [

@@ -63,7 +63,7 @@ export function exportPdf(state: Pick<SurveyorState, 'hardware' | 'advanced' | '
     head: [['Metric', 'Value']],
     body: [
       ['Raw pool', `${capacity.rawPoolTB} TB`],
-      ['Pool reserve', `${capacity.poolReserveTB} TB`],
+      [`Pool reserve (${capacity.reserveDrives} drives)`, `${capacity.reserveTB} TB`],
       ['Resiliency', capacity.resiliencyType],
       ['Effective usable', `${capacity.effectiveUsableTB} TB`],
     ],

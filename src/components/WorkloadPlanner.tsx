@@ -1,112 +1,310 @@
 /**
- * WorkloadPlanner — generic VM workload rows.
- *
- * Each row is one workload type (e.g. "SQL Servers", "File Servers").
- * Adding a new workload type = click "Add workload" and fill in the row.
- * AVD and SOFS are separate pages (their own engine modules + routes).
+ * WorkloadPlanner — six fixed, enable/disable scenarios matching the Excel
+ * "Workload Planner" sheet exactly:
+ *   1. AVD (Azure Virtual Desktop) — configured on the AVD page
+ *   2. AKS on Azure Local
+ *   3. Infrastructure VMs
+ *   4. Dev / Test VMs
+ *   5. Backup / Archive
+ *   6. Custom VMs
  */
-import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useSurveyorStore } from '../state/store'
-import { computeWorkloadSummary } from '../engine/workloads'
-import type { WorkloadSpec } from '../engine/types'
-import { Trash2, PlusCircle } from 'lucide-react'
+import { computeAvd } from '../engine/avd'
+import { computeAks } from '../engine/aks'
+import type { ResiliencyType, VmScenario } from '../engine/types'
 
-let _id = 100
-function nextId() { return String(_id++) }
+// ─── Scenario card wrapper ────────────────────────────────────────────────────
+
+function ScenarioCard({
+  label,
+  badge,
+  enabled,
+  onToggle,
+  children,
+}: {
+  label: string
+  badge?: string
+  enabled: boolean
+  onToggle: () => void
+  children?: React.ReactNode
+}) {
+  return (
+    <div className={`rounded-lg border ${enabled ? 'border-brand-400 dark:border-brand-600' : 'border-gray-200 dark:border-gray-700'} overflow-hidden`}>
+      <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-semibold">{label}</span>
+          {badge && <span className="px-2 py-0.5 text-xs rounded-full bg-brand-100 dark:bg-brand-900 text-brand-700 dark:text-brand-300">{badge}</span>}
+        </div>
+        <button
+          onClick={onToggle}
+          className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${enabled ? 'bg-brand-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+        >
+          <span className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform ${enabled ? 'translate-x-4.5' : 'translate-x-0.5'}`} />
+        </button>
+      </div>
+      {enabled && children && (
+        <div className="px-4 py-3 space-y-3 border-t border-gray-100 dark:border-gray-700">
+          {children}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Resiliency select shared ─────────────────────────────────────────────────
+
+function ResiliencySelect({ value, onChange }: { value: ResiliencyType; onChange: (v: ResiliencyType) => void }) {
+  return (
+    <select value={value} onChange={(e) => onChange(e.target.value as ResiliencyType)} className="input">
+      <option value="three-way-mirror">Three-Way Mirror (33%)</option>
+      <option value="two-way-mirror">Two-Way Mirror (50%)</option>
+      <option value="dual-parity">Dual Parity (50–80%)</option>
+      <option value="nested-two-way">Nested Two-Way (25%)</option>
+    </select>
+  )
+}
+
+// ─── VM scenario fields (Infra / Dev-Test / Custom) ──────────────────────────
+
+function VmFields({
+  value,
+  onChange,
+}: {
+  value: VmScenario
+  onChange: (v: Partial<VmScenario>) => void
+}) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <SmallField label="VM count">
+        <input type="number" min={1} className="input w-full" value={value.vmCount}
+          onChange={(e) => onChange({ vmCount: +e.target.value })} />
+      </SmallField>
+      <SmallField label="vCPUs / VM">
+        <input type="number" min={1} className="input w-full" value={value.vCpusPerVm}
+          onChange={(e) => onChange({ vCpusPerVm: +e.target.value })} />
+      </SmallField>
+      <SmallField label="RAM / VM (GB)">
+        <input type="number" min={1} className="input w-full" value={value.memoryPerVmGB}
+          onChange={(e) => onChange({ memoryPerVmGB: +e.target.value })} />
+      </SmallField>
+      <SmallField label="Storage / VM (GB)">
+        <input type="number" min={1} className="input w-full" value={value.storagePerVmGB}
+          onChange={(e) => onChange({ storagePerVmGB: +e.target.value })} />
+      </SmallField>
+      <SmallField label="Resiliency" className="col-span-2">
+        <ResiliencySelect value={value.resiliency} onChange={(r) => onChange({ resiliency: r })} />
+      </SmallField>
+    </div>
+  )
+}
+
+function vmScenarioTotals(s: VmScenario) {
+  return {
+    vCpus: s.vmCount * s.vCpusPerVm,
+    memoryGB: s.vmCount * s.memoryPerVmGB,
+    storageTB: (s.vmCount * s.storagePerVmGB) / 1024,
+  }
+}
+
+// ─── Main component ────────────────────────────────────────────────────────────
 
 export default function WorkloadPlanner() {
-  const { workloads, addWorkload, removeWorkload } = useSurveyorStore()
-  const summary = computeWorkloadSummary(workloads)
+  const {
+    avd, avdEnabled, setAvdEnabled,
+    aks, setAks,
+    infraVms, setInfraVms,
+    devTestVms, setDevTestVms,
+    backupArchive, setBackupArchive,
+    customVms, setCustomVms,
+  } = useSurveyorStore()
 
-  const [form, setForm] = useState<Omit<WorkloadSpec, 'id'>>({
-    name: '', vmCount: 1, vCpusPerVm: 4, memoryPerVmGB: 16,
-    storagePerVmGB: 100, resiliency: '3-way-mirror',
-  })
+  const avdResult = computeAvd(avd)
+  const aksResult = computeAks(aks)
+  const infraTotals = vmScenarioTotals(infraVms)
+  const devTestTotals = vmScenarioTotals(devTestVms)
+  const customTotals = vmScenarioTotals(customVms)
 
-  function handleAdd() {
-    if (!form.name.trim()) return
-    addWorkload({ ...form, id: nextId(), name: form.name.trim() })
-    setForm({ name: '', vmCount: 1, vCpusPerVm: 4, memoryPerVmGB: 16, storagePerVmGB: 100, resiliency: '3-way-mirror' })
+  // Aggregate totals across all enabled scenarios
+  let totalVCpus = 0
+  let totalMemoryGB = 0
+  let totalStorageTB = 0
+
+  if (avdEnabled) {
+    totalVCpus   += avdResult.totalVCpus
+    totalMemoryGB += avdResult.totalMemoryGB
+    totalStorageTB += avdResult.totalStorageTB
+  }
+  if (aks.enabled) {
+    totalVCpus   += aksResult.totalVCpus
+    totalMemoryGB += aksResult.totalMemoryGB
+    totalStorageTB += aksResult.totalStorageTB
+  }
+  if (infraVms.enabled) {
+    totalVCpus   += infraTotals.vCpus
+    totalMemoryGB += infraTotals.memoryGB
+    totalStorageTB += infraTotals.storageTB
+  }
+  if (devTestVms.enabled) {
+    totalVCpus   += devTestTotals.vCpus
+    totalMemoryGB += devTestTotals.memoryGB
+    totalStorageTB += devTestTotals.storageTB
+  }
+  if (backupArchive.enabled) {
+    totalStorageTB += backupArchive.storageTB
+  }
+  if (customVms.enabled) {
+    totalVCpus   += customTotals.vCpus
+    totalMemoryGB += customTotals.memoryGB
+    totalStorageTB += customTotals.storageTB
   }
 
   return (
-    <div className="space-y-6">
-      {/* Workload table */}
-      <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-gray-50 dark:bg-gray-800 text-left">
-              <th className="px-3 py-2 font-semibold">Workload</th>
-              <th className="px-3 py-2 font-semibold text-right">VMs</th>
-              <th className="px-3 py-2 font-semibold text-right">vCPUs/VM</th>
-              <th className="px-3 py-2 font-semibold text-right">RAM/VM (GB)</th>
-              <th className="px-3 py-2 font-semibold text-right">Storage/VM (GB)</th>
-              <th className="px-3 py-2 font-semibold">Resiliency</th>
-              <th className="px-3 py-2" />
-            </tr>
-          </thead>
-          <tbody>
-            {workloads.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-6 text-center text-gray-400 text-sm">No workloads added yet.</td></tr>
-            )}
-            {workloads.map((w) => (
-              <tr key={w.id} className="border-t border-gray-100 dark:border-gray-800">
-                <td className="px-3 py-2 font-medium">{w.name}</td>
-                <td className="px-3 py-2 text-right">{w.vmCount}</td>
-                <td className="px-3 py-2 text-right">{w.vCpusPerVm}</td>
-                <td className="px-3 py-2 text-right">{w.memoryPerVmGB}</td>
-                <td className="px-3 py-2 text-right">{w.storagePerVmGB}</td>
-                <td className="px-3 py-2 text-gray-500 text-xs">{w.resiliency}</td>
-                <td className="px-3 py-2 text-right">
-                  <button onClick={() => removeWorkload(w.id)} className="text-gray-400 hover:text-red-500">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-          {workloads.length > 0 && (
-            <tfoot>
-              <tr className="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 font-semibold">
-                <td className="px-3 py-2">Totals</td>
-                <td />
-                <td className="px-3 py-2 text-right">{summary.totalVCpus}</td>
-                <td className="px-3 py-2 text-right">{summary.totalMemoryGB} GB</td>
-                <td className="px-3 py-2 text-right">{summary.totalStorageTB} TB</td>
-                <td colSpan={2} />
-              </tr>
-            </tfoot>
-          )}
-        </table>
-      </div>
+    <div className="space-y-4">
 
-      {/* Add row */}
-      <div className="grid grid-cols-6 gap-2 items-end">
-        <div className="col-span-2">
-          <label className="block text-xs font-medium mb-1">Workload name</label>
-          <input className="input w-full" value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder="SQL Servers" />
+      {/* ── 1. AVD ── */}
+      <ScenarioCard label="Azure Virtual Desktop (AVD)" badge="separate page" enabled={avdEnabled} onToggle={() => setAvdEnabled(!avdEnabled)}>
+        <div className="text-sm text-gray-500">
+          AVD is configured on the{' '}
+          <Link to="/avd" className="text-brand-600 hover:underline">AVD Planning page</Link>.
+          Enabling this includes its compute and storage in the totals below.
         </div>
-        <div>
-          <label className="block text-xs font-medium mb-1">VM count</label>
-          <input type="number" min={1} className="input w-full" value={form.vmCount} onChange={(e) => setForm((f) => ({ ...f, vmCount: +e.target.value }))} />
+        <SummaryRow label="Session hosts" value={String(avdResult.sessionHostCount)} />
+        <SummaryRow label="vCPUs" value={String(avdResult.totalVCpus)} />
+        <SummaryRow label="Memory" value={`${avdResult.totalMemoryGB} GB`} />
+        <SummaryRow label="Storage" value={`${avdResult.totalStorageTB} TB`} />
+      </ScenarioCard>
+
+      {/* ── 2. AKS ── */}
+      <ScenarioCard label="AKS on Azure Local" enabled={aks.enabled} onToggle={() => setAks({ enabled: !aks.enabled })}>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+          <SmallField label="Clusters">
+            <input type="number" min={1} className="input w-full" value={aks.clusterCount}
+              onChange={(e) => setAks({ clusterCount: +e.target.value })} />
+          </SmallField>
+          <SmallField label="Control plane nodes / cluster" hint="1=dev, 3=HA">
+            <input type="number" min={1} max={3} className="input w-full" value={aks.controlPlaneNodesPerCluster}
+              onChange={(e) => setAks({ controlPlaneNodesPerCluster: +e.target.value })} />
+          </SmallField>
+          <SmallField label="Worker nodes / cluster">
+            <input type="number" min={1} className="input w-full" value={aks.workerNodesPerCluster}
+              onChange={(e) => setAks({ workerNodesPerCluster: +e.target.value })} />
+          </SmallField>
+          <SmallField label="vCPUs / worker">
+            <input type="number" min={1} className="input w-full" value={aks.vCpusPerWorker}
+              onChange={(e) => setAks({ vCpusPerWorker: +e.target.value })} />
+          </SmallField>
+          <SmallField label="RAM / worker (GB)">
+            <input type="number" min={1} className="input w-full" value={aks.memoryPerWorkerGB}
+              onChange={(e) => setAks({ memoryPerWorkerGB: +e.target.value })} />
+          </SmallField>
+          <SmallField label="OS disk / node (GB)" hint="default 200">
+            <input type="number" min={100} className="input w-full" value={aks.osDiskPerNodeGB}
+              onChange={(e) => setAks({ osDiskPerNodeGB: +e.target.value })} />
+          </SmallField>
+          <SmallField label="Persistent volumes (TB)">
+            <input type="number" min={0} step={0.1} className="input w-full" value={aks.persistentVolumesTB}
+              onChange={(e) => setAks({ persistentVolumesTB: +e.target.value })} />
+          </SmallField>
+          <SmallField label="Data services (TB)" hint="Arc SQL, etc.">
+            <input type="number" min={0} step={0.1} className="input w-full" value={aks.dataServicesTB}
+              onChange={(e) => setAks({ dataServicesTB: +e.target.value })} />
+          </SmallField>
+          <SmallField label="Storage resiliency" className="col-span-2">
+            <ResiliencySelect value={aks.resiliency} onChange={(r) => setAks({ resiliency: r })} />
+          </SmallField>
         </div>
-        <div>
-          <label className="block text-xs font-medium mb-1">vCPUs / VM</label>
-          <input type="number" min={1} className="input w-full" value={form.vCpusPerVm} onChange={(e) => setForm((f) => ({ ...f, vCpusPerVm: +e.target.value }))} />
+        <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 grid grid-cols-4 gap-2 text-xs text-gray-500">
+          <span>Nodes: <strong className="text-gray-900 dark:text-white">{aksResult.totalNodes}</strong></span>
+          <span>vCPUs: <strong className="text-gray-900 dark:text-white">{aksResult.totalVCpus}</strong></span>
+          <span>RAM: <strong className="text-gray-900 dark:text-white">{aksResult.totalMemoryGB} GB</strong></span>
+          <span>Storage: <strong className="text-gray-900 dark:text-white">{aksResult.totalStorageTB} TB</strong></span>
         </div>
-        <div>
-          <label className="block text-xs font-medium mb-1">RAM/VM (GB)</label>
-          <input type="number" min={1} className="input w-full" value={form.memoryPerVmGB} onChange={(e) => setForm((f) => ({ ...f, memoryPerVmGB: +e.target.value }))} />
+      </ScenarioCard>
+
+      {/* ── 3. Infrastructure VMs ── */}
+      <ScenarioCard label="Infrastructure VMs" enabled={infraVms.enabled} onToggle={() => setInfraVms({ enabled: !infraVms.enabled })}>
+        <VmFields value={infraVms} onChange={setInfraVms} />
+        <ScenarioTotals vCpus={infraTotals.vCpus} memGB={infraTotals.memoryGB} storageTB={infraTotals.storageTB} />
+      </ScenarioCard>
+
+      {/* ── 4. Dev / Test VMs ── */}
+      <ScenarioCard label="Dev / Test VMs" enabled={devTestVms.enabled} onToggle={() => setDevTestVms({ enabled: !devTestVms.enabled })}>
+        <VmFields value={devTestVms} onChange={setDevTestVms} />
+        <ScenarioTotals vCpus={devTestTotals.vCpus} memGB={devTestTotals.memoryGB} storageTB={devTestTotals.storageTB} />
+      </ScenarioCard>
+
+      {/* ── 5. Backup / Archive ── */}
+      <ScenarioCard label="Backup / Archive" enabled={backupArchive.enabled} onToggle={() => setBackupArchive({ enabled: !backupArchive.enabled })}>
+        <div className="grid grid-cols-2 gap-3">
+          <SmallField label="Storage (TB)">
+            <input type="number" min={0.1} step={0.1} className="input w-full" value={backupArchive.storageTB}
+              onChange={(e) => setBackupArchive({ storageTB: +e.target.value })} />
+          </SmallField>
+          <SmallField label="Resiliency">
+            <ResiliencySelect value={backupArchive.resiliency} onChange={(r) => setBackupArchive({ resiliency: r })} />
+          </SmallField>
         </div>
-        <div>
-          <label className="block text-xs font-medium mb-1">Storage/VM (GB)</label>
-          <input type="number" min={1} className="input w-full" value={form.storagePerVmGB} onChange={(e) => setForm((f) => ({ ...f, storagePerVmGB: +e.target.value }))} />
+        <ScenarioTotals storageTB={backupArchive.storageTB} />
+      </ScenarioCard>
+
+      {/* ── 6. Custom VMs ── */}
+      <ScenarioCard label="Custom VMs" enabled={customVms.enabled} onToggle={() => setCustomVms({ enabled: !customVms.enabled })}>
+        <VmFields value={customVms} onChange={setCustomVms} />
+        <ScenarioTotals vCpus={customTotals.vCpus} memGB={customTotals.memoryGB} storageTB={customTotals.storageTB} />
+      </ScenarioCard>
+
+      {/* ── Totals ── */}
+      <div className="rounded-lg border-2 border-brand-300 dark:border-brand-700 overflow-hidden">
+        <div className="bg-brand-50 dark:bg-brand-900/30 px-4 py-3 text-sm font-semibold">Workload Totals (enabled scenarios)</div>
+        <div className="grid grid-cols-3 divide-x divide-gray-200 dark:divide-gray-700">
+          <TotalCell label="Total vCPUs" value={String(Math.round(totalVCpus))} />
+          <TotalCell label="Total Memory" value={`${Math.round(totalMemoryGB)} GB`} />
+          <TotalCell label="Total Storage" value={`${totalStorageTB.toFixed(2)} TB`} />
         </div>
-        <button onClick={handleAdd} className="col-span-6 sm:col-span-1 flex items-center gap-1 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-md text-sm font-medium">
-          <PlusCircle className="w-4 h-4" />
-          Add workload
-        </button>
       </div>
+    </div>
+  )
+}
+
+// ─── Small helpers ────────────────────────────────────────────────────────────
+
+function SmallField({ label, hint, className, children }: { label: string; hint?: string; className?: string; children: React.ReactNode }) {
+  return (
+    <div className={className}>
+      <label className="block text-xs font-medium mb-1">
+        {label}
+        {hint && <span className="ml-1 text-xs text-gray-400">({hint})</span>}
+      </label>
+      {children}
+    </div>
+  )
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex justify-between text-xs">
+      <span className="text-gray-500">{label}</span>
+      <span className="font-medium">{value}</span>
+    </div>
+  )
+}
+
+function ScenarioTotals({ vCpus = 0, memGB = 0, storageTB }: { vCpus?: number; memGB?: number; storageTB: number }) {
+  return (
+    <div className="mt-1 pt-2 border-t border-gray-100 dark:border-gray-700 flex gap-4 text-xs text-gray-500">
+      {vCpus > 0 && <span>vCPUs: <strong className="text-gray-900 dark:text-white">{vCpus}</strong></span>}
+      {memGB > 0 && <span>RAM: <strong className="text-gray-900 dark:text-white">{memGB} GB</strong></span>}
+      <span>Storage: <strong className="text-gray-900 dark:text-white">{storageTB.toFixed(2)} TB</strong></span>
+    </div>
+  )
+}
+
+function TotalCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="px-4 py-3 text-center">
+      <div className="text-xs text-gray-500 mb-1">{label}</div>
+      <div className="text-lg font-bold">{value}</div>
     </div>
   )
 }

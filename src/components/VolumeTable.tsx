@@ -15,7 +15,7 @@ export default function VolumeTable() {
 
   const [newName, setNewName] = useState('')
   const [newSizeTB, setNewSizeTB] = useState(1)
-  const [newResiliency, setNewResiliency] = useState<ResiliencyType>('3-way-mirror')
+  const [newResiliency, setNewResiliency] = useState<ResiliencyType>('three-way-mirror')
 
   function handleAdd() {
     if (!newName.trim()) return
@@ -88,9 +88,10 @@ export default function VolumeTable() {
         <div className="w-48">
           <label className="block text-xs font-medium mb-1">Resiliency</label>
           <select className="input w-full" value={newResiliency} onChange={(e) => setNewResiliency(e.target.value as ResiliencyType)}>
-            <option value="2-way-mirror">2-way mirror</option>
-            <option value="3-way-mirror">3-way mirror</option>
-            <option value="mirror-accelerated-parity">MAP</option>
+            <option value="two-way-mirror">Two-Way Mirror</option>
+            <option value="three-way-mirror">Three-Way Mirror</option>
+            <option value="dual-parity">Dual Parity</option>
+            <option value="nested-two-way">Nested Two-Way</option>
           </select>
         </div>
         <button onClick={handleAdd} className="flex items-center gap-1 px-3 py-2 bg-brand-600 hover:bg-brand-700 text-white rounded-md text-sm font-medium">

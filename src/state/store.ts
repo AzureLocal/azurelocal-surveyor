@@ -7,6 +7,9 @@ import type {
   WorkloadSpec,
   AvdInputs,
   SofsInputs,
+  AksInputs,
+  VmScenario,
+  BackupArchiveScenario,
 } from '../engine/types'
 import { DEFAULT_ADVANCED_SETTINGS } from '../engine/types'
 
@@ -15,9 +18,16 @@ export interface SurveyorState {
   hardware: HardwareInputs
   advanced: AdvancedSettings
   volumes: VolumeSpec[]
-  workloads: WorkloadSpec[]
+  workloads: WorkloadSpec[]  // legacy / custom scenario rows
   avd: AvdInputs
+  avdEnabled: boolean
   sofs: SofsInputs
+  // Workload scenarios
+  aks: AksInputs
+  infraVms: VmScenario
+  devTestVms: VmScenario
+  backupArchive: BackupArchiveScenario
+  customVms: VmScenario
 
   // Actions
   setHardware: (hw: Partial<HardwareInputs>) => void
@@ -29,7 +39,13 @@ export interface SurveyorState {
   updateWorkload: (id: string, w: Partial<WorkloadSpec>) => void
   removeWorkload: (id: string) => void
   setAvd: (a: Partial<AvdInputs>) => void
+  setAvdEnabled: (enabled: boolean) => void
   setSofs: (s: Partial<SofsInputs>) => void
+  setAks: (a: Partial<AksInputs>) => void
+  setInfraVms: (s: Partial<VmScenario>) => void
+  setDevTestVms: (s: Partial<VmScenario>) => void
+  setBackupArchive: (s: Partial<BackupArchiveScenario>) => void
+  setCustomVms: (s: Partial<VmScenario>) => void
   resetAll: () => void
 }
 
@@ -43,6 +59,8 @@ const DEFAULT_HARDWARE: HardwareInputs = {
   capacityMediaType: 'nvme',
   coresPerNode: 32,
   memoryPerNodeGB: 256,
+  hyperthreadingEnabled: true,
+  volumeProvisioning: 'fixed',
 }
 
 const DEFAULT_AVD: AvdInputs = {
@@ -63,6 +81,52 @@ const DEFAULT_SOFS: SofsInputs = {
   sofsMemoryPerVmGB: 16,
 }
 
+const DEFAULT_AKS: AksInputs = {
+  enabled: false,
+  clusterCount: 1,
+  controlPlaneNodesPerCluster: 1,
+  workerNodesPerCluster: 3,
+  vCpusPerWorker: 4,
+  memoryPerWorkerGB: 16,
+  osDiskPerNodeGB: 200,
+  persistentVolumesTB: 0,
+  dataServicesTB: 0,
+  resiliency: 'three-way-mirror',
+}
+
+const DEFAULT_INFRA_VMS: VmScenario = {
+  enabled: false,
+  vmCount: 4,
+  vCpusPerVm: 4,
+  memoryPerVmGB: 16,
+  storagePerVmGB: 500,
+  resiliency: 'three-way-mirror',
+}
+
+const DEFAULT_DEV_TEST_VMS: VmScenario = {
+  enabled: false,
+  vmCount: 10,
+  vCpusPerVm: 4,
+  memoryPerVmGB: 8,
+  storagePerVmGB: 100,
+  resiliency: 'two-way-mirror',
+}
+
+const DEFAULT_BACKUP_ARCHIVE: BackupArchiveScenario = {
+  enabled: false,
+  storageTB: 5,
+  resiliency: 'two-way-mirror',
+}
+
+const DEFAULT_CUSTOM_VMS: VmScenario = {
+  enabled: false,
+  vmCount: 5,
+  vCpusPerVm: 8,
+  memoryPerVmGB: 32,
+  storagePerVmGB: 200,
+  resiliency: 'three-way-mirror',
+}
+
 export const useSurveyorStore = create<SurveyorState>()(
   persist(
     (set) => ({
@@ -71,7 +135,13 @@ export const useSurveyorStore = create<SurveyorState>()(
       volumes: [],
       workloads: [],
       avd: DEFAULT_AVD,
+      avdEnabled: false,
       sofs: DEFAULT_SOFS,
+      aks: DEFAULT_AKS,
+      infraVms: DEFAULT_INFRA_VMS,
+      devTestVms: DEFAULT_DEV_TEST_VMS,
+      backupArchive: DEFAULT_BACKUP_ARCHIVE,
+      customVms: DEFAULT_CUSTOM_VMS,
 
       setHardware: (hw) =>
         set((s) => ({ hardware: { ...s.hardware, ...hw } })),
@@ -104,8 +174,26 @@ export const useSurveyorStore = create<SurveyorState>()(
       setAvd: (a) =>
         set((s) => ({ avd: { ...s.avd, ...a } })),
 
+      setAvdEnabled: (enabled) =>
+        set(() => ({ avdEnabled: enabled })),
+
       setSofs: (sf) =>
         set((s) => ({ sofs: { ...s.sofs, ...sf } })),
+
+      setAks: (a) =>
+        set((s) => ({ aks: { ...s.aks, ...a } })),
+
+      setInfraVms: (v) =>
+        set((s) => ({ infraVms: { ...s.infraVms, ...v } })),
+
+      setDevTestVms: (v) =>
+        set((s) => ({ devTestVms: { ...s.devTestVms, ...v } })),
+
+      setBackupArchive: (v) =>
+        set((s) => ({ backupArchive: { ...s.backupArchive, ...v } })),
+
+      setCustomVms: (v) =>
+        set((s) => ({ customVms: { ...s.customVms, ...v } })),
 
       resetAll: () =>
         set({
@@ -114,7 +202,13 @@ export const useSurveyorStore = create<SurveyorState>()(
           volumes: [],
           workloads: [],
           avd: DEFAULT_AVD,
+          avdEnabled: false,
           sofs: DEFAULT_SOFS,
+          aks: DEFAULT_AKS,
+          infraVms: DEFAULT_INFRA_VMS,
+          devTestVms: DEFAULT_DEV_TEST_VMS,
+          backupArchive: DEFAULT_BACKUP_ARCHIVE,
+          customVms: DEFAULT_CUSTOM_VMS,
         }),
     }),
     { name: 'surveyor-state' }  // persisted to localStorage

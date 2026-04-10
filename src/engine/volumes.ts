@@ -52,7 +52,7 @@ export function computeVolumeSummary(
   // Account for resiliency overhead per volume: each volume consumes
   // plannedSizeTB / resiliencyFactor from the pool
   const totalPoolConsumptionTB = enriched.reduce((sum, v) => {
-    const factor = getResiliencyFactor(v.resiliency)
+    const factor = getResiliencyFactor(v.resiliency, capacity.nodeCount)
     return sum + v.calculatorSizeTB / factor
   }, 0)
 

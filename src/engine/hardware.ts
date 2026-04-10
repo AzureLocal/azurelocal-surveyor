@@ -25,12 +25,12 @@ export function getDriveMediaType(inputs: HardwareInputs): DriveMedia {
  * Azure Local rules:
  *   2 nodes  → 2-way mirror (only option)
  *   3 nodes  → 3-way mirror (only option)
- *   4+ nodes → 3-way mirror or mirror-accelerated-parity
+ *   4+ nodes → three-way mirror or dual-parity
  */
 export function getRecommendedResiliency(inputs: HardwareInputs): ResiliencyType {
-  if (inputs.nodeCount <= 2) return '2-way-mirror'
-  if (inputs.nodeCount === 3) return '3-way-mirror'
-  return '3-way-mirror' // conservative default; user can override to MAP
+  if (inputs.nodeCount <= 2) return 'two-way-mirror'
+  if (inputs.nodeCount === 3) return 'three-way-mirror'
+  return 'three-way-mirror' // conservative default; user can override to dual-parity
 }
 
 /**

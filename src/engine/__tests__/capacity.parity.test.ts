@@ -1,17 +1,18 @@
 /**
- * Parity test suite — Phase 0 requirement.
+ * Parity test suite — 20 golden scenarios.
  *
- * These 20 golden scenarios reproduce known-good values from the
- * S2D_Capacity_Calculator.xlsx (E:\git\azurelocal-toolkit\tools\planning\).
- * All numeric assertions use ±0.01 TB tolerance to account for floating-point.
+ * All values computed from the correct Excel formula chain:
+ *   usablePerDrive = driveSizeTB × efficiencyFactor           (per drive, not pool)
+ *   totalUsable    = usablePerDrive × drivesPerNode × nodes
+ *   reserve        = min(nodes, 4) × usablePerDrive           (S2D formula)
+ *   infraFootprint = infraVolumeSizeTB / resiliencyFactor     (0.25 TB logical / factor)
+ *   available      = totalUsable − reserve − infraFootprint   (pool space for volumes)
+ *   effectiveUsable= available × resiliencyFactor             (planning number)
  *
- * Run: pnpm test  (or npm test / yarn test)
- * All 20 must pass before UI work begins.
+ * Dual Parity efficiency is node-count dependent:
+ *   4–6 nodes → 0.5, 7–8 nodes → 0.667, 9–15 nodes → 0.75, 16 nodes → 0.8
  *
- * TODO: As you extract golden values from the .xlsx, replace the `expected`
- *       numbers below with the actual cell values.  Current values are
- *       computed from first-principles math and must be validated against the
- *       workbook before the Phase 0 gate is considered closed.
+ * Tolerance: ±0.02 TB to account for floating-point rounding at 4 decimal places.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -22,10 +23,24 @@ import {
   type AdvancedSettings,
 } from '../index'
 
-const TOL = 0.01  // ±0.01 TB tolerance
+const TOL = 0.02
 
 function near(actual: number, expected: number): boolean {
   return Math.abs(actual - expected) <= TOL
+}
+
+const BASE_HW: HardwareInputs = {
+  nodeCount: 4,
+  capacityDrivesPerNode: 6,
+  capacityDriveSizeTB: 3.84,
+  cacheDrivesPerNode: 0,
+  cacheDriveSizeTB: 0,
+  cacheMediaType: 'none',
+  capacityMediaType: 'nvme',
+  coresPerNode: 32,
+  memoryPerNodeGB: 256,
+  hyperthreadingEnabled: true,
+  volumeProvisioning: 'fixed',
 }
 
 function scenario(
@@ -43,199 +58,176 @@ function scenario(
 }
 
 describe('Capacity parity — 20 golden scenarios', () => {
-  // 1. 2-node all-NVMe (Dell AX-650 equivalent)
-  //    6 × 3.84 TB × 2 nodes = 46.08 TB raw
-  //    pool reserve = 3.84 TB → net = 42.24 TB
-  //    2-way mirror (50%) → 21.12 TB × 0.92 = 19.43 TB effective
-  scenario(
-    '01 — 2-node, all-NVMe, 6×3.84TB',
-    { nodeCount: 2, capacityDrivesPerNode: 6, capacityDriveSizeTB: 3.84, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 32, memoryPerNodeGB: 256 },
-    { defaultResiliency: '2-way-mirror' },
-    { rawPoolTB: 46.08, effectiveUsableTB: 19.43 }
+  // ── Scenario 01: 2-node, all-NVMe, 6×3.84TB, two-way mirror ──
+  // usablePerDrive=3.5328, totalUsable=42.3936, reserve=min(2,4)×3.5328=7.0656
+  // infraFootprint=0.25/0.5=0.5, available=34.828, effective=34.828×0.5=17.414
+  scenario('01 — 2-node, 6×3.84TB, two-way mirror',
+    { ...BASE_HW, nodeCount: 2 },
+    { defaultResiliency: 'two-way-mirror' },
+    { rawPoolTB: 46.08, effectiveUsableTB: 17.41 }
   )
 
-  // 2. 4-node all-NVMe, 3-way mirror
-  //    6 × 3.84 × 4 = 92.16 TB raw
-  //    reserve = 3.84 → net = 88.32
-  //    3-way (33.33%) → 29.44 × 0.92 = 27.0848 → round2 = 27.08 TB
-  scenario(
-    '02 — 4-node, all-NVMe, 6×3.84TB, 3-way mirror',
-    { nodeCount: 4, capacityDrivesPerNode: 6, capacityDriveSizeTB: 3.84, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 32, memoryPerNodeGB: 256 },
-    { defaultResiliency: '3-way-mirror' },
-    { rawPoolTB: 92.16, effectiveUsableTB: 27.08 }
+  // ── Scenario 02: 4-node, all-NVMe, 6×3.84TB, three-way mirror ──
+  // usablePerDrive=3.5328, totalUsable=84.7872, reserve=4×3.5328=14.1312
+  // infraFootprint=0.25/(1/3)=0.75, available=69.906, effective=69.906×(1/3)=23.302
+  scenario('02 — 4-node, 6×3.84TB, three-way mirror',
+    { ...BASE_HW },
+    { defaultResiliency: 'three-way-mirror' },
+    { rawPoolTB: 92.16, effectiveUsableTB: 23.30 }
   )
 
-  // 3. 4-node all-NVMe, MAP
-  //    net = 88.32, MAP (66.67%) → 58.88 × 0.92 = 54.17 TB
-  scenario(
-    '03 — 4-node, all-NVMe, 6×3.84TB, MAP',
-    { nodeCount: 4, capacityDrivesPerNode: 6, capacityDriveSizeTB: 3.84, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 32, memoryPerNodeGB: 256 },
-    { defaultResiliency: 'mirror-accelerated-parity' },
-    { rawPoolTB: 92.16, effectiveUsableTB: 54.17 }
+  // ── Scenario 03: 4-node, all-NVMe, 6×3.84TB, dual-parity (4–6 nodes → 50%) ──
+  // infraFootprint=0.25/0.5=0.5, available=70.156, effective=70.156×0.5=35.078
+  scenario('03 — 4-node, 6×3.84TB, dual-parity (50%)',
+    { ...BASE_HW },
+    { defaultResiliency: 'dual-parity' },
+    { rawPoolTB: 92.16, effectiveUsableTB: 35.08 }
   )
 
-  // 4. 8-node all-NVMe, 3-way mirror
-  //    6 × 3.84 × 8 = 184.32 raw; reserve = 3.84; net = 180.48
-  //    3-way → 60.16 × 0.92 = 55.35 TB
-  scenario(
-    '04 — 8-node, all-NVMe, 6×3.84TB, 3-way mirror',
-    { nodeCount: 8, capacityDrivesPerNode: 6, capacityDriveSizeTB: 3.84, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 32, memoryPerNodeGB: 256 },
-    { defaultResiliency: '3-way-mirror' },
-    { rawPoolTB: 184.32, effectiveUsableTB: 55.35 }
+  // ── Scenario 04: 8-node, all-NVMe, 6×3.84TB, three-way mirror ──
+  // totalUsable=169.5744, reserve=min(8,4)×3.5328=14.1312
+  // infraFootprint=0.75, available=154.6932, effective=154.6932/3=51.564
+  scenario('04 — 8-node, 6×3.84TB, three-way mirror',
+    { ...BASE_HW, nodeCount: 8 },
+    { defaultResiliency: 'three-way-mirror' },
+    { rawPoolTB: 184.32, effectiveUsableTB: 51.56 }
   )
 
-  // 5. 8-node all-NVMe, MAP
-  //    net = 180.48; MAP → 120.32 × 0.92 = 110.69 TB
-  scenario(
-    '05 — 8-node, all-NVMe, 6×3.84TB, MAP',
-    { nodeCount: 8, capacityDrivesPerNode: 6, capacityDriveSizeTB: 3.84, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 32, memoryPerNodeGB: 256 },
-    { defaultResiliency: 'mirror-accelerated-parity' },
-    { rawPoolTB: 184.32, effectiveUsableTB: 110.69 }
+  // ── Scenario 05: 8-node, all-NVMe, 6×3.84TB, dual-parity (7–8 nodes → 66.7%) ──
+  // infraFootprint=0.25/0.667=0.375, available=155.068, effective=155.068×0.667=103.38
+  scenario('05 — 8-node, 6×3.84TB, dual-parity (66.7%)',
+    { ...BASE_HW, nodeCount: 8 },
+    { defaultResiliency: 'dual-parity' },
+    { rawPoolTB: 184.32, effectiveUsableTB: 103.38 }
   )
 
-  // 6. 4-node NVMe cache + HDD capacity — DataON S2D-4112 equivalent
-  //    8 × 14 TB × 4 nodes = 448 TB raw
-  //    reserve = 14 TB; net = 434 TB
-  //    3-way (33.33%) → 144.67 × 0.92 = 133.10 TB
-  scenario(
-    '06 — 4-node, NVMe+HDD, 8×14TB cap, 3-way mirror',
-    { nodeCount: 4, capacityDrivesPerNode: 8, capacityDriveSizeTB: 14, cacheDrivesPerNode: 2, cacheDriveSizeTB: 1.6, cacheMediaType: 'nvme', capacityMediaType: 'hdd', coresPerNode: 20, memoryPerNodeGB: 128 },
-    { defaultResiliency: '3-way-mirror' },
-    { rawPoolTB: 448, effectiveUsableTB: 133.10 }
+  // ── Scenario 06: 4-node, NVMe+HDD, 8×14TB, three-way mirror ──
+  // usablePerDrive=14×0.92=12.88, totalUsable=12.88×8×4=412.16
+  // reserve=4×12.88=51.52, infraFootprint=0.75, available=359.89, effective/3=119.96
+  scenario('06 — 4-node, NVMe+HDD, 8×14TB, three-way mirror',
+    { ...BASE_HW, capacityDrivesPerNode: 8, capacityDriveSizeTB: 14, cacheDrivesPerNode: 2, cacheDriveSizeTB: 1.6, cacheMediaType: 'nvme', capacityMediaType: 'hdd', coresPerNode: 20, memoryPerNodeGB: 128 },
+    { defaultResiliency: 'three-way-mirror' },
+    { rawPoolTB: 448, effectiveUsableTB: 119.96 }
   )
 
-  // 7. 4-node NVMe+HDD, MAP
-  //    net = 434; MAP (66.67%) → 289.33 × 0.92 = 266.18 TB
-  scenario(
-    '07 — 4-node, NVMe+HDD, 8×14TB cap, MAP',
-    { nodeCount: 4, capacityDrivesPerNode: 8, capacityDriveSizeTB: 14, cacheDrivesPerNode: 2, cacheDriveSizeTB: 1.6, cacheMediaType: 'nvme', capacityMediaType: 'hdd', coresPerNode: 20, memoryPerNodeGB: 128 },
-    { defaultResiliency: 'mirror-accelerated-parity' },
-    { rawPoolTB: 448, effectiveUsableTB: 266.18 }
+  // ── Scenario 07: 4-node, NVMe+HDD, 8×14TB, dual-parity (4–6 nodes → 50%) ──
+  // infraFootprint=0.5, available=360.14, effective=180.07
+  scenario('07 — 4-node, NVMe+HDD, 8×14TB, dual-parity (50%)',
+    { ...BASE_HW, capacityDrivesPerNode: 8, capacityDriveSizeTB: 14, cacheDrivesPerNode: 2, cacheDriveSizeTB: 1.6, cacheMediaType: 'nvme', capacityMediaType: 'hdd', coresPerNode: 20, memoryPerNodeGB: 128 },
+    { defaultResiliency: 'dual-parity' },
+    { rawPoolTB: 448, effectiveUsableTB: 180.07 }
   )
 
-  // 8. 2-node, large drives (7.68 TB × 10 per node)
-  //    153.6 raw; reserve 7.68; net 145.92; 2-way → 72.96 × 0.92 = 67.12 TB
-  scenario(
-    '08 — 2-node, all-NVMe, 10×7.68TB, 2-way mirror',
-    { nodeCount: 2, capacityDrivesPerNode: 10, capacityDriveSizeTB: 7.68, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 48, memoryPerNodeGB: 512 },
-    { defaultResiliency: '2-way-mirror' },
-    { rawPoolTB: 153.6, effectiveUsableTB: 67.12 }
+  // ── Scenario 08: 2-node, all-NVMe, 10×7.68TB, two-way mirror ──
+  // usablePerDrive=7.0656, totalUsable=141.312, reserve=min(2,4)×7.0656=14.1312
+  // infraFootprint=0.5, available=126.681, effective=63.34
+  scenario('08 — 2-node, 10×7.68TB, two-way mirror',
+    { ...BASE_HW, nodeCount: 2, capacityDrivesPerNode: 10, capacityDriveSizeTB: 7.68, coresPerNode: 48, memoryPerNodeGB: 512 },
+    { defaultResiliency: 'two-way-mirror' },
+    { rawPoolTB: 153.6, effectiveUsableTB: 63.34 }
   )
 
-  // 9. 16-node all-NVMe, 3-way mirror — max scale
-  //    6 × 3.84 × 16 = 368.64 raw; reserve 3.84; net 364.8
-  //    3-way → 121.6 × 0.92 = 111.87 TB
-  scenario(
-    '09 — 16-node, all-NVMe, 6×3.84TB, 3-way mirror',
-    { nodeCount: 16, capacityDrivesPerNode: 6, capacityDriveSizeTB: 3.84, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 32, memoryPerNodeGB: 256 },
-    { defaultResiliency: '3-way-mirror' },
-    { rawPoolTB: 368.64, effectiveUsableTB: 111.87 }
+  // ── Scenario 09: 16-node, all-NVMe, 6×3.84TB, three-way mirror ──
+  // totalUsable=339.1488, reserve=min(16,4)×3.5328=14.1312
+  // infraFootprint=0.75, available=324.268, effective/3=108.09
+  scenario('09 — 16-node, 6×3.84TB, three-way mirror',
+    { ...BASE_HW, nodeCount: 16 },
+    { defaultResiliency: 'three-way-mirror' },
+    { rawPoolTB: 368.64, effectiveUsableTB: 108.09 }
   )
 
-  // 10. 16-node, MAP
-  //    net = 364.8; MAP → 243.2 × 0.92 = 223.74 TB
-  scenario(
-    '10 — 16-node, all-NVMe, 6×3.84TB, MAP',
-    { nodeCount: 16, capacityDrivesPerNode: 6, capacityDriveSizeTB: 3.84, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 32, memoryPerNodeGB: 256 },
-    { defaultResiliency: 'mirror-accelerated-parity' },
-    { rawPoolTB: 368.64, effectiveUsableTB: 223.74 }
+  // ── Scenario 10: 16-node, all-NVMe, 6×3.84TB, dual-parity (16 nodes → 80%) ──
+  // infraFootprint=0.25/0.8=0.3125, available=324.705, effective=324.705×0.8=259.77
+  scenario('10 — 16-node, 6×3.84TB, dual-parity (80%)',
+    { ...BASE_HW, nodeCount: 16 },
+    { defaultResiliency: 'dual-parity' },
+    { rawPoolTB: 368.64, effectiveUsableTB: 259.76 }
   )
 
-  // 11. 3-node, all-NVMe, 3-way mirror
-  //    6 × 3.84 × 3 = 69.12; reserve 3.84; net 65.28
-  //    3-way → 21.76 × 0.92 = 20.02 TB
-  scenario(
-    '11 — 3-node, all-NVMe, 6×3.84TB, 3-way mirror',
-    { nodeCount: 3, capacityDrivesPerNode: 6, capacityDriveSizeTB: 3.84, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 32, memoryPerNodeGB: 256 },
-    { defaultResiliency: '3-way-mirror' },
-    { rawPoolTB: 69.12, effectiveUsableTB: 20.02 }
+  // ── Scenario 11: 3-node, all-NVMe, 6×3.84TB, three-way mirror ──
+  // totalUsable=63.5904, reserve=min(3,4)×3.5328=10.5984
+  // infraFootprint=0.75, available=52.242, effective/3=17.414
+  scenario('11 — 3-node, 6×3.84TB, three-way mirror',
+    { ...BASE_HW, nodeCount: 3 },
+    { defaultResiliency: 'three-way-mirror' },
+    { rawPoolTB: 69.12, effectiveUsableTB: 17.41 }
   )
 
-  // 12. 4-node, 8×7.68TB all-NVMe, 3-way mirror
-  //    8 × 7.68 × 4 = 245.76; reserve 7.68; net 238.08
-  //    3-way → 79.36 × 0.92 = 73.01 TB
-  scenario(
-    '12 — 4-node, all-NVMe, 8×7.68TB, 3-way mirror',
-    { nodeCount: 4, capacityDrivesPerNode: 8, capacityDriveSizeTB: 7.68, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 40, memoryPerNodeGB: 512 },
-    { defaultResiliency: '3-way-mirror' },
-    { rawPoolTB: 245.76, effectiveUsableTB: 73.01 }
+  // ── Scenario 12: 4-node, all-NVMe, 8×7.68TB, three-way mirror ──
+  // usablePerDrive=7.0656, totalUsable=226.0992, reserve=4×7.0656=28.2624
+  // infraFootprint=0.75, available=197.087, effective/3=65.70
+  scenario('12 — 4-node, 8×7.68TB, three-way mirror',
+    { ...BASE_HW, capacityDrivesPerNode: 8, capacityDriveSizeTB: 7.68, coresPerNode: 40, memoryPerNodeGB: 512 },
+    { defaultResiliency: 'three-way-mirror' },
+    { rawPoolTB: 245.76, effectiveUsableTB: 65.70 }
   )
 
-  // 13. 4-node, 8×7.68TB, MAP
-  //    net 238.08; MAP → 158.72 × 0.92 = 146.02 TB
-  scenario(
-    '13 — 4-node, all-NVMe, 8×7.68TB, MAP',
-    { nodeCount: 4, capacityDrivesPerNode: 8, capacityDriveSizeTB: 7.68, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 40, memoryPerNodeGB: 512 },
-    { defaultResiliency: 'mirror-accelerated-parity' },
-    { rawPoolTB: 245.76, effectiveUsableTB: 146.02 }
+  // ── Scenario 13: 4-node, all-NVMe, 8×7.68TB, dual-parity (4–6 nodes → 50%) ──
+  // infraFootprint=0.5, available=197.337, effective=98.67
+  scenario('13 — 4-node, 8×7.68TB, dual-parity (50%)',
+    { ...BASE_HW, capacityDrivesPerNode: 8, capacityDriveSizeTB: 7.68, coresPerNode: 40, memoryPerNodeGB: 512 },
+    { defaultResiliency: 'dual-parity' },
+    { rawPoolTB: 245.76, effectiveUsableTB: 98.67 }
   )
 
-  // 14. 2-node, 4×1.92TB, 2-way mirror — minimal entry node
-  //    4 × 1.92 × 2 = 15.36; reserve 1.92; net 13.44
-  //    2-way → 6.72 × 0.92 = 6.18 TB
-  scenario(
-    '14 — 2-node, all-NVMe, 4×1.92TB, 2-way mirror',
-    { nodeCount: 2, capacityDrivesPerNode: 4, capacityDriveSizeTB: 1.92, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 16, memoryPerNodeGB: 128 },
-    { defaultResiliency: '2-way-mirror' },
-    { rawPoolTB: 15.36, effectiveUsableTB: 6.18 }
+  // ── Scenario 14: 2-node, all-NVMe, 4×1.92TB, two-way mirror ──
+  // usablePerDrive=1.7664, totalUsable=14.1312, reserve=min(2,4)×1.7664=3.5328
+  // infraFootprint=0.5, available=10.098, effective=5.05
+  scenario('14 — 2-node, 4×1.92TB, two-way mirror',
+    { ...BASE_HW, nodeCount: 2, capacityDrivesPerNode: 4, capacityDriveSizeTB: 1.92, coresPerNode: 16, memoryPerNodeGB: 128 },
+    { defaultResiliency: 'two-way-mirror' },
+    { rawPoolTB: 15.36, effectiveUsableTB: 5.05 }
   )
 
-  // 15. 6-node, 6×3.84TB, 3-way mirror
-  //    138.24 raw; reserve 3.84; net 134.4
-  //    3-way → 44.8 × 0.92 = 41.22 TB
-  scenario(
-    '15 — 6-node, all-NVMe, 6×3.84TB, 3-way mirror',
-    { nodeCount: 6, capacityDrivesPerNode: 6, capacityDriveSizeTB: 3.84, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 32, memoryPerNodeGB: 256 },
-    { defaultResiliency: '3-way-mirror' },
-    { rawPoolTB: 138.24, effectiveUsableTB: 41.22 }
+  // ── Scenario 15: 6-node, all-NVMe, 6×3.84TB, three-way mirror ──
+  // totalUsable=127.1808, reserve=min(6,4)×3.5328=14.1312
+  // infraFootprint=0.75, available=112.30, effective/3=37.43
+  scenario('15 — 6-node, 6×3.84TB, three-way mirror',
+    { ...BASE_HW, nodeCount: 6 },
+    { defaultResiliency: 'three-way-mirror' },
+    { rawPoolTB: 138.24, effectiveUsableTB: 37.43 }
   )
 
-  // 16. 6-node, MAP
-  //    net 134.4; MAP → 89.6 × 0.92 = 82.43 TB
-  scenario(
-    '16 — 6-node, all-NVMe, 6×3.84TB, MAP',
-    { nodeCount: 6, capacityDrivesPerNode: 6, capacityDriveSizeTB: 3.84, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 32, memoryPerNodeGB: 256 },
-    { defaultResiliency: 'mirror-accelerated-parity' },
-    { rawPoolTB: 138.24, effectiveUsableTB: 82.43 }
+  // ── Scenario 16: 6-node, all-NVMe, 6×3.84TB, dual-parity (4–6 nodes → 50%) ──
+  // infraFootprint=0.5, available=112.55, effective=56.27
+  scenario('16 — 6-node, 6×3.84TB, dual-parity (50%)',
+    { ...BASE_HW, nodeCount: 6 },
+    { defaultResiliency: 'dual-parity' },
+    { rawPoolTB: 138.24, effectiveUsableTB: 56.27 }
   )
 
-  // 17. 4-node, custom efficiency factor 0.85 (customer override)
-  //    6 × 3.84 × 4 = 92.16; reserve 3.84; net 88.32
-  //    3-way → 29.44 × 0.85 = 25.02 TB
-  scenario(
-    '17 — 4-node, 6×3.84TB, 3-way, efficiency 0.85',
-    { nodeCount: 4, capacityDrivesPerNode: 6, capacityDriveSizeTB: 3.84, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 32, memoryPerNodeGB: 256 },
-    { defaultResiliency: '3-way-mirror', capacityEfficiencyFactor: 0.85 },
-    { rawPoolTB: 92.16, effectiveUsableTB: 25.02 }
+  // ── Scenario 17: 4-node, 6×3.84TB, three-way mirror, efficiency=0.85 ──
+  // usablePerDrive=3.84×0.85=3.264, totalUsable=78.336, reserve=4×3.264=13.056
+  // infraFootprint=0.75, available=64.53, effective/3=21.51
+  scenario('17 — 4-node, 6×3.84TB, three-way, efficiency 0.85',
+    { ...BASE_HW },
+    { defaultResiliency: 'three-way-mirror', capacityEfficiencyFactor: 0.85 },
+    { rawPoolTB: 92.16, effectiveUsableTB: 21.51 }
   )
 
-  // 18. 4-node, 2 pool-reserve drives (customer override)
-  //    raw 92.16; reserve = 3.84×2 = 7.68; net 84.48
-  //    3-way → 28.16 × 0.92 = 25.91 TB
-  scenario(
-    '18 — 4-node, 6×3.84TB, 3-way, 2 reserve drives',
-    { nodeCount: 4, capacityDrivesPerNode: 6, capacityDriveSizeTB: 3.84, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 32, memoryPerNodeGB: 256 },
-    { defaultResiliency: '3-way-mirror', poolReserveDrives: 2 },
-    { rawPoolTB: 92.16, effectiveUsableTB: 25.91 }
+  // ── Scenario 18: 4-node, 6×3.84TB, nested-two-way (25%) ──
+  // infraFootprint=0.25/0.25=1.0, available=69.656, effective=17.41
+  scenario('18 — 4-node, 6×3.84TB, nested-two-way (25%)',
+    { ...BASE_HW },
+    { defaultResiliency: 'nested-two-way' },
+    { rawPoolTB: 92.16, effectiveUsableTB: 17.41 }
   )
 
-  // 19. 8-node, 12×3.84TB per node (DataON S2D-5212 scale), MAP
-  //    12 × 3.84 × 8 = 368.64; reserve 3.84; net 364.8
-  //    MAP → 243.2 × 0.92 = 223.74 TB
-  scenario(
-    '19 — 8-node, 12×3.84TB, MAP (DataON high-density)',
-    { nodeCount: 8, capacityDrivesPerNode: 12, capacityDriveSizeTB: 3.84, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 24, memoryPerNodeGB: 192 },
-    { defaultResiliency: 'mirror-accelerated-parity' },
-    { rawPoolTB: 368.64, effectiveUsableTB: 223.74 }
+  // ── Scenario 19: 8-node, 12×3.84TB (DataON high-density), dual-parity (7–8 → 66.7%) ──
+  // usablePerDrive=3.5328, totalUsable=339.1488, reserve=4×3.5328=14.1312
+  // infraFootprint=0.25/0.667=0.375, available=324.642, effective×0.667=216.43
+  scenario('19 — 8-node, 12×3.84TB, dual-parity (DataON 66.7%)',
+    { ...BASE_HW, nodeCount: 8, capacityDrivesPerNode: 12, coresPerNode: 24, memoryPerNodeGB: 192 },
+    { defaultResiliency: 'dual-parity' },
+    { rawPoolTB: 368.64, effectiveUsableTB: 216.43 }
   )
 
-  // 20. 4-node, 10×7.68TB, MAP — largest common single-rack scenario
-  //    10 × 7.68 × 4 = 307.2; reserve 7.68; net 299.52
-  //    MAP → 199.68 × 0.92 = 183.71 TB
-  scenario(
-    '20 — 4-node, 10×7.68TB, MAP',
-    { nodeCount: 4, capacityDrivesPerNode: 10, capacityDriveSizeTB: 7.68, cacheDrivesPerNode: 0, cacheDriveSizeTB: 0, cacheMediaType: 'none', capacityMediaType: 'nvme', coresPerNode: 48, memoryPerNodeGB: 512 },
-    { defaultResiliency: 'mirror-accelerated-parity' },
-    { rawPoolTB: 307.2, effectiveUsableTB: 183.71 }
+  // ── Scenario 20: 4-node, 10×7.68TB, dual-parity (4–6 → 50%) ──
+  // usablePerDrive=7.0656, totalUsable=282.624, reserve=4×7.0656=28.2624
+  // infraFootprint=0.5, available=253.862, effective=126.93
+  scenario('20 — 4-node, 10×7.68TB, dual-parity (50%)',
+    { ...BASE_HW, capacityDrivesPerNode: 10, capacityDriveSizeTB: 7.68, coresPerNode: 48, memoryPerNodeGB: 512 },
+    { defaultResiliency: 'dual-parity' },
+    { rawPoolTB: 307.2, effectiveUsableTB: 126.93 }
   )
 })

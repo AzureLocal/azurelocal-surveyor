@@ -45,7 +45,7 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
   lines.push(`| Metric | Value |`)
   lines.push(`|---|---|`)
   lines.push(`| Raw pool | ${capacity.rawPoolTB} TB |`)
-  lines.push(`| Pool reserve | ${capacity.poolReserveTB} TB |`)
+  lines.push(`| Pool reserve (${capacity.reserveDrives} drives) | ${capacity.reserveTB} TB |`)
   lines.push(`| Resiliency | ${capacity.resiliencyType} |`)
   lines.push(`| **Effective usable** | **${capacity.effectiveUsableTB} TB** |`)
   lines.push('')

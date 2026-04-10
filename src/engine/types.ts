@@ -8,10 +8,18 @@ export type DriveMedia =
   | 'all-ssd'
   | 'all-hdd'
 
+/**
+ * S2D resiliency types matching the Excel workbook.
+ *  two-way-mirror   = 50%, min 2 nodes
+ *  three-way-mirror = 33.3%, min 3 nodes
+ *  dual-parity      = 50–80% (node-count dependent), min 4 nodes
+ *  nested-two-way   = 25% (nested resiliency for 2-node), min 2 nodes
+ */
 export type ResiliencyType =
-  | '2-way-mirror'
-  | '3-way-mirror'
-  | 'mirror-accelerated-parity'
+  | 'two-way-mirror'
+  | 'three-way-mirror'
+  | 'dual-parity'
+  | 'nested-two-way'
 
 export type AvdWorkloadType = 'light' | 'medium' | 'heavy' | 'power'
 
@@ -27,13 +35,15 @@ export interface HardwareInputs {
   capacityMediaType: 'nvme' | 'ssd' | 'hdd'
   coresPerNode: number           // physical CPU cores per node
   memoryPerNodeGB: number        // physical RAM per node
+  hyperthreadingEnabled: boolean // logical vCPU = physical × 2 when true
+  volumeProvisioning: 'fixed' | 'thin'
 }
 
 // ─── Advanced Settings (Sheet: "Advanced Settings") ──────────────────────────
 
 export interface AdvancedSettings {
-  capacityEfficiencyFactor: number     // default 0.92 — filesystem overhead
-  poolReserveDrives: number            // default 1 — spare for rebuild
+  capacityEfficiencyFactor: number     // default 0.92 — filesystem overhead per drive
+  infraVolumeSizeTB: number            // logical size of infra (system) volume, default 0.25
   vCpuOversubscriptionRatio: number    // default 4
   systemReservedMemoryGB: number       // default 8 per node
   systemReservedVCpus: number          // default 4 per node for Hyper-V / Arc VM agent
@@ -42,23 +52,28 @@ export interface AdvancedSettings {
 
 export const DEFAULT_ADVANCED_SETTINGS: AdvancedSettings = {
   capacityEfficiencyFactor: 0.92,
-  poolReserveDrives: 1,
+  infraVolumeSizeTB: 0.25,
   vCpuOversubscriptionRatio: 4,
   systemReservedMemoryGB: 8,
   systemReservedVCpus: 4,
-  defaultResiliency: '3-way-mirror',
+  defaultResiliency: 'three-way-mirror',
 }
 
 // ─── Capacity (Sheet: "Capacity Report") ─────────────────────────────────────
 
 export interface CapacityResult {
-  rawPoolTB: number
-  poolReserveTB: number
-  netPoolTB: number
+  nodeCount: number                    // carried through for downstream resiliency calcs
+  rawPoolTB: number                    // total raw drives (no overhead)
+  usablePerDriveTB: number             // driveSizeTB × efficiencyFactor
+  totalUsableTB: number                // usablePerDrive × drives × nodes
+  reserveDrives: number                // min(nodeCount, 4)
+  reserveTB: number                    // reserveDrives × usablePerDriveTB
+  infraVolumeTB: number                // infra volume pool footprint
+  availableForVolumesTB: number        // totalUsable − reserve − infraVolume (pool space)
+  availableForVolumesTiB: number       // availableForVolumesTB × 0.909099 (OS-visible)
   resiliencyType: ResiliencyType
   resiliencyFactor: number
-  usableAfterResiliencyTB: number
-  effectiveUsableTB: number          // after capacityEfficiencyFactor — the number to plan against
+  effectiveUsableTB: number            // availableForVolumes × resiliencyFactor — the planning number
 }
 
 // ─── Volumes (Sheet: "Volume Detail") ────────────────────────────────────────
@@ -86,6 +101,50 @@ export interface VolumeSummaryResult {
   totalWacTB: number
   remainingUsableTB: number
   utilizationPct: number
+}
+
+// ─── AKS on Azure Local (Sheet: "Workload Planner" → AKS scenario) ──────────
+
+export interface AksInputs {
+  enabled: boolean
+  clusterCount: number
+  controlPlaneNodesPerCluster: number  // 1 (dev) or 3 (HA) — always 4 vCPU, 16 GB RAM each
+  workerNodesPerCluster: number
+  vCpusPerWorker: number
+  memoryPerWorkerGB: number
+  osDiskPerNodeGB: number              // default 200 GB per node
+  persistentVolumesTB: number          // total PVC storage across all clusters
+  dataServicesTB: number               // SQL MI, Arc data, etc.
+  resiliency: ResiliencyType
+}
+
+export interface AksResult {
+  totalNodes: number
+  totalControlPlaneVCpus: number
+  totalWorkerVCpus: number
+  totalVCpus: number
+  totalControlPlaneMemoryGB: number
+  totalWorkerMemoryGB: number
+  totalMemoryGB: number
+  osDiskTB: number
+  totalStorageTB: number
+}
+
+// ─── Workload Scenarios (Sheet: "Workload Planner") ──────────────────────────
+
+export interface VmScenario {
+  enabled: boolean
+  vmCount: number
+  vCpusPerVm: number
+  memoryPerVmGB: number
+  storagePerVmGB: number
+  resiliency: ResiliencyType
+}
+
+export interface BackupArchiveScenario {
+  enabled: boolean
+  storageTB: number
+  resiliency: ResiliencyType
 }
 
 // ─── Workloads (Sheet: "Workload Planner") ────────────────────────────────────
@@ -155,6 +214,8 @@ export interface SofsResult {
 
 export interface ComputeResult {
   physicalCores: number
+  logicalCores: number               // physicalCores × 2 if hyperthreading enabled
+  hyperthreadingEnabled: boolean
   systemReservedVCpus: number
   usableVCpus: number
   physicalMemoryGB: number
