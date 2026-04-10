@@ -1,0 +1,10 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "engine-spec",
+  "title": "Azure Local Surveyor — Engine Specification",
+  "description": "Phase 0 output: machine-readable mapping of Excel formulas to TypeScript engine functions.",
+  "version": "0.0.0",
+  "status": "placeholder",
+  "note": "This file will be populated after Phase 0 formula audit is complete.",
+  "sheets": {}
+}

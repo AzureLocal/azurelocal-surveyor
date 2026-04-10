@@ -1,0 +1,56 @@
+site_name: Azure Local Surveyor
+site_url: https://surveyor.azurelocal.cloud
+site_description: Azure Local S2D capacity planning and workload sizing tool
+repo_url: https://github.com/AzureLocal/azurelocal-surveyor
+repo_name: AzureLocal/azurelocal-surveyor
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: blue
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - search.suggest
+    - content.code.copy
+
+plugins:
+  - search
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - tables
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Engine:
+      - Capacity Model: engine/capacity.md
+      - Volumes: engine/volumes.md
+      - Workloads: engine/workloads.md
+      - AVD: engine/avd.md
+      - SOFS: engine/sofs.md
+      - Compute: engine/compute.md
+      - Health Check: engine/healthcheck.md
+  - Reference:
+      - Formula Map: reference/formula-map.md
+      - Parity Tests: reference/parity-tests.md

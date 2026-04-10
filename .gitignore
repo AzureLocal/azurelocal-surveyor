@@ -1,0 +1,30 @@
+# node_modules and build outputs
+node_modules/
+dist/
+site/
+coverage/
+
+# Local environment files
+*.local
+.env
+.env.*
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+!.vscode/extensions.json
+.idea/
+
+# Reference binaries — copy xlsx manually, do not commit
+reference/*.xlsx
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# TypeScript incremental build
+*.tsbuildinfo
