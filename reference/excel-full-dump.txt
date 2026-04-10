@@ -1,0 +1,843 @@
+Total sheets: 14
+
+
+========================================
+SHEET: How to Use
+========================================
+Rows: 51
+[P2]: WORKLOAD AND STORAGE CALCULATOR — HOW TO USE
+[P2]: Azure Local / Storage Spaces Direct — Capacity Planning Tool
+[P2]: This workbook helps you plan storage for an Azure Local cluster using Storage Spaces Direct (S2D). Enter your hardware specs and planned workloads — the calculator tells you how much usable storage you get and whether everything fits. You do NOT need to be a storage expert.
+[P2]: QUICK START — 3 STEPS
+[P3]: STEP 1  |  [P4]: Go to 'Hardware Inputs'. Use the DROPDOWN MENUS to enter: node count, drive type, drives per node, and drive size. The calculator IMMEDIATELY shows your available storage in a big green number.
+[P3]: STEP 2  |  [P4]: Go to 'Workload Planner'. Choose your scenarios: AKS, Infrastructure VMs, Dev/Test, Backup, or Custom. For AVD, go to the 'AVD Planning' tab — all AVD inputs live there. Running counter shows remaining capacity.
+[P3]: STEP 3  |  [P4]: Review 'Capacity Report' and 'Volume Detail'. Print or share these with your team or customer. The report explains all the numbers and includes key concepts if anyone asks questions.
+[P2]: COLOR GUIDE
+[P3]: Blue on Yellow  |  [P4]: YOUR INPUT — only cells you edit. All have dropdowns or accept numbers.
+[P3]: Green  |  [P4]: GOOD NEWS — available capacity, passing checks. Bigger green number = better.
+[P3]: Blue on Light Blue  |  [P4]: CALCULATED — auto-calculated values. Do not edit.
+[P3]: Red / Pink  |  [P4]: WARNING — footprint numbers, overcommit alerts, capacity exceeded.
+[P3]: Orange  |  [P4]: CAUTION — reserve capacity, infrastructure overhead.
+[P3]: Gray  |  [P4]: LABELS — descriptions explaining what each row means.
+[P2]: TABS IN THIS WORKBOOK
+[P3]: 1. Hardware Inputs  |  [P4]: WHERE YOU START. Enter cluster hardware with dropdowns. See your available capacity instantly. Shows TB vs TiB conversion for Windows Admin Center. Includes N+1 compute reminder.
+[P3]: 2. Workload Planner  |  [P4]: WHERE YOU PLAN VOLUMES. Scenario-based: AVD summary (linked from AVD Planning), AKS (clusters + worker nodes + PVs + data services), Infrastructure VMs, Dev/Test, Backup/Archive, Custom. Enable/disable each scenario. Running capacity counter. Compute summary tracks vCPU AND RAM demand per scenario with N+1 failover checks. Overcommit sensitivity table covers all scenarios.
+[P3]: 3. AVD Planning  |  [P4]: SINGLE SOURCE FOR ALL AVD. Enter ALL session host, profile, and compute settings here. Density matrix, host pool scale-out, FSLogix profile estimator, network bandwidth, gold image sizing, readiness checklist. All downstream tabs pull from this tab.
+[P3]: 4. SOFS Planner  |  [P4]: SEPARATE SOFS CLUSTER SIZING. Hardware inputs, S2D pool calculation, FSLogix demand linked from Workload Planner (which pulls from AVD Planning), IOPS estimates, SOFS VM compute demand, readiness checklist. Use when profile storage is on a dedicated file server cluster.
+[P3]: 5. Volume Detail  |  [P4]: PER-VOLUME TABLE. Name, resiliency, efficiency, logical size, footprint, usable capacity. PASS/FAIL check. Includes SOFS VM volumes.
+[P3]: 6. Capacity Report  |  [P4]: WHAT YOU SHARE. Executive summary, capacity term glossary, reserve explanation, drive sizing advisory, N+1 compute reminder. Print this for project documentation.
+[P3]: 7. Compute Report  |  [P4]: COMPUTE ANALYSIS. CPU and RAM capacity vs demand by scenario (including SOFS VMs). N+1 failover analysis, session host sizing, vCPU overcommit sensitivity table. All formula-linked to Hardware Inputs and Workload Planner.
+[P3]: 8. Final Report  |  [P4]: ONE-PAGE SUMMARY. Hardware config, capacity allocation, scenario breakdown, volume creation table (TB + TiB), PowerShell commands, drive layout insight, compute analysis, best practice checks. All formula-linked — prints or shares as a snapshot.
+[P3]: 9. Drive Layout Comparison  |  [P4]: WHAT-IF TOOL. Same total raw capacity, different drive counts per node. Shows how using more, smaller drives reduces reserve and increases available capacity. All formulas linked to Hardware Inputs — updates automatically.
+[P3]: 10. Thin Provisioning  |  [P4]: READ IF CONSIDERING THIN. Risks, when acceptable, monitoring commands, best practices checklist.
+[P3]: 11. References  |  [P4]: DOCUMENTATION LINKS. Microsoft Learn pages covering S2D, Azure Local, compute sizing, AVD, AKS, SOFS, and FSLogix topics.
+[P3]: 12. Advanced Settings  |  [P4]: ADMIN ONLY. Capacity efficiency factor, infrastructure volume size, TB-to-TiB reference table. Override section for Workload Planner and SOFS Planner calculated fields. Also contains the CELL PROTECTION OVERRIDE switch.
+[P2]: COMMON QUESTIONS
+[P3]: Why does Windows show different numbers?  |  [P4]: Calculator uses TB (decimal). Windows uses TiB (binary). 1 TB = 0.909 TiB. Both are correct. Row 26 on Hardware Inputs shows TiB equivalent.
+[P3]: Why is so much capacity 'lost'?  |  [P4]: Three-way mirror = 3 copies = 33% efficiency. This is WHY data survives 2 failures. Two-way = 50%. Dual Parity = 50-80% at 4+ nodes.
+[P3]: Why can't I use all my pool?  |  [P4]: Three deductions: Drive overhead (~8%), Reserve (~1 drive/node for auto-repair), Infrastructure volume (~250 GB for Azure Local system).
+[P3]: What if workloads don't fit?  |  [P4]: Options: fewer VMs, Two-Way instead of Three-Way where OK, more/smaller drives (see Drive Layout Comparison tab), more nodes, Dual Parity for archives.
+[P3]: Should I use thin provisioning?  |  [P4]: Production: NO, use Fixed. Thin risks pool exhaustion = VMs crash. OK for dev/test and FSLogix with monitoring. See Thin Provisioning tab.
+[P3]: NVMe+SSD vs All-NVMe?  |  [P4]: NVMe+SSD: NVMe becomes CACHE (not capacity). Only SSD counts. All-NVMe: all drives are capacity. Most common for new Azure Local deployments.
+[P3]: Can I add drives/nodes later?  |  [P4]: Yes. New drives auto-join pool. Adding 3rd node unlocks three-way mirror. But sizing correctly upfront is simpler than expanding later.
+[P3]: What does N+1 compute mean?  |  [P4]: Size VMs to fit on N-1 nodes. If 1 node goes down, all VMs must failover to remaining nodes. This is CPU/RAM, separate from storage.
+[P2]: TIPS
+[P2]: 1.  |  [P3]: Start with Hardware Inputs before planning workloads. Know what you have before planning what to put on it.
+[P2]: 2.  |  [P3]: Use dropdown menus — don't type resiliency types manually. Typos break formulas.
+[P2]: 3.  |  [P3]: Include ALL disks when estimating VM sizes (OS + data disks). Typical Windows Server = 80 GB OS + 100 GB data = 180 GB.
+[P2]: 4.  |  [P3]: For FSLogix, start at 5 GB/user if no data. Measure after 30 days and adjust.
+[P2]: 5.  |  [P3]: Keep pool utilization below 70%. Above 70% = limited rebuild headroom. Above 90% = danger zone.
+[P2]: 6.  |  [P3]: Consider Dual Parity for backup/archive on 4+ node clusters: 50-80% efficiency vs 33% for three-way mirror.
+[P2]: 7.  |  [P3]: Print the Capacity Report tab for project documentation.
+[P2]: 8.  |  [P3]: This calculator uses TB. Windows uses TiB. Numbers WILL look different. Both are correct.
+
+
+========================================
+SHEET: Hardware Inputs
+========================================
+Rows: 50
+[P2]: WORKLOAD AND STORAGE CALCULATOR — Azure Local
+[P2]: Cluster Hardware Configuration
+[P2]: INSTRUCTIONS: Enter values in BLUE cells (dropdowns provided). Everything else auto-calculates.
+[P2]: STEP 1: ENTER YOUR CLUSTER HARDWARE
+[P2]: Number of Cluster Nodes (Servers)  |  [P3]: 3  |  [P4]: Select 1-16  |  [P5]: Physical servers in the Azure Local cluster.
+[P2]: Drive Media Configuration  |  [P3]: All-NVMe (No Cache)  |  [P4]: Select type  |  [P5]: All-NVMe: all drives are capacity. NVMe+SSD: NVMe is CACHE only.
+[P2]: Capacity Drives per Node  |  [P3]: 4  |  [P4]: Minimum: 2  |  [P5]: Drives per node used for CAPACITY. Min 4 drives or more recommended
+[P2]: Size of Each Capacity Drive (TB)  |  [P3]: 3.84  |  [P4]: e.g. 1.6, 3.2, 7.68  |  [P5]: Vendor-advertised drive size in TB.
+[P2]: Cache Drives per Node (NVMe+SSD only)  |  [P3]: 0  |  [P4]: Only if NVMe+SSD  |  [P5]: NVMe cache drives per node. These do NOT add capacity.
+[P2]: Default Volume Provisioning  |  [P3]: Fixed (Thick)  |  [P4]: Select type  |  [P5]: RECOMMENDED: Fixed. See Thin Provisioning tab for risks.
+[P2]: STEP 2: YOUR AVAILABLE STORAGE (Auto-Calculated)
+[P2]: Total Capacity Drives  |  [P3]: 12  |  [P4]: drives  |  [P5]: Nodes x Capacity Drives (excludes cache)
+[P2]: Cache Drives (if applicable)  |  [P3]: 0  |  [P4]: drives  |  [P5]: Cache drives do NOT count toward capacity.
+[P2]: Total Raw Capacity (Advertised)  |  [P3]: 46.08  |  [P4]: TB  |  [P5]: Capacity Drives x Drive Size.
+[P2]: Usable Capacity per Drive  |  [P3]: 3.5328  |  [P4]: TB  |  [P5]: After NVMe overhead (~8%). See Advanced Settings tab.
+[P2]: Total Usable Pool (Before Reserve)  |  [P3]: 42.3936  |  [P4]: TB  |  [P5]: All capacity drives pooled after overhead.
+[P2]: Reserve (drive failure repair)  |  [P3]: 10.5984  |  [P4]: TB  |  [P5]: 1 drive per node (max 4) for auto-repair.
+[P2]: Infrastructure Volume (Azure Local)  |  [P3]: 0.75  |  [P4]: TB footprint  |  [P5]: System volume created during deployment (~250 GB).
+[P2]: YOUR AVAILABLE CAPACITY FOR VOLUMES  |  [P3]: 31.0452  |  [P4]: TB  |  [P5]: Pool minus reserve minus infra = what you can use.
+[P2]: What Windows Admin Center shows (TiB):  |  [P3]: 30.32  |  [P4]: TiB (approx)  |  [P5]: Windows uses TiB (binary). 1 TB = ~0.909 TiB. Numbers WILL differ.
+[P2]: STEP 3: CLUSTER COMPUTE HARDWARE
+[P2]: Physical CPU Cores per Node  |  [P3]: 32  |  [P4]: cores  |  [P5]: Physical cores per server (check CPU spec).
+[P2]: Hyperthreading (SMT) Enabled?  |  [P3]: Yes  |  [P4]: Yes/No  |  [P5]: If Yes, logical cores = physical × 2.
+[P2]: RAM per Node (GB)  |  [P3]: 256  |  [P4]: GB  |  [P5]: Total physical RAM per node.
+[P2]: Host OS / Management Reserved RAM (GB)  |  [P3]: 32  |  [P4]: GB  |  [P5]: Reserved for Hyper-V host OS, agents, S2D. Typical: 16-32 GB.
+[P2]: COMPUTE CAPACITY (Auto-Calculated)
+[P2]: Logical vCPU per Node  |  [P3]: 64  |  [P4]: vCPU  |  [P5]: Logical cores available per node for VMs.
+[P2]: Usable RAM per Node (GB)  |  [P3]: 224  |  [P4]: GB  |  [P5]: RAM minus host OS reservation.
+[P2]: Total Cluster vCPU (all nodes)  |  [P3]: 192  |  [P4]: vCPU  |  [P5]: All nodes combined.
+[P2]: Total Cluster Usable RAM (all nodes)  |  [P3]: 672  |  [P4]: GB  |  [P5]: All usable RAM across cluster.
+[P2]: N+1 Available vCPU (1 node down)  |  [P3]: 128  |  [P4]: vCPU  |  [P5]: With 1 node down for maintenance/failover.
+[P2]: N+1 Available RAM (1 node down)  |  [P3]: 448  |  [P4]: GB  |  [P5]: RAM capacity with 1 node down.
+[P2]: RESILIENCY REFERENCE
+[P2]: Type  |  [P3]: Efficiency  |  [P4]: Min Nodes  |  [P5]: Fault Tolerance
+[P2]: Two-Way Mirror  |  [P3]: 50.0%  |  [P4]: 2  |  [P5]: 1 failure
+[P2]: Three-Way Mirror  |  [P3]: 33.3%  |  [P4]: 3  |  [P5]: 2 failures
+[P2]: Dual Parity (4-6)  |  [P3]: 50.0%  |  [P4]: 4  |  [P5]: 2 failures
+[P2]: Dual Parity (7-8)  |  [P3]: 66.7%  |  [P4]: 7  |  [P5]: 2 failures
+[P2]: Dual Parity (9-15 flash)  |  [P3]: 75.0%  |  [P4]: 9  |  [P5]: 2 failures
+[P2]: Dual Parity (16 flash)  |  [P3]: 80.0%  |  [P4]: 16  |  [P5]: 2 failures
+[P2]: Nested Two-Way  |  [P3]: 25.0%  |  [P4]: 2  |  [P5]: 1 server+1 drive
+
+
+========================================
+SHEET: Workload Planner
+========================================
+Rows: 161
+[P2]: SCENARIO-BASED WORKLOAD PLANNER
+[P2]: Plan storage by workload type — AVD, AKS, Infrastructure, Dev/Test, and more
+[P2]: AVAILABLE POOL CAPACITY:  |  [P3]: 31.0452  |  [P4]: TB  |  [P5]: 31.0452
+[P2]: SCENARIO 1: AVD DEPLOYMENT
+[P2]: Enable AVD scenario?  |  [P3]: No  |  [P6]: Linked from AVD Planning tab.
+[P2]: ➡ All AVD inputs have moved to the AVD Planning tab.  |  [P6]: Click AVD Planning tab for all session host, profile, and compute inputs.
+[P2]: Number of AVD session host VMs  |  [P3]: 32  |  [P4]: VMs
+[P2]: OS disk per host (GB)  |  [P3]: 127  |  [P4]: GB
+[P2]: Data/temp disk per host (GB)  |  [P3]: 50  |  [P4]: GB
+[P2]: Host resiliency type  |  [P3]: Two-Way Mirror  |  [P4]: 50% eff.
+[P2]: Session host volume (logical)  |  [P3]: 0  |  [P4]: TB
+[P2]: Session host footprint in pool  |  [P3]: 0  |  [P4]: TB
+[P2]:   FSLogix Profiles — Summary
+[P2]: Profile storage location  |  [P3]: S2D Volume (local)
+[P2]: Total AVD users  |  [P3]: 1300  |  [P4]: users
+[P2]: Concurrent users  |  [P3]: 300  |  [P4]: users
+[P2]: Profile size per user (GB)  |  [P3]: 5  |  [P4]: GB
+[P2]: Growth buffer  |  [P3]: 0.3  |  [P4]: overhead
+[P2]: Profile resiliency type  |  [P3]: Three-Way Mirror  |  [P4]: 33% eff.
+[P2]: Profile volume (logical)  |  [P3]: 0  |  [P4]: TB
+[P2]: Profile footprint in pool  |  [P3]: 0  |  [P4]: TB
+[P2]: AVD TOTAL FOOTPRINT  |  [P3]: 0  |  [P4]: TB
+[P2]:   AVD Compute Summary
+[P2]: vCPU per session host  |  [P3]: 8  |  [P4]: vCPU
+[P2]: RAM per session host (GB)  |  [P3]: 32  |  [P4]: GB
+[P2]: vCPU overcommit ratio  |  [P3]: 4:1  |  [P4]: ratio
+[P2]: vCPU per user  |  [P3]: 2  |  [P4]: vCPU
+[P2]: RAM per user (GB)  |  [P3]: 4  |  [P4]: GB
+[P2]: Users per session host (max)  |  [P3]: 0  |  [P4]: users/host
+[P2]: Session hosts needed  |  [P3]: 0  |  [P4]: VMs
+[P2]: Session host VM check
+[P2]: Total AVD vCPU demand  |  [P3]: 0  |  [P4]: vCPU
+[P2]: Total AVD RAM demand (GB)  |  [P3]: 0  |  [P4]: GB
+[P2]: Effective vCPU (with overcommit)  |  [P3]: 0  |  [P4]: vCPU
+[P2]: SCENARIO 2: AKS ON AZURE LOCAL
+[P2]: Enable AKS scenario?  |  [P3]: No  |  [P6]: Set to No to skip this scenario.
+[P2]:   AKS Cluster VMs
+[P2]: Number of AKS clusters  |  [P3]: 1  |  [P4]: clusters  |  [P6]: AKS Arc clusters on this Azure Local instance.
+[P2]: Control plane nodes (total across clusters)  |  [P3]: 1  |  [P4]: nodes  |  [P6]: Typically 1 or 3 per cluster (HA = 3).
+[P2]: Worker nodes (total across clusters)  |  [P3]: 3  |  [P4]: nodes  |  [P6]: All worker nodes across all node pools.
+[P2]: OS disk per node (GB)  |  [P3]: 200  |  [P4]: GB  |  [P6]: Default: 200 GB (Azure Local 2509+).
+[P2]:   Persistent Volumes & Data Services
+[P2]: Persistent volume storage estimate (TB)  |  [P3]: 0  |  [P4]: TB  |  [P6]: Total PVC storage for apps. Varies by workload.
+[P2]: Data services storage estimate (TB)  |  [P3]: 0  |  [P4]: TB  |  [P6]: SQL MI, PostgreSQL, etc. via Arc Data Services.
+[P2]: AKS resiliency type  |  [P3]: Three-Way Mirror  |  [P4]: 33% eff.
+[P2]: AKS volume (logical)  |  [P3]: 0  |  [P4]: TB
+[P2]: AKS TOTAL FOOTPRINT  |  [P3]: 0  |  [P4]: TB  |  [P6]: Node VMs + PVs + Data Services combined.
+[P2]:   AKS Compute Planning
+[P2]: vCPU per control plane node  |  [P3]: 4  |  [P4]: vCPU  |  [P6]: Default AKS control plane: 4 vCPU.
+[P2]: RAM per control plane node (GB)  |  [P3]: 16  |  [P4]: GB  |  [P6]: Default AKS control plane: 16 GB.
+[P2]: vCPU per worker node  |  [P3]: 8  |  [P4]: vCPU  |  [P6]: Size based on workload. Typical: 4-16 vCPU.
+[P2]: RAM per worker node (GB)  |  [P3]: 32  |  [P4]: GB  |  [P6]: Size based on workload. Typical: 16-64 GB.
+[P2]: vCPU overcommit ratio  |  [P3]: 4:1  |  [P4]: ratio  |  [P6]: vCPU overcommit. 1:1 = no overcommit. 4:1 = standard.
+[P2]: Total AKS vCPU demand  |  [P3]: 0  |  [P4]: vCPU  |  [P6]: Control plane + worker node vCPU.
+[P2]: Effective AKS vCPU (with overcommit)  |  [P3]: 0  |  [P4]: vCPU  |  [P6]: Physical cores needed after vCPU overcommit.
+[P2]: SCENARIO 3: INFRASTRUCTURE VMs
+[P2]: Enable Infrastructure VMs?  |  [P3]: No  |  [P6]: DCs, SQL, file servers, management VMs, etc.
+[P2]: Number of infrastructure VMs  |  [P3]: 0  |  [P4]: VMs  |  [P6]: Total infra VMs (all roles combined).
+[P2]: Average total disk per VM (GB)  |  [P3]: 200  |  [P4]: GB  |  [P6]: OS + data disks combined. Typical: 150-300 GB.
+[P2]: Infrastructure resiliency type  |  [P3]: Three-Way Mirror  |  [P4]: 33% eff.
+[P2]: Infra volume (logical)  |  [P3]: 0  |  [P4]: TB
+[P2]: INFRA TOTAL FOOTPRINT  |  [P3]: 0  |  [P4]: TB  |  [P6]: Logical / efficiency = pool space consumed.
+[P2]:   Infrastructure Compute Planning
+[P2]: Average vCPU per VM  |  [P3]: 4  |  [P4]: vCPU  |  [P6]: Average across all infrastructure VMs.
+[P2]: Average RAM per VM (GB)  |  [P3]: 16  |  [P4]: GB  |  [P6]: Average RAM per infra VM.
+[P2]: vCPU overcommit ratio  |  [P3]: 4:1  |  [P4]: ratio  |  [P6]: vCPU overcommit. 1:1 = no overcommit. 4:1 = standard.
+[P2]: Total Infra vCPU demand  |  [P3]: 0  |  [P4]: vCPU  |  [P6]: VMs × vCPU per VM.
+[P2]: Effective Infra vCPU (with overcommit)  |  [P3]: 0  |  [P4]: vCPU  |  [P6]: Physical cores needed after vCPU overcommit.
+[P2]: SCENARIO 4: DEV/TEST VMs
+[P2]: Enable Dev/Test?  |  [P3]: No  |  [P6]: Set to No to skip this scenario.
+[P2]: Number of dev/test VMs  |  [P3]: 0  |  [P4]: VMs
+[P2]: Average total disk per VM (GB)  |  [P3]: 120  |  [P4]: GB
+[P2]: Dev/Test resiliency type  |  [P3]: Two-Way Mirror  |  [P4]: 50% eff.
+[P2]: Dev/Test volume (logical)  |  [P3]: 0  |  [P4]: TB
+[P2]: DEV/TEST TOTAL FOOTPRINT  |  [P3]: 0  |  [P4]: TB
+[P2]:   Dev/Test Compute Planning
+[P2]: Average vCPU per VM  |  [P3]: 2  |  [P4]: vCPU  |  [P6]: Average across all dev/test VMs.
+[P2]: Average RAM per VM (GB)  |  [P3]: 8  |  [P4]: GB  |  [P6]: Average RAM per dev/test VM.
+[P2]: vCPU overcommit ratio  |  [P3]: 4:1  |  [P4]: ratio  |  [P6]: vCPU overcommit. 1:1 = no overcommit. 4:1 = standard.
+[P2]: Total Dev/Test vCPU demand  |  [P3]: 0  |  [P4]: vCPU  |  [P6]: VMs × vCPU per VM.
+[P2]: Effective Dev/Test vCPU (with overcommit)  |  [P3]: 0  |  [P4]: vCPU  |  [P6]: Physical cores needed after vCPU overcommit.
+[P2]: SCENARIO 5: BACKUP / ARCHIVE
+[P2]: Enable Backup/Archive?  |  [P3]: No  |  [P6]: Set to No to skip this scenario.
+[P2]: Backup volume size (TB)  |  [P3]: 3  |  [P4]: TB
+[P2]: Backup resiliency type  |  [P3]: Dual Parity  |  [P4]: 50% eff.
+[P2]: Backup volume (logical)  |  [P3]: 0  |  [P4]: TB
+[P2]: BACKUP TOTAL FOOTPRINT  |  [P3]: 0  |  [P4]: TB
+[P2]: SCENARIO 6: CUSTOM (Optional)
+[P2]: Enable Custom?  |  [P3]: No  |  [P6]: Set to No to skip this scenario.
+[P2]: Exact volume size (TB)  |  [P3]: 0  |  [P4]: TB  |  [P6]: Any other volume not covered above.
+[P2]: Custom resiliency type  |  [P3]: Three-Way Mirror  |  [P4]: 33% eff.
+[P2]: Custom volume (logical)  |  [P3]: 0  |  [P4]: TB
+[P2]: CUSTOM TOTAL FOOTPRINT  |  [P3]: 0  |  [P4]: TB
+[P2]: CAPACITY SUMMARY
+[P2]: Available Pool Capacity  |  [P3]: 31.0452  |  [P4]: TB  |  [P6]: Total pool capacity for volumes.
+[P2]: S1: AVD Session Hosts — Footprint  |  [P3]: 0  |  [P4]: TB
+[P2]: S1: AVD FSLogix Profiles — Footprint  |  [P3]: 0  |  [P4]: TB
+[P2]: S2: AKS on Azure Local — Footprint  |  [P3]: 0  |  [P4]: TB
+[P2]: S3: Infrastructure VMs — Footprint  |  [P3]: 0  |  [P4]: TB
+[P2]: S4: Dev/Test VMs — Footprint  |  [P3]: 0  |  [P4]: TB
+[P2]: S5: Backup/Archive — Footprint  |  [P3]: 0  |  [P4]: TB
+[P2]: S6: Custom — Footprint  |  [P3]: 0  |  [P4]: TB
+[P2]: SOFS VM Volumes — Footprint  |  [P3]: 0  |  [P4]: TB
+[P2]: TOTAL PHYSICAL FOOTPRINT  |  [P3]: 0  |  [P4]: TB  |  [P6]: Must be LESS than available pool.
+[P2]: TOTAL USABLE VOLUME CAPACITY  |  [P3]: 0  |  [P4]: TB  |  [P6]: Logical capacity you get to use.
+[P2]: Volume Count  |  [P3]: 0  |  [P4]: volumes  |  [P6]: Volume count is multiple of node count.
+[P2]: REMAINING POOL CAPACITY  |  [P3]: 31.0452  |  [P4]: TB  |  [P6]: Healthy.
+[P2]: Pool Utilization  |  [P3]: 0
+[P2]: COMPUTE SUMMARY
+[P2]: Cluster Total vCPU  |  [P3]: 192  |  [P4]: vCPU  |  [P6]: Total logical vCPU across all nodes.
+[P2]: Cluster Total Usable RAM  |  [P3]: 672  |  [P4]: GB  |  [P6]: Total usable RAM (after host OS reserve).
+[P3]: Raw vCPU  |  [P4]: RAM (GB)  |  [P5]: Eff. vCPU
+[P2]: S1: AVD — vCPU demand  |  [P3]: 0  |  [P4]: 0  |  [P5]: 0  |  [P6]: Eff. vCPU (with overcommit) | RAM (GB)
+[P2]: S2: AKS — vCPU demand  |  [P3]: 0  |  [P4]: 0  |  [P5]: 0  |  [P6]: Eff. vCPU (with overcommit) | RAM (GB)
+[P2]: S3: Infrastructure — vCPU demand  |  [P3]: 0  |  [P4]: 0  |  [P5]: 0  |  [P6]: Eff. vCPU (with overcommit) | RAM (GB)
+[P2]: S4: Dev/Test — vCPU demand  |  [P3]: 0  |  [P4]: 0  |  [P5]: 0  |  [P6]: Eff. vCPU (with overcommit) | RAM (GB)
+[P2]: SOFS VMs — vCPU demand  |  [P3]: 0  |  [P4]: 0  |  [P5]: 0  |  [P6]: 1:1 overcommit — SOFS VMs are not overcommitted
+[P2]: TOTAL vCPU DEMAND  |  [P3]: 0  |  [P4]: vCPU  |  [P6]: Must be LESS than cluster vCPU.
+[P2]: TOTAL EFFECTIVE vCPU (with overcommit)  |  [P3]: 0  |  [P4]: vCPU  |  [P6]: Must be LESS than cluster vCPU (with overcommit applied).
+[P2]: TOTAL RAM DEMAND  |  [P3]: 0  |  [P4]: GB  |  [P6]: Must be LESS than cluster RAM.
+[P2]: REMAINING vCPU  |  [P3]: 192  |  [P4]: vCPU  |  [P6]: Healthy.
+[P2]: REMAINING RAM  |  [P3]: 672  |  [P4]: GB  |  [P6]: Healthy.
+[P2]: N+1 FAILOVER CHECK (1 node in maintenance)
+[P2]: N+1 vCPU available  |  [P3]: 128  |  [P4]: vCPU
+[P2]: N+1 RAM available  |  [P3]: 448  |  [P4]: GB
+[P2]: N+1 vCPU fit  |  [P3]: ✓ PASS — 0 of 128 vCPU (0%)
+[P2]: N+1 RAM fit  |  [P3]: ✓ PASS — 0 of 448 GB (0%)
+[P2]: vCPU OVERCOMMIT SENSITIVITY (ALL SCENARIOS)
+[P2]: Overcommit Ratio  |  [P3]: AVD Eff. vCPU  |  [P4]: Total Eff. vCPU  |  [P5]: Fit (All)  |  [P6]: Fit (N+1)
+[P2]: 1:1 (no overcommit)  |  [P3]: 0  |  [P4]: 0  |  [P5]: ✓ PASS  |  [P6]: ✓ PASS
+[P2]: 2:1  |  [P3]: 0  |  [P4]: 0  |  [P5]: ✓ PASS  |  [P6]: ✓ PASS
+[P2]: 3:1  |  [P3]: 0  |  [P4]: 0  |  [P5]: ✓ PASS  |  [P6]: ✓ PASS
+[P2]: 4:1  |  [P3]: 0  |  [P4]: 0  |  [P5]: ✓ PASS  |  [P6]: ✓ PASS
+[P2]: Note: Hyper-V supports vCPU overcommit (standard for AVD). Memory is NOT overcommitted — Hyper-V physically reserves full RAM per VM.
+
+
+========================================
+SHEET: AVD Planning
+========================================
+Rows: 114
+[P2]: AVD PLANNING — SINGLE SOURCE FOR ALL AVD CONFIGURATION
+[P2]: All AVD inputs are entered here. Workload Planner, Compute Report, Final Report, Volume Detail, and SOFS Planner all pull from this tab.
+[P2]: SECTION 1: AVD SCENARIO INPUTS
+[P2]: Enable AVD scenario?  |  [P3]: No  |  [P6]: Set to No to skip AVD entirely. All downstream tabs respect this flag.
+[P2]:   Session Hosts — Storage
+[P2]: Number of AVD session host VMs  |  [P3]: 32  |  [P4]: VMs  |  [P6]: Total session host VMs across all host pools.
+[P2]: OS disk per host (GB)  |  [P3]: 127  |  [P4]: GB  |  [P6]: Typical: 127 GB (Windows 11 multi-session).
+[P2]: Data/temp disk per host (GB)  |  [P3]: 50  |  [P4]: GB  |  [P6]: Additional data disks. Set to 0 if none.
+[P2]: Host resiliency type  |  [P3]: Two-Way Mirror  |  [P4]: 50% eff.  |  [P6]: Note: 3-node cluster default = Three-Way Mirror
+[P2]: Session host volume (logical)  |  [P3]: 0  |  [P4]: TB
+[P2]: Session host footprint in pool  |  [P3]: 0  |  [P4]: TB  |  [P6]: Logical / efficiency = pool space consumed.
+[P2]:   FSLogix Profiles — Storage
+[P2]: Profile storage location  |  [P3]: S2D Volume (local)  |  [P6]: S2D = local cluster volume. SOFS = dedicated file server (see SOFS Planner). External/Azure = 0 pool footprint.
+[P2]: Total AVD users  |  [P3]: 1300  |  [P4]: users  |  [P6]: All users who have a profile container.
+[P2]: Concurrent (connected) users  |  [P3]: 300  |  [P4]: users  |  [P6]: Peak concurrent sessions.
+[P2]: Profile container size per user (GB)  |  [P3]: 5  |  [P4]: GB  |  [P6]: Start at 5 GB if unknown. Measure after 30 days. See Section 3 estimator below.
+[P2]: Growth buffer (%)  |  [P3]: 0.3  |  [P4]: overhead  |  [P6]: Buffer for growth. 20-50% recommended.
+[P2]: Profile resiliency type  |  [P3]: Three-Way Mirror  |  [P4]: 33% eff.
+[P2]: Profile volume (logical)  |  [P3]: 0  |  [P4]: TB
+[P2]: Profile footprint in pool  |  [P3]: 0  |  [P4]: TB  |  [P6]: If profiles on external/cloud storage, footprint = 0 in pool.
+[P2]: AVD TOTAL STORAGE FOOTPRINT  |  [P3]: 0  |  [P4]: TB
+[P2]:   AVD Compute Planning
+[P2]: vCPU per session host VM  |  [P3]: 8  |  [P4]: vCPU  |  [P6]: Typical: 4-8 vCPU per session host. Size per VM SKU.
+[P2]: RAM per session host VM (GB)  |  [P3]: 32  |  [P4]: GB  |  [P6]: Typical: 16-32 GB per session host VM.
+[P2]: vCPU overcommit ratio  |  [P3]: 4:1  |  [P4]: ratio  |  [P6]: vCPU overcommit. 1:1 = no overcommit. 4:1 = 4 vCPU share 1 physical core. Hyper-V supports vCPU overcommit; memory cannot be overcommitted.
+[P2]: vCPU per user  |  [P3]: 2  |  [P4]: vCPU  |  [P6]: Allocation per concurrent user. Light=1, Medium=2, Power=4.
+[P2]: RAM per user (GB)  |  [P3]: 4  |  [P4]: GB  |  [P6]: Physical RAM per user. Light=2, Medium=4, Power=8 GB.
+[P2]: Users per session host (max)  |  [P3]: 0  |  [P4]: users/host  |  [P6]: Min of vCPU and RAM constraints per host.
+[P2]: Session hosts needed (for concurrent users)  |  [P3]: 0  |  [P4]: VMs  |  [P6]: Concurrent users ÷ users per host (rounded up).
+[P2]: Session host VM check
+[P2]: Total AVD vCPU demand  |  [P3]: 0  |  [P4]: vCPU  |  [P6]: Session host VMs × vCPU per host.
+[P2]: Total AVD RAM demand (GB)  |  [P3]: 0  |  [P4]: GB  |  [P6]: Total physical RAM needed. Hyper-V reserves full RAM per VM (no overcommit).
+[P2]: Effective vCPU (with overcommit)  |  [P3]: 0  |  [P4]: vCPU  |  [P6]: Physical cores needed after vCPU overcommit ratio applied.
+[P2]:   AVD Compute Fit Check
+[P2]: vCPU fit (all nodes, with overcommit)  |  [P6]: AVD effective vCPU (after overcommit) vs total cluster vCPU.
+[P2]: RAM fit (all nodes)  |  [P6]: AVD total RAM vs cluster RAM. Full reservation required (no overcommit).
+[P2]: N+1 vCPU fit (with overcommit)  |  [P6]: Effective vCPU with 1 node down (patching/failover).
+[P2]: N+1 RAM fit (1 node down)  |  [P6]: RAM with 1 node down. Full reservation (no overcommit).
+[P2]: SECTION 2: SESSION HOST DENSITY MATRIX
+[P2]: Shows maximum users per host at different vCPU/user ratios, using your inputs above.
+[P2]: Effective vCPU per host (after overcommit)  |  [P3]: 32  |  [P4]: vCPU
+[P2]: Max Users Per Host  |  [P3]: CPU-limited  |  [P4]: RAM-limited  |  [P5]: Binding Constraint
+[P2]: At your current settings  |  [P3]: 16  |  [P4]: 8  |  [P5]: RAM
+[P2]: Sensitivity: vCPU / User →  |  [P3]: 2  |  [P4]: 4  |  [P5]: 6  |  [P6]: 8
+[P2]: Max users (CPU-limited)  |  [P3]: 16  |  [P4]: 8  |  [P5]: 5  |  [P6]: 4
+[P2]: Max users (RAM-limited @ your RAM/user)  |  [P3]: 8  |  [P4]: 8  |  [P5]: 8  |  [P6]: 8
+[P2]: Effective max (lower of CPU/RAM)  |  [P3]: 8  |  [P4]: 8  |  [P5]: 5  |  [P6]: 4
+[P2]: SECTION 3: HOST POOL SCALE-OUT
+[P2]: How many session hosts you need for your concurrent user target.
+[P2]: Pool Planning  |  [P3]: Value  |  [P4]: Notes
+[P2]: Total registered users  |  [P3]: 1300  |  [P4]: From inputs above
+[P2]: Concurrent users (peak)  |  [P3]: 300  |  [P4]: From inputs above
+[P2]: Concurrency ratio  |  [P3]: 0.230769230769231  |  [P4]: = concurrent ÷ registered
+[P2]: Users per host (at your settings)  |  [P3]: 0  |  [P4]: From Section 2 matrix
+[P2]: Session hosts needed (concurrent)  |  [P3]: 0  |  [P4]: = ⌈ concurrent ÷ users/host ⌉
+[P2]: +1 host for N+1 redundancy  |  [P3]: 1  |  [P4]: Best practice: N+1 per pool
+[P2]: Matches configured VM count?  |  [P3]: ✅ Yes (≤32 VMs)  |  [P4]: vs configured VMs (C9)
+[P2]: SECTION 4: FSLOGIX PROFILE STORAGE ESTIMATOR
+[P2]: Estimates total profile volume size based on user type mix. Adjust the mix to model your environment. Compare with your input in Section 1 (C20).
+[P2]: User Type  |  [P3]: Profile Size (GB)  |  [P4]: % of Users  |  [P5]: User Count  |  [P6]: Total (TB)
+[P2]: Task Worker (Office web apps, basic)  |  [P3]: 2  |  [P4]: 0.3  |  [P5]: 390  |  [P6]: 0.76
+[P2]: Knowledge Worker (full Office, Teams)  |  [P3]: 5  |  [P4]: 0.5  |  [P5]: 650  |  [P6]: 3.17
+[P2]: Power User (CAD, dev tools, large cache)  |  [P3]: 15  |  [P4]: 0.2  |  [P5]: 260  |  [P6]: 3.81
+[P2]: Mix total  |  [P4]: 1  |  [P5]: 1300  |  [P6]: 7.74
+[P2]: Weighted avg profile size (GB)  |  [P3]: 6.1  |  [P4]: ⚠️ Your input uses 5 GB
+[P2]: Profile volume comparison  |  [P3]: This estimator  |  [P4]: Your input (C20)
+[P2]: Total profile storage (TB)  |  [P3]: 7.74  |  [P4]: 0
+[P2]: SECTION 5: NETWORK BANDWIDTH ESTIMATOR
+[P2]: Estimates peak network bandwidth for AVD sessions. Microsoft recommends 1.5 Mbps per single-monitor session, 3+ Mbps for multi-monitor.
+[P2]: Bandwidth Planning  |  [P3]: Value  |  [P4]: Notes
+[P2]: Bandwidth per session (Mbps)  |  [P3]: 3  |  [P4]: ← Adjust: 1.5 (single monitor) to 8+ (4K multi)
+[P2]: Concurrent sessions  |  [P3]: 300
+[P2]: Peak bandwidth needed (Mbps)  |  [P3]: 900  |  [P4]: 0.9 Gbps
+[P2]: Per-node bandwidth (Mbps)  |  [P3]: 300  |  [P4]: ✅ Within 1 GbE per node
+[P2]: SECTION 6: GOLD IMAGE SIZING REFERENCE
+[P2]: Typical OS disk sizes for session hosts. Your values are set in Section 1 above.
+[P2]: Component  |  [P3]: Your Value (GB)  |  [P4]: Typical Range
+[P2]: OS disk (Windows + updates)  |  [P3]: 127  |  [P4]: 80 – 127 GB
+[P2]: Data disk (apps, temp, pagefile)  |  [P3]: 50  |  [P4]: 0 – 100 GB
+[P2]: Total per VM  |  [P3]: 177  |  [P4]: 80 – 227 GB
+[P2]: 💡 Tip: Use VHDX deduplication or shared image galleries to reduce per-host OS footprint when running identical gold images.
+[P2]: SECTION 7: AVD READINESS CHECKLIST
+[P2]: Automated checks against your inputs and Hardware Inputs settings.
+[P2]: Check  |  [P3]: Status  |  [P4]: Detail
+[P2]: Enough VMs for concurrent users?  |  [P3]: ✅ PASS  |  [P4]: Need 1 hosts, have 32 configured
+[P2]: User mix % totals 100%?  |  [P3]: ✅ PASS  |  [P4]: Task 30% + Knowledge 50% + Power 20%
+[P2]: Profile storage location set?  |  [P3]: ✅ S2D Volume (local)  |  [P4]: Profiles on cluster storage
+[P2]: Network bandwidth per node < 10 GbE?  |  [P3]: ✅ PASS  |  [P4]: 300 Mbps per node (0.3 Gbps)
+[P2]: Weighted profile size ≈ input setting?  |  [P3]: ✅ PASS  |  [P4]: Weighted avg: 6.1 GB vs input: 5 GB
+[P2]: vCPU fit (all nodes, with overcommit)?  |  [P3]: ✅ PASS  |  [P4]: 0 of 192 vCPU (0%)
+[P2]: RAM fit (all nodes)?  |  [P3]: ✅ PASS  |  [P4]: 0 of 672 GB (0%)
+
+
+========================================
+SHEET: SOFS Planner
+========================================
+Rows: 93
+[P2]: SOFS Planner — Separate File Server Cluster for FSLogix Profiles
+[P2]: Sizes a dedicated SOFS cluster (separate from compute cluster) for hosting FSLogix profile containers via CA SMB shares backed by S2D.
+[P2]: SECTION 1: SOFS SCENARIO INPUTS
+[P2]: Enable SOFS scenario?  |  [P3]: No  |  [P6]: Set to No to skip SOFS entirely. All downstream tabs respect this flag.
+[P2]: SOFS CLUSTER HARDWARE
+[P2]: SOFS node count  |  [P3]: 3  |  [P4]: nodes  |  [P6]: Minimum 2 nodes for SOFS + cloud witness. Microsoft supported production model.
+[P2]: Drives per SOFS node  |  [P3]: 4  |  [P4]: drives  |  [P6]: NVMe or SSD recommended for FSLogix IOPS. Same count per node required.
+[P2]: Drive capacity (each)  |  [P3]: 0  |  [P4]: TB  |  [P6]: Auto-calculated from profile demand. Drive size = pool needed ÷ (nodes × drives × resiliency eff × cap eff - 1 drive reserve).
+[P2]: SOFS STORAGE POOL
+[P2]: Resiliency type  |  [P6]: Linked from AVD Planning C22. Change profile resiliency there.
+[P2]: Capacity efficiency factor  |  [P3]: 0.92  |  [P6]: S2D filesystem overhead. Default 92% (same as compute cluster).
+[P2]: Profile container type  |  [P3]: Single  |  [P6]: Single = 1 VHD per user (profile+Office combined). Split = 3 VHDs per user (profile + Office/ODFC + other). Split triples IOPS and volume count.
+[P2]: SOFS volume resiliency on main cluster  |  [P3]: Two-Way Mirror  |  [P6]: Resiliency for the SOFS VM storage volumes on the Azure Local compute cluster. Independent from SOFS internal resiliency.
+[P2]: Total raw capacity  |  [P3]: 0  |  [P4]: TB  |  [P6]: Nodes × drives/node × drive size.
+[P2]: Resiliency efficiency  |  [P3]: 0  |  [P6]: Data fraction after mirror/parity overhead.
+[P2]: Usable capacity (after resiliency + overhead)  |  [P3]: 0  |  [P4]: TB  |  [P6]: Raw × resiliency efficiency × capacity efficiency factor.
+[P2]: Drive reserve (largest drive capacity)  |  [P3]: 0  |  [P4]: TB  |  [P6]: S2D reserves capacity of largest drive for rebuild. Deducted from raw.
+[P2]: Available for volumes  |  [P3]: 0  |  [P4]: TB  |  [P6]: Usable minus drive reserve. This is what you can allocate to FSLogix volumes.
+[P2]: FSLOGIX PROFILE DEMAND
+[P2]: Profile storage location (from WP)  |  [P6]: Linked from Workload Planner C17. SOFS tab relevant when NOT "S2D Volume (local)".
+[P2]: Total AVD users  |  [P3]: 0  |  [P4]: users  |  [P6]: Linked from Workload Planner.
+[P2]: Profile size per user  |  [P3]: 0  |  [P4]: GB
+[P2]: Growth buffer  |  [P3]: 0
+[P2]: Profile logical demand  |  [P3]: 0  |  [P4]: TB  |  [P6]: Users × profile size × (1 + growth buffer) / 1024.
+[P2]: Profile footprint on SOFS (after resiliency)  |  [P3]: 0  |  [P4]: TB  |  [P6]: Logical demand ÷ resiliency efficiency. This is the actual pool space consumed.
+[P2]: Remaining SOFS capacity after profiles  |  [P3]: 0  |  [P4]: TB  |  [P6]: Available minus footprint. Negative = need more drives/nodes.
+[P2]: Capacity utilization  |  [P3]: 0  |  [P6]: Keep under 80% for S2D performance headroom.
+[P2]: IOPS ESTIMATE
+[P2]: Steady-state IOPS per user  |  [P3]: 10  |  [P4]: IOPS  |  [P6]: Typical FSLogix steady state: ~10 IOPS per active session.
+[P2]: Login/logoff storm IOPS per user  |  [P3]: 50  |  [P4]: IOPS  |  [P6]: Peak during login/logoff: ~50 IOPS per user (VHD mount/dismount).
+[P2]: Concurrent users  |  [P3]: 0  |  [P4]: users
+[P2]: Login storm % (simultaneous logins)  |  [P3]: 0.2  |  [P6]: % of users logging in simultaneously during peak (e.g., 9 AM). 10-30% typical.
+[P2]: Steady-state total IOPS  |  [P3]: 0  |  [P4]: IOPS
+[P2]: Peak storm IOPS  |  [P3]: 0  |  [P4]: IOPS  |  [P6]: Steady users × steady IOPS + storm users × storm IOPS. Plan storage to handle this.
+[P2]: SOFS VM COMPUTE (on main cluster)
+[P2]: vCPU per SOFS VM  |  [P3]: 8  |  [P4]: vCPU  |  [P6]: Typical SOFS VM: 4-8 vCPU. Depends on concurrent SMB sessions.
+[P2]: RAM per SOFS VM  |  [P3]: 16  |  [P4]: GB  |  [P6]: Typical SOFS VM: 8-16 GB. More for large concurrent profile mounts.
+[P2]: SOFS VM count  |  [P3]: 0  |  [P4]: VMs  |  [P6]: Equals SOFS node count. Each node = 1 VM on the Azure Local cluster.
+[P2]: Total SOFS vCPU demand  |  [P3]: 0  |  [P4]: vCPU  |  [P6]: Total vCPU consumed on main cluster by SOFS VMs.
+[P2]: Total SOFS RAM demand  |  [P3]: 0  |  [P4]: GB  |  [P6]: Total RAM consumed on main cluster by SOFS VMs.
+[P2]: SOFS READINESS CHECKLIST
+[P2]: Capacity: SOFS can hold all profiles?  |  [P3]: N/A  |  [P6]: Available capacity >= profile footprint.
+[P2]: Utilization: Under 80% threshold?  |  [P3]: N/A  |  [P6]: S2D performance degrades above 80% utilization.
+[P2]: Node count: Matches resiliency type?  |  [P3]: N/A  |  [P6]: 2-Way Mirror = 2+ nodes, 3-Way Mirror = 3+ nodes.
+[P2]: Separate cluster: Not sharing with VM compute?  |  [P3]: N/A  |  [P6]: MS does not support SOFS + VM workloads on same cluster for production.
+[P2]: IMPORTANT NOTES
+[P2]: ⚠️ Microsoft does NOT support running SOFS and VM workloads on the same Azure Local cluster for production.
+[P2]: ✅ Supported: Dedicated SOFS cluster (2+ nodes) with its own S2D pool, serving CA SMB shares for FSLogix profiles.
+[P2]: ℹ️ SOFS exposes continuously available (CA) SMB shares — node failovers are transparent to FSLogix sessions.
+[P2]: ℹ️ FSLogix profile containers default to 30 GB max per VHD(X). Use Redirections.xml to exclude caches (Teams, browser) and keep profiles lean.
+[P2]: ℹ️ For alternative storage options (Azure Files, ANF, NAS), set the profile storage location in Workload Planner and this tab becomes informational.
+
+
+========================================
+SHEET: Volume Detail
+========================================
+Rows: 29
+[P2]: VOLUME DETAIL — DEPLOYMENT REFERENCE
+[P2]: Use this table when creating volumes in Windows Admin Center or PowerShell. Copy volume names and sizes directly.
+[P2]: Volume Name  |  [P3]: Resiliency  |  [P4]: Create Size
+(TB)  |  [P5]: Create Size
+(TiB)*  |  [P6]: Pool Footprint
+(TB)  |  [P7]: Copies  |  [P8]: Efficiency  |  [P9]: Status
+[P2]: AVD-SessionHosts  |  [P3]: Two-Way Mirror  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P7]: 2x  |  [P8]: 0.5  |  [P9]: — Disabled
+[P2]: AVD-Profiles  |  [P3]: Three-Way Mirror  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P7]: 3x  |  [P8]: 0.333333333333333  |  [P9]: — Disabled
+[P2]: AKS-Cluster  |  [P3]: Three-Way Mirror  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P7]: 3x  |  [P8]: 0.333333333333333  |  [P9]: — Disabled
+[P2]: Infra-VMs  |  [P3]: Three-Way Mirror  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P7]: 3x  |  [P8]: 0.333333333333333  |  [P9]: — Disabled
+[P2]: DevTest-VMs  |  [P3]: Two-Way Mirror  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P7]: 2x  |  [P8]: 0.5  |  [P9]: — Disabled
+[P2]: Backup-Archive  |  [P3]: Dual Parity  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P7]: parity  |  [P8]: 0.5  |  [P9]: — Disabled
+[P2]: Custom  |  [P3]: Three-Way Mirror  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P7]: 3x  |  [P8]: 0.333333333333333  |  [P9]: — Disabled
+[P3]: Two-Way Mirror  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P9]: — Disabled
+[P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P9]: — Disabled
+[P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P9]: — Disabled
+[P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P9]: — Disabled
+[P2]: TOTALS  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P9]: 0 of 0 PASS
+[P2]: FIT CHECK
+[P2]: PASS: 0.0% utilized. Healthy headroom for drive failure repair.
+[P2]: * TiB column: What Windows/PowerShell will report. This calculator uses TB (decimal) everywhere else. 1 TB = ~0.909 TiB. Both are correct — different units for the same bytes.
+[P2]: Microsoft recommends volume count as a multiple of your node count (3) for balanced data distribution. Consider splitting large Infrastructure or Dev/Test volumes across 3 equal volumes where practical. AVD profiles and AKS PVs typically require a single volume.
+
+
+========================================
+SHEET: Capacity Report
+========================================
+Rows: 42
+[P2]: S2D CAPACITY REPORT
+[P2]: EXECUTIVE SUMMARY
+[P2]: Cluster Nodes  |  [P3]: 3  |  [P4]: servers
+[P2]: Drive Config  |  [P3]: All-NVMe (No Cache)
+[P2]: Capacity Drives  |  [P3]: 12  |  [P4]: drives
+[P2]: Drive Size  |  [P3]: 3.84  |  [P4]: TB each
+[P2]: Raw Capacity  |  [P3]: 46.08  |  [P4]: TB
+[P2]: After Overhead  |  [P3]: 42.3936  |  [P4]: TB
+[P2]: Pool Reserve  |  [P3]: 10.5984  |  [P4]: TB
+[P2]: Infra Volume  |  [P3]: 0.75  |  [P4]: TB
+[P2]: AVAILABLE POOL  |  [P3]: 31.0452  |  [P4]: TB
+[P2]: WAC Display  |  [P3]: 30.32  |  [P4]: TiB
+[P2]: Workload Footprint  |  [P3]: 0  |  [P4]: TB
+[P2]: Usable Volume Capacity  |  [P3]: 0  |  [P4]: TB
+[P2]: Remaining Free  |  [P3]: 31.0452  |  [P4]: TB
+[P2]: Pool Utilization  |  [P3]: 0
+[P2]: CAPACITY TERMS
+[P2]: Raw Capacity  |  [P3]: Drive label size. Manufacturer's decimal number.
+[P2]: Usable Capacity  |  [P3]: After ~8% overhead (TB-to-TiB + NVMe reserves).
+[P2]: Pool Capacity  |  [P3]: All usable capacity pooled. Excludes cache.
+[P2]: Reserve  |  [P3]: 1 drive/node (max 4) for auto-repair.
+[P2]: Infra Volume  |  [P3]: ~250 GB for Azure Local system metadata.
+[P2]: Available Pool  |  [P3]: Pool - reserve - infra. What you allocate.
+[P2]: Volume Size  |  [P3]: Logical size you request. What OS shows.
+[P2]: Footprint  |  [P3]: Physical pool space. 1TB 3-way mirror = 3TB.
+[P2]: Efficiency  |  [P3]: Usable/footprint. 2-way=50%, 3-way=33%.
+[P2]: TB vs TiB  |  [P3]: Manufacturers=TB. Windows=TiB. 1TB=0.909TiB.
+[P2]: WHY RESERVE IS CRITICAL
+[P2]: Drive fails:  |  [P3]: S2D rebuilds lost data onto other drives. Needs FREE pool space.
+[P2]: No reserve:  |  [P3]: Must wait for replacement drive. Reduced redundancy = risk.
+[P2]: With reserve:  |  [P3]: Rebuild starts IMMEDIATELY. Full resiliency in minutes, not days.
+[P2]: DRIVE SIZING ADVISORY
+[P2]: Cost  |  [P3]: Smaller drives cheaper per TB.
+[P2]: Rebuild Speed  |  [P3]: 3.84 TB rebuilds ~half the time of 7.68 TB.
+[P2]: Parallelism  |  [P3]: More drives = more IOPS. 8 drives/node > 4.
+[P2]: Reserve Cost  |  [P3]: Smaller drive = smaller reserve = more for volumes.
+[P2]: Slots  |  [P3]: Limited NVMe slots per server. Check hardware spec.
+
+
+========================================
+SHEET: Compute Report
+========================================
+Rows: 58
+[P2]: COMPUTE CAPACITY REPORT
+[P2]: All values linked to Hardware Inputs and Workload Planner tabs. Last updated: 04/01/2026 09:30 AM
+[P2]: CLUSTER COMPUTE HARDWARE
+[P2]: Cluster Nodes  |  [P3]: 3  |  [P4]: servers
+[P2]: Physical CPU Cores per Node  |  [P3]: 32  |  [P4]: cores  |  [P6]: Hyperthreading: ON
+[P2]: Logical vCPU per Node  |  [P3]: 64  |  [P4]: vCPU  |  [P6]: Physical cores × 2 (HT)
+[P2]: RAM per Node  |  [P3]: 256  |  [P4]: GB total  |  [P6]: 32 GB reserved for host OS / S2D
+[P2]: Usable RAM per Node  |  [P3]: 224  |  [P4]: GB  |  [P6]: After host OS reservation.
+[P2]: Total Cluster vCPU  |  [P3]: 192  |  [P4]: vCPU  |  [P6]: 3 nodes × 64 vCPU
+[P2]: Total Cluster Usable RAM  |  [P3]: 672  |  [P4]: GB  |  [P6]: 3 nodes × 224 GB
+[P2]: N+1 Available vCPU (1 node down)  |  [P3]: 128  |  [P4]: vCPU  |  [P6]: With 1 of 3 nodes in maintenance or failed.
+[P2]: N+1 Available RAM (1 node down)  |  [P3]: 448  |  [P4]: GB  |  [P6]: Plan workloads to survive this scenario.
+[P2]: COMPUTE DEMAND BY SCENARIO
+[P2]: Scenario  |  [P3]: Status  |  [P4]: vCPU  |  [P5]: RAM (GB)  |  [P6]: Overcommit  |  [P7]: Eff. vCPU
+[P2]: S1: AVD  |  [P3]: — Disabled  |  [P4]: 0  |  [P5]: 0  |  [P6]: 4:1  |  [P7]: 0
+[P2]: S2: AKS on Azure Local  |  [P3]: — Disabled  |  [P4]: 0  |  [P5]: 0  |  [P6]: 4:1  |  [P7]: 0
+[P2]: S3: Infrastructure VMs  |  [P3]: — Disabled  |  [P4]: 0  |  [P5]: 0  |  [P6]: 4:1  |  [P7]: 0
+[P2]: S4: Dev/Test VMs  |  [P3]: — Disabled  |  [P4]: 0  |  [P5]: 0  |  [P6]: 4:1  |  [P7]: 0
+[P2]: SOFS VMs  |  [P3]: Enabled  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0.0423611111111111  |  [P7]: 0
+[P2]: TOTALS  |  [P4]: 0  |  [P5]: 0  |  [P7]: 0
+[P2]: CAPACITY RESULT
+[P2]: REMAINING vCPU  |  [P3]: 192  |  [P4]: vCPU  |  [P6]: Healthy.
+[P2]: vCPU Utilization  |  [P3]: 0  |  [P6]: 0 of 192 vCPU consumed (after overcommit)
+[P2]: REMAINING RAM  |  [P3]: 672  |  [P4]: GB  |  [P6]: Healthy.
+[P2]: RAM Utilization  |  [P3]: 0  |  [P6]: 0 of 672 GB RAM consumed
+[P2]: N+1 FAILOVER ANALYSIS (1 node in maintenance)
+[P2]: Check  |  [P3]: Demand  |  [P4]: Available  |  [P5]: Utilization  |  [P6]: Status  |  [P7]: Headroom
+[P2]: vCPU (all nodes)  |  [P3]: 0  |  [P4]: 192  |  [P5]: 0  |  [P6]: ✓ PASS  |  [P7]: 192
+[P2]: RAM (all nodes)  |  [P3]: 0  |  [P4]: 672  |  [P5]: 0  |  [P6]: ✓ PASS  |  [P7]: 672
+[P2]: N+1 vCPU (1 node down)  |  [P3]: 0  |  [P4]: 128  |  [P5]: 0  |  [P6]: ✓ PASS  |  [P7]: 128
+[P2]: N+1 RAM (1 node down)  |  [P3]: 0  |  [P4]: 448  |  [P5]: 0  |  [P6]: ✓ PASS  |  [P7]: 448
+[P2]: AVD SESSION HOST DETAIL
+[P2]: VM spec: vCPU per host  |  [P3]: 8  |  [P4]: vCPU
+[P2]: VM spec: RAM per host  |  [P3]: 32  |  [P4]: GB
+[P2]: User allocation: vCPU per user  |  [P3]: 2  |  [P4]: vCPU  |  [P6]: Medium user
+[P2]: User allocation: RAM per user  |  [P3]: 4  |  [P4]: GB
+[P2]: Users per session host (max)  |  [P3]: 0  |  [P4]: users/host
+[P2]: Concurrent users to support  |  [P3]: 300  |  [P4]: users
+[P2]: Session hosts NEEDED  |  [P3]: 0  |  [P4]: VMs  |  [P6]: ⌈ 300 users ÷ 0 users/host ⌉
+[P2]: Session hosts CONFIGURED  |  [P3]: 32  |  [P4]: VMs
+[P2]: vCPU OVERCOMMIT SENSITIVITY (ALL SCENARIOS)
+[P2]: Overcommit Ratio  |  [P3]: AVD Eff. vCPU  |  [P4]: Total Eff. vCPU  |  [P5]: Fit (All)  |  [P6]: Fit (N+1)  |  [P7]: Guidance
+[P2]: 1:1 (no overcommit)  |  [P3]: 0  |  [P4]: 0  |  [P5]: ✓ PASS  |  [P6]: ✓ PASS  |  [P7]: No overcommit. Full core per vCPU.
+[P2]: 2:1  |  [P3]: 0  |  [P4]: 0  |  [P5]: ✓ PASS  |  [P6]: ✓ PASS  |  [P7]: Conservative. 2 vCPU per core.
+[P2]: 3:1  |  [P3]: 0  |  [P4]: 0  |  [P5]: ✓ PASS  |  [P6]: ✓ PASS  |  [P7]: Moderate. Knowledge workers.
+[P2]: 4:1  |  [P3]: 0  |  [P4]: 0  |  [P5]: ✓ PASS  |  [P6]: ✓ PASS  |  [P7]: Standard AVD. Task/office workers.
+[P2]: Note: Hyper-V supports vCPU overcommit (standard for AVD). Memory is NOT overcommitted — full RAM reserved per VM.
+
+
+========================================
+SHEET: Final Report
+========================================
+Rows: 159
+[P2]: S2D CAPACITY CALCULATOR — FINAL REPORT
+[P2]: Generated from calculator inputs. All values linked to source tabs. Last updated: 04/01/2026 09:30 AM
+[P2]: SECTION 1: CLUSTER HARDWARE SUMMARY
+[P2]: Cluster Nodes  |  [P3]: 3  |  [P4]: nodes
+[P2]: Drive Configuration  |  [P3]: All-NVMe (No Cache)
+[P2]: Capacity Drives per Node  |  [P3]: 4  |  [P4]: per node
+[P2]: Drive Size (Advertised)  |  [P3]: 3.84  |  [P4]: TB
+[P2]: Total Capacity Drives  |  [P3]: 12  |  [P4]: drives
+[P2]: Total Raw Capacity  |  [P3]: 46.08  |  [P4]: TB
+[P2]: Usable Pool (after ~8% NVMe overhead)  |  [P3]: 42.3936  |  [P4]: TB
+[P2]: Reserve (drive failure repair)  |  [P3]: 10.5984  |  [P4]: TB
+[P2]: Infrastructure Volume  |  [P3]: 0.75  |  [P4]: TB
+[P2]: AVAILABLE CAPACITY FOR VOLUMES  |  [P3]: 31.0452  |  [P4]: TB  |  [P5]: (WAC shows: 28.91 TiB)
+[P2]: SECTION 2: CAPACITY ALLOCATION
+[P2]: Available Pool Capacity  |  [P3]: 31.0452  |  [P4]: TB
+[P2]: Total Physical Footprint (all scenarios)  |  [P3]: 0  |  [P4]: TB
+[P2]: Total Usable Volume Capacity (logical)  |  [P3]: 0  |  [P4]: TB
+[P2]: Volume Count  |  [P3]: 0  |  [P4]: volumes
+[P2]: REMAINING POOL CAPACITY  |  [P3]: 31.0452  |  [P4]: TB
+[P2]: Pool Utilization  |  [P3]: 0
+[P2]: Fit Check  |  [P3]: PASS — Healthy headroom
+[P3]: Used  |  [P4]: Remaining
+[P2]: Pool Capacity  |  [P3]: 0  |  [P4]: 31.0452
+[P2]: SECTION 3: SCENARIO BREAKDOWN
+[P2]: Scenario  |  [P3]: Status  |  [P4]: Resiliency  |  [P5]: Logical (TB)  |  [P6]: Efficiency  |  [P7]: Footprint (TB)
+[P2]: S1: AVD Session Hosts  |  [P3]: — Disabled  |  [P4]: Two-Way Mirror  |  [P5]: —  |  [P6]: 50% eff.  |  [P7]: —
+[P2]: S1: AVD FSLogix Profiles  |  [P3]: — Disabled  |  [P4]: Three-Way Mirror  |  [P5]: —  |  [P6]: 33% eff.  |  [P7]: —
+[P2]: S2: AKS on Azure Local  |  [P3]: — Disabled  |  [P4]: Three-Way Mirror  |  [P5]: —  |  [P6]: 33% eff.  |  [P7]: —
+[P2]: S3: Infrastructure VMs  |  [P3]: — Disabled  |  [P4]: Three-Way Mirror  |  [P5]: —  |  [P6]: 33% eff.  |  [P7]: —
+[P2]: S4: Dev/Test VMs  |  [P3]: — Disabled  |  [P4]: Two-Way Mirror  |  [P5]: —  |  [P6]: 50% eff.  |  [P7]: —
+[P2]: S5: Backup / Archive  |  [P3]: — Disabled  |  [P4]: Dual Parity  |  [P5]: —  |  [P6]: 50% eff.  |  [P7]: —
+[P2]: S6: Custom  |  [P3]: — Disabled  |  [P4]: Three-Way Mirror  |  [P5]: —  |  [P6]: 33% eff.  |  [P7]: —
+[P2]: SOFS VM Volumes  |  [P3]: — Disabled  |  [P4]: Two-Way Mirror  |  [P5]: —  |  [P7]: —
+[P2]: TOTALS  |  [P5]: 0  |  [P7]: 0
+[P2]: SCENARIO INPUT DETAILS (enabled scenarios only)
+[P2]: AVD Session Hosts  |  [P5]: (Disabled)
+[P2]:   Session host VMs  |  [P3]: 32  |  [P4]: VMs
+[P2]:   OS disk per host  |  [P3]: 127  |  [P4]: GB
+[P2]:   Data/temp disk per host  |  [P3]: 50  |  [P4]: GB
+[P2]:   Resiliency  |  [P3]: Two-Way Mirror
+[P2]: AVD FSLogix Profiles  |  [P5]: (Disabled)
+[P2]:   Total AVD users  |  [P3]: 1300  |  [P4]: users
+[P2]:   Profile size per user  |  [P3]: 5  |  [P4]: GB
+[P2]:   Growth buffer  |  [P3]: 0.3
+[P2]:   Resiliency  |  [P3]: Three-Way Mirror
+[P2]: SECTION 4: VOLUME CREATION TABLE — DEPLOYMENT REFERENCE
+[P2]: Volume Name  |  [P3]: Resiliency  |  [P4]: Create Size (TB)  |  [P5]: Create Size (TiB)*  |  [P6]: Pool Footprint (TB)  |  [P7]: Copies  |  [P8]: Status
+[P2]: AVD-SessionHosts  |  [P3]: Two-Way Mirror  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P7]: 2x  |  [P8]: — Disabled
+[P2]: AVD-Profiles  |  [P3]: Three-Way Mirror  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P7]: 3x  |  [P8]: — Disabled
+[P2]: AKS-Cluster  |  [P3]: Three-Way Mirror  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P7]: 3x  |  [P8]: — Disabled
+[P2]: Infra-VMs  |  [P3]: Three-Way Mirror  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P7]: 3x  |  [P8]: — Disabled
+[P2]: DevTest-VMs  |  [P3]: Two-Way Mirror  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P7]: 2x  |  [P8]: — Disabled
+[P2]: Backup-Archive  |  [P3]: Dual Parity  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P7]: parity  |  [P8]: — Disabled
+[P2]: Custom  |  [P3]: Three-Way Mirror  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P7]: 3x  |  [P8]: — Disabled
+[P3]: Two-Way Mirror  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P8]: — Disabled
+[P2]: TOTALS  |  [P4]: 0  |  [P5]: 0  |  [P6]: 0  |  [P8]: 0 of 0 PASS
+[P2]: * TiB (binary) = what Windows Admin Center and PowerShell report. 1 TB ≈ 0.909 TiB. Use TiB values when creating volumes via WAC or PowerShell.
+[P2]: POWERSHELL VOLUME CREATION COMMANDS (copy/paste ready)
+[P2]: # AVD-SessionHosts — Disabled (skip)
+[P2]: # AVD-Profiles — Disabled (skip)
+[P2]: # AKS-Cluster — Disabled (skip)
+[P2]: # Infra-VMs — Disabled (skip)
+[P2]: # DevTest-VMs — Disabled (skip)
+[P2]: # Backup-Archive — Disabled (skip)
+[P2]: # Custom — Disabled (skip)
+[P2]: # SOFS-Node1-Vol — Disabled (skip)
+[P2]: # SOFS-Node2-Vol — Disabled (skip)
+[P2]: # SOFS-Node3-Vol — Disabled (skip)
+[P2]: # SOFS-Node4-Vol — Disabled (skip)
+[P2]: Run these commands in an elevated PowerShell session on any cluster node. Adjust -StoragePoolFriendlyName if your pool has a custom name. Use -ProvisioningType Thin only if you understand the risks (see Thin Provisioning tab).
+[P2]: SECTION 5: DRIVE LAYOUT INSIGHT
+[P2]: Your Current Configuration
+[P2]: Drives per Node  |  [P3]: 4  |  [P4]: per node
+[P2]: Drive Size  |  [P3]: 3.84  |  [P4]: TB
+[P2]: Reserve  |  [P3]: 10.5984  |  [P4]: TB
+[P2]: Available Capacity  |  [P3]: 31.0452  |  [P4]: TB
+[P2]: Best Alternative (more drives = less reserve)
+[P2]: Drives per Node (max shown)  |  [P3]: 10  |  [P4]: per node
+[P2]: Drive Size (calculated)  |  [P3]: 1.54  |  [P4]: TB
+[P2]: Reserve  |  [P3]: 4.2504  |  [P4]: TB
+[P2]: Available Capacity  |  [P3]: 37.5036  |  [P4]: TB
+[P2]: Additional Capacity vs Current  |  [P3]: 6.4584  |  [P4]: TB more
+[P2]: Note: More drives per node reduces reserve but costs more and uses more physical slots. Calculated drive sizes are theoretical — actual drives come in standard sizes (1.6, 3.2, 3.84, 7.68 TB).
+[P2]: SECTION 6: BEST PRACTICE NOTES & GUIDANCE
+[P2]: Volume Count  |  [P3]: Microsoft recommends volume count as a multiple of your node count (3) for balanced data distribution across nodes.
+[P3]: Your current volume count: 0 volumes across 3 nodes. ✓ Multiple of node count.
+[P2]: Rebuild Headroom  |  [P3]: Keep pool utilization below 70% to ensure enough free space for automatic drive failure repair. Current: 0.0%.
+[P3]: ✓ Healthy headroom for drive failure repair.
+[P2]: Provisioning  |  [P3]: Default provisioning: Fixed (Thick). Fixed (thick) is STRONGLY recommended for production. Thin risks pool exhaustion — see Thin Provisioning tab.
+[P3]: ✓ Using recommended Fixed provisioning.
+[P2]: N+1 Compute  |  [P3]: Size VM workloads to fit on 2 of 3 nodes. If 1 node goes down, VMs must failover. This is CPU/RAM planning, separate from storage.
+[P3]: Plan for 2-node compute capacity even though storage spans all 3 nodes.
+[P2]: Volume Size Limit  |  [P3]: Maximum single volume size: 64 TB. Current largest volume: 0.00 TB.
+[P3]: ✓ All volumes within 64 TB limit.
+[P2]: SECTION 7: COMPUTE CAPACITY ANALYSIS
+[P2]: Cluster Hardware
+[P2]:   Physical cores per node  |  [P3]: 32  |  [P4]: cores
+[P2]:   Hyperthreading  |  [P3]: Yes
+[P2]:   Logical vCPU per node  |  [P3]: 64  |  [P4]: vCPU
+[P2]:   RAM per node  |  [P3]: 256  |  [P4]: GB total  |  [P5]: (32 GB reserved for host OS)
+[P2]:   Usable RAM per node  |  [P3]: 224  |  [P4]: GB
+[P2]: Cluster Totals
+[P2]:   Total cluster vCPU  |  [P3]: 192  |  [P4]: vCPU  |  [P5]: 3 nodes × 64 vCPU
+[P2]:   Total cluster usable RAM  |  [P3]: 672  |  [P4]: GB  |  [P5]: 3 nodes × 224 GB
+[P2]:   N+1 vCPU (1 node down)  |  [P3]: 128  |  [P4]: vCPU
+[P2]:   N+1 RAM (1 node down)  |  [P3]: 448  |  [P4]: GB
+[P2]: Compute Demand by Scenario
+[P2]: Scenario  |  [P3]: vCPU  |  [P4]: RAM (GB)  |  [P5]: vCPU Overcommit  |  [P6]: Eff. vCPU
+[P2]: S1: AVD  |  [P3]: 0  |  [P4]: 0  |  [P5]: 4:1  |  [P6]: 0
+[P2]: S2: AKS  |  [P3]: 0  |  [P4]: 0  |  [P5]: 4:1  |  [P6]: 0
+[P2]: S3: Infrastructure  |  [P3]: 0  |  [P4]: 0  |  [P5]: 4:1  |  [P6]: 0
+[P2]: S4: Dev/Test  |  [P3]: 0  |  [P4]: 0  |  [P5]: 4:1  |  [P6]: 0
+[P2]: SOFS VMs  |  [P3]: 0  |  [P4]: 0  |  [P5]: 0.0423611111111111  |  [P6]: 0
+[P2]: TOTALS  |  [P3]: 0  |  [P4]: 0  |  [P6]: 0
+[P2]: Compute Fit Analysis
+[P2]: Check  |  [P3]: Status  |  [P4]: Details
+[P2]: vCPU (all nodes, with overcommit)  |  [P3]: PASS  |  [P4]: 0 of 192 vCPU (0%)
+[P2]: RAM (all nodes)  |  [P3]: PASS  |  [P4]: 0 of 672 GB (0%)
+[P2]: N+1 vCPU (with overcommit)  |  [P3]: PASS  |  [P4]: 0 of 128 vCPU (0%)
+[P2]: N+1 RAM (1 node down)  |  [P3]: PASS  |  [P4]: 0 of 448 GB (0%)
+[P2]: vCPU Overcommit Sensitivity (All Scenarios)
+[P2]: Ratio  |  [P3]: AVD Eff. vCPU  |  [P4]: Total Eff. vCPU  |  [P5]: Fit (All)  |  [P6]: Fit (N+1)
+[P2]: 1:1  |  [P3]: 0  |  [P4]: 0  |  [P5]: ✓ PASS  |  [P6]: ✓ PASS
+[P2]: 2:1  |  [P3]: 0  |  [P4]: 0  |  [P5]: ✓ PASS  |  [P6]: ✓ PASS
+[P2]: 3:1  |  [P3]: 0  |  [P4]: 0  |  [P5]: ✓ PASS  |  [P6]: ✓ PASS
+[P2]: 4:1  |  [P3]: 0  |  [P4]: 0  |  [P5]: ✓ PASS  |  [P6]: ✓ PASS
+
+
+========================================
+SHEET: Drive Layout Comparison
+========================================
+Rows: 25
+[P2]: DRIVE LAYOUT COMPARISON
+[P2]: Same total raw capacity — different drive counts. See how reserve and available capacity change.
+[P2]: YOUR CURRENT CONFIGURATION
+[P2]: Cluster Nodes  |  [P3]: 3  |  [P4]: nodes
+[P2]: Capacity Drives per Node  |  [P3]: 4  |  [P4]: drives
+[P2]: Drive Size (Advertised)  |  [P3]: 3.84  |  [P4]: TB
+[P2]: Total Raw Capacity  |  [P3]: 46.08  |  [P4]: TB  |  [P5]: This stays constant across all alternatives.
+[P2]: Capacity Efficiency Factor  |  [P3]: 0.92  |  [P5]: From Advanced Settings tab.
+[P2]: ALTERNATIVE DRIVE LAYOUTS
+[P2]: Drives
+per Node  |  [P3]: Drive Size
+(TB)  |  [P4]: Total
+Drives  |  [P5]: Usable per
+Drive (TB)  |  [P6]: Reserve
+(TB)  |  [P7]: Available
+Capacity (TB)  |  [P8]: vs Current
+[P2]: 4  |  [P3]: 3.84  |  [P4]: 12  |  [P5]: 3.5328  |  [P6]: 10.5984  |  [P7]: 31.0452  |  [P8]: ← Current
+[P2]: 4  |  [P3]: 3.84  |  [P4]: 12  |  [P5]: 3.5328  |  [P6]: 10.5984  |  [P7]: 31.0452  |  [P8]: 0
+[P2]: 5  |  [P3]: 3.07  |  [P4]: 15  |  [P5]: 2.8244  |  [P6]: 8.4732  |  [P7]: 33.1428  |  [P8]: 2.0976
+[P2]: 6  |  [P3]: 2.56  |  [P4]: 18  |  [P5]: 2.3552  |  [P6]: 7.0656  |  [P7]: 34.578  |  [P8]: 3.5328
+[P2]: 7  |  [P3]: 2.19  |  [P4]: 21  |  [P5]: 2.0148  |  [P6]: 6.0444  |  [P7]: 35.5164  |  [P8]: 4.4712
+[P2]: 8  |  [P3]: 1.92  |  [P4]: 24  |  [P5]: 1.7664  |  [P6]: 5.2992  |  [P7]: 36.3444  |  [P8]: 5.2992
+[P2]: 9  |  [P3]: 1.71  |  [P4]: 27  |  [P5]: 1.5732  |  [P6]: 4.7196  |  [P7]: 37.0068  |  [P8]: 5.9616
+[P2]: 10  |  [P3]: 1.54  |  [P4]: 30  |  [P5]: 1.4168  |  [P6]: 4.2504  |  [P7]: 37.5036  |  [P8]: 6.4584
+[P2]: KEY INSIGHT
+[P2]: More drives per node = smaller drive size = smaller reserve. The reserve is always 1 drive per node (max 4), so smaller drives mean less capacity "locked up" for repair. The trade-off: more drives cost more and use more slots.
+[P2]: Note: All alternatives maintain the same total raw capacity. Drive sizes shown are calculated (raw ÷ total drives) — actual drives must be purchased in available sizes (e.g., 1.6, 3.2, 3.84, 7.68 TB).
+
+
+========================================
+SHEET: Thin Provisioning
+========================================
+Rows: 37
+[P2]: THIN PROVISIONING — RISKS & GUIDANCE
+[P2]: DEFAULT: USE FIXED (THICK)
+[P2]: Fixed allocates full footprint at creation. Guarantees capacity. STRONGLY recommended for production.
+[P2]: WHEN THIN IS ACCEPTABLE
+[P2]: Dev/Test  |  [P3]: Outages tolerable.
+[P2]: FSLogix  |  [P3]: Slow growth. Monitor.
+[P2]: Archive  |  [P3]: Infrequent access.
+[P2]: Prototyping  |  [P3]: Right-size later.
+[P2]: RISKS
+[P2]: Pool Exhaustion  |  [P3]: Pool full = volumes OFFLINE = VMs crash. HARD STOP.
+[P2]: Silent Overcommit  |  [P3]: Logical can exceed physical. No hard block.
+[P2]: Growth Spikes  |  [P3]: Updates, snapshots consume GBs with no warning.
+[P2]: No Reclaim  |  [P3]: Stretched clusters: TRIM disabled. Volumes only grow.
+[P2]: Double-Thin  |  [P3]: Thin S2D + thin VHDX = two overcommit layers.
+[P2]: Rebuild Blocked  |  [P3]: No pool space = rebuild fails = data at risk.
+[P2]: MONITORING
+[P2]: WAC Alerts  |  [P3]: Set threshold to 60% for thin pools.
+[P2]: PS: Pool  |  [P3]: Get-StoragePool S2D* | Select Size, AllocatedSize
+[P2]: PS: Volumes  |  [P3]: Get-VirtualDisk | Select Size, FootprintOnPool
+[P2]: Azure Monitor  |  [P3]: Log Analytics for pool free space trending.
+[P2]: Commit Ratio  |  [P3]: Logical/Physical. Alert 0.8, escalate 1.0.
+[P2]: CHECKLIST
+[P2]: 1.  |  [P3]: Never double-thin (S2D + VHDX).
+[P2]: 2.  |  [P3]: WAC alert at 60% for thin.
+[P2]: 3.  |  [P3]: Pool below 70% always.
+[P2]: 4.  |  [P3]: Weekly: Get-StoragePool reports.
+[P2]: 5.  |  [P3]: Azure Monitor for alerting.
+[P2]: 6.  |  [P3]: Capacity response plan documented.
+[P2]: 7.  |  [P3]: Quarterly: simulate drive failure.
+[P2]: 8.  |  [P3]: Production = FIXED. Thin = dev/test only.
+[P2]: 9.  |  [P3]: Commit ratio: alert 0.8, escalate 1.0.
+
+
+========================================
+SHEET: References
+========================================
+Rows: 20
+[P2]: MICROSOFT REFERENCES
+[P2]: Topic  |  [P3]: URL
+[P2]: Plan Volumes  |  [P3]: https://learn.microsoft.com/en-us/windows-server/storage/storage-spaces/plan-volumes
+[P2]: Fault Tolerance  |  [P3]: https://learn.microsoft.com/en-us/windows-server/storage/storage-spaces/fault-tolerance
+[P2]: S2D Overview  |  [P3]: https://learn.microsoft.com/en-us/windows-server/storage/storage-spaces/storage-spaces-direct-overview
+[P2]: Hardware Reqs  |  [P3]: https://learn.microsoft.com/en-us/windows-server/storage/storage-spaces/storage-spaces-direct-hardware-requirements
+[P2]: Cache  |  [P3]: https://learn.microsoft.com/en-us/windows-server/storage/storage-spaces/cache
+[P2]: Nested Resiliency  |  [P3]: https://learn.microsoft.com/en-us/windows-server/storage/storage-spaces/nested-resiliency
+[P2]: Thin Provisioning  |  [P3]: https://learn.microsoft.com/en-us/azure-stack/hci/manage/thin-provisioning
+[P2]: Azure Local Baseline  |  [P3]: https://learn.microsoft.com/en-us/azure/architecture/hybrid/azure-local-baseline
+[P2]: Azure Local Deploy  |  [P3]: https://learn.microsoft.com/en-us/azure/azure-local/deploy/deploy-via-portal
+[P2]: Well-Architected  |  [P3]: https://learn.microsoft.com/en-us/azure/well-architected/service-guides/azure-local
+[P2]: AVD Sizing  |  [P3]: https://learn.microsoft.com/en-us/azure/virtual-desktop/prerequisites
+[P2]: AKS on Azure Local  |  [P3]: https://learn.microsoft.com/en-us/azure/aks/hybrid/aks-hci-network-requirements
+[P2]: Compute Sizing  |  [P3]: https://learn.microsoft.com/en-us/azure/azure-local/plan/choose-server-hardware
+[P2]: Hyper-V Best Practices  |  [P3]: https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/best-practices-for-running-hyper-v
+[P2]: Volume Planning  |  [P3]: https://learn.microsoft.com/en-us/azure-stack/hci/manage/create-volumes
+[P2]: Scale-Out File Server (SOFS)  |  [P3]: https://learn.microsoft.com/en-us/windows-server/failover-clustering/sofs-overview
+[P2]: FSLogix Configuration  |  [P3]: https://learn.microsoft.com/en-us/fslogix/concepts-configuration-examples
+
+
+========================================
+SHEET: Advanced Settings
+========================================
+Rows: 73
+[P2]: ADVANCED SETTINGS
+[P2]: DRIVE CAPACITY EFFICIENCY FACTOR
+[P2]: Manufacturers label drives in decimal TB (1 TB = 1,000,000,000,000 bytes). Windows reports in binary TiB (1 TiB = 1,099,511,627,776 bytes). A 7.68 TB drive shows as ~6.98 TiB. Plus NVMe reserves 1-3% for wear leveling. Combined: ~8% reduction.
+[P2]: Example: 7.68 TB at 92%:  |  [P3]: 7.0656  |  [P4]: TB usable  |  [P5]: What S2D pool reports per drive.
+[P2]: Capacity Efficiency Factor  |  [P3]: 0.92  |  [P4]: Default: 92%  |  [P5]: Only change if vendor provides specific formatted capacity.
+[P2]: INFRASTRUCTURE VOLUME
+[P2]: Azure Local creates an infrastructure volume during deployment (~250 GB) for system metadata. This uses the same resiliency as workload volumes, so its footprint is larger.
+[P2]: Infrastructure Volume Logical Size  |  [P3]: 0.25  |  [P4]: TB (~250 GB)  |  [P5]: Size of the infrastructure volume.
+[P2]: Infrastructure Volume Footprint  |  [P3]: 0.75  |  [P4]: TB in pool  |  [P5]: Three-way mirror (3+ nodes) or two-way mirror (2 nodes).
+[P2]: TB vs TiB CONVERSION TABLE
+[P2]: Windows Admin Center, PowerShell, and Disk Management show TiB (binary). This calculator uses TB (decimal). Use this table to cross-check.
+[P2]: 1 TB (decimal) =  |  [P3]: 0.93  |  [P4]: TiB (binary)  |  [P5]: What Windows will show.
+[P2]: 5 TB (decimal) =  |  [P3]: 4.66  |  [P4]: TiB (binary)  |  [P5]: What Windows will show.
+[P2]: 10 TB (decimal) =  |  [P3]: 9.31  |  [P4]: TiB (binary)  |  [P5]: What Windows will show.
+[P2]: 25 TB (decimal) =  |  [P3]: 23.28  |  [P4]: TiB (binary)  |  [P5]: What Windows will show.
+[P2]: 50 TB (decimal) =  |  [P3]: 46.57  |  [P4]: TiB (binary)  |  [P5]: What Windows will show.
+[P2]: 100 TB (decimal) =  |  [P3]: 93.13  |  [P4]: TiB (binary)  |  [P5]: What Windows will show.
+[P2]: CELL PROTECTION OVERRIDES
+[P2]: ⚠️ All formula cells on input tabs are PERMANENTLY LOCKED. If you need to override a calculated value, enter it below. The override value feeds into the system in place of the formula.
+[P2]: HOW TO USE: Enter an override value in column D. Leave blank to use the normal formula. The "Active Value" column shows what the system is currently using.  |  [P5]: ⚠️ You accept all risk when unlocking.
+[P2]: HARDWARE INPUTS — Calculated Fields  |  [P3]: Current Value  |  [P4]: Override (leave blank = use formula)  |  [P5]: Active Value
+[P2]: Total Capacity Drives  |  [P3]: 12  |  [P5]: 12
+[P2]: Total Raw Capacity (TB)  |  [P3]: 46.08  |  [P5]: 46.08
+[P2]: Total Usable Pool Before Reserve (TB)  |  [P3]: 42.3936  |  [P5]: 42.3936
+[P2]: Reserve (TB)  |  [P3]: 10.5984  |  [P5]: 10.5984
+[P2]: Available Capacity for Volumes (TB)  |  [P3]: 31.0452  |  [P5]: 31.0452
+[P2]: Total Cluster vCPU (all nodes)  |  [P3]: 192  |  [P5]: 192
+[P2]: Total Cluster Usable RAM (GB)  |  [P3]: 672  |  [P5]: 672
+[P2]: N+1 Available vCPU  |  [P3]: 128  |  [P5]: 128
+[P2]: N+1 Available RAM (GB)  |  [P3]: 448  |  [P5]: 448
+[P2]: AVD PLANNING — Calculated Fields  |  [P3]: Current Value  |  [P4]: Override  |  [P5]: Active Value
+[P2]: Session host volume logical (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: Session host footprint in pool (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: Profile volume logical (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: Profile footprint in pool (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: AVD total storage footprint (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: Users per session host (max)  |  [P3]: 0  |  [P5]: 0
+[P2]: Session hosts needed  |  [P3]: 0  |  [P5]: 0
+[P2]: Total AVD vCPU demand  |  [P3]: 0  |  [P5]: 0
+[P2]: Total AVD RAM demand (GB)  |  [P3]: 0  |  [P5]: 0
+[P2]: Effective vCPU (with overcommit)  |  [P3]: 0  |  [P5]: 0
+[P2]: WORKLOAD PLANNER — Scenario Footprints  |  [P3]: Current Value  |  [P4]: Override  |  [P5]: Active Value
+[P2]: S1: AVD total footprint (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: S2: AKS total footprint (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: S3: Infra total footprint (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: S4: Dev/Test total footprint (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: S5: Backup/Archive total footprint (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: S6: Custom total footprint (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: SOFS VM volumes footprint (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: Total physical footprint (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: Remaining pool capacity (TB)  |  [P3]: 31.0452  |  [P5]: 31.0452
+[P2]: Pool utilization (%)  |  [P3]: 0  |  [P5]: 0
+[P2]: SOFS PLANNER — Calculated Fields  |  [P3]: Current Value  |  [P4]: Override  |  [P5]: Active Value
+[P2]: Drive capacity auto-calc (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: Total raw capacity (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: Usable capacity (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: Available for volumes (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: Profile logical demand (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: Profile footprint on SOFS (TB)  |  [P3]: 0  |  [P5]: 0
+[P2]: Steady-state total IOPS  |  [P3]: 0  |  [P5]: 0
+[P2]: Peak storm IOPS  |  [P3]: 0  |  [P5]: 0
+
+
+========================================
+SHEET: To Do
+========================================
+Rows: 30
+[P2]: TO DO — REMAINING TASKS
+[P2]: #  |  [P3]: Task Description  |  [P4]: Status  |  [P5]: DONE  |  [P6]: Linked To / Dependencies
+[P2]: 1
+[P2]: 2
+[P2]: 3
+[P2]: 4
+[P2]: 5
+[P2]: 6
+[P2]: 7
+[P2]: 8
+[P2]: 9
+[P2]: 10
+[P2]: 11
+[P2]: 12
+[P2]: 13
+[P2]: 14
+[P2]: 15
+[P2]: 16
+[P2]: QUESTIONS & ANSWERS LOG
+[P2]: #  |  [P3]: Question  |  [P4]: Answer
+[P2]: 1
+[P2]: 2
+[P2]: 3
+[P2]: 4
+[P2]: 5
+[P2]: 6
