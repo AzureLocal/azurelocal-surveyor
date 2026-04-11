@@ -12,6 +12,7 @@ import { Link } from 'react-router-dom'
 import { useSurveyorStore } from '../state/store'
 import { computeAvd } from '../engine/avd'
 import { computeAks } from '../engine/aks'
+import { computeSofs } from '../engine/sofs'
 import type { ResiliencyType, VmScenario } from '../engine/types'
 
 // ─── Scenario card wrapper ────────────────────────────────────────────────────
@@ -117,10 +118,12 @@ export default function WorkloadPlanner() {
     devTestVms, setDevTestVms,
     backupArchive, setBackupArchive,
     customVms, setCustomVms,
+    sofs, sofsEnabled, setSofsEnabled,
   } = useSurveyorStore()
 
   const avdResult = computeAvd(avd)
   const aksResult = computeAks(aks)
+  const sofsResult = computeSofs(sofs)
   const infraTotals = vmScenarioTotals(infraVms)
   const devTestTotals = vmScenarioTotals(devTestVms)
   const customTotals = vmScenarioTotals(customVms)
@@ -157,6 +160,11 @@ export default function WorkloadPlanner() {
     totalVCpus   += customTotals.vCpus
     totalMemoryGB += customTotals.memoryGB
     totalStorageTB += customTotals.storageTB
+  }
+  if (sofsEnabled) {
+    totalVCpus   += sofsResult.sofsVCpusTotal
+    totalMemoryGB += sofsResult.sofsMemoryTotalGB
+    totalStorageTB += sofsResult.totalStorageTB
   }
 
   return (
@@ -252,6 +260,18 @@ export default function WorkloadPlanner() {
       <ScenarioCard label="Custom VMs" enabled={customVms.enabled} onToggle={() => setCustomVms({ enabled: !customVms.enabled })}>
         <VmFields value={customVms} onChange={setCustomVms} />
         <ScenarioTotals vCpus={customTotals.vCpus} memGB={customTotals.memoryGB} storageTB={customTotals.storageTB} />
+      </ScenarioCard>
+
+      {/* ── 7. SOFS ── */}
+      <ScenarioCard label="Scale-Out File Server (SOFS)" badge="separate page" enabled={sofsEnabled} onToggle={() => setSofsEnabled(!sofsEnabled)}>
+        <div className="text-sm text-gray-500">
+          SOFS is configured on the{' '}
+          <Link to="/sofs" className="text-brand-600 hover:underline">SOFS Planning page</Link>.
+          Enabling this includes its compute and storage in the totals below.
+        </div>
+        <SummaryRow label="Profile + redirected storage" value={`${sofsResult.totalStorageTB} TB`} />
+        <SummaryRow label="SOFS vCPUs" value={String(sofsResult.sofsVCpusTotal)} />
+        <SummaryRow label="SOFS memory" value={`${sofsResult.sofsMemoryTotalGB} GB`} />
       </ScenarioCard>
 
       {/* ── Totals ── */}

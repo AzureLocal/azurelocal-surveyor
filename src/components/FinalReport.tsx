@@ -18,7 +18,8 @@ import { exportPdf } from '../exporters/pdf'
 import { exportXlsx } from '../exporters/xlsx'
 import { generatePowerShell } from '../exporters/powershell'
 import { generateMarkdown } from '../exporters/markdown'
-import { FileDown, Table2, Terminal, FileText } from 'lucide-react'
+import { FileDown, Table2, Terminal, FileText, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import type { HardwareInputs, CapacityResult, ComputeResult, VolumeSpec, WorkloadSummaryResult } from '../engine/types'
 
 export default function FinalReport() {
   const state = useSurveyorStore()
@@ -195,6 +196,18 @@ export default function FinalReport() {
         <h2 className="text-lg font-semibold mb-3">Health Check</h2>
         <HealthCheck result={health} />
       </section>
+
+      {/* Best Practice Notes — #51 */}
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Best Practice Notes</h2>
+        <BestPracticeNotes
+          hardware={state.hardware}
+          capacity={capacity}
+          compute={compute}
+          volumes={state.volumes}
+          workloadSummary={workloadSummary}
+        />
+      </section>
     </div>
   )
 }
@@ -214,5 +227,115 @@ function ExportBtn({ icon, label, onClick }: { icon: React.ReactNode; label: str
       className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
       {icon}{label}
     </button>
+  )
+}
+
+// ─── Best Practice Notes (#51) ────────────────────────────────────────────────
+
+type BPStatus = 'pass' | 'warn' | 'fail'
+
+interface BPCheck {
+  label: string
+  status: BPStatus
+  detail: string
+}
+
+function BestPracticeNotes({ hardware, capacity, compute, volumes, workloadSummary }: {
+  hardware: HardwareInputs
+  capacity: CapacityResult
+  compute: ComputeResult
+  volumes: VolumeSpec[]
+  workloadSummary: WorkloadSummaryResult
+}) {
+  const totalVolumeTB = volumes.reduce((s, v) => s + v.plannedSizeTB, 0)
+  const utilizationPct = capacity.effectiveUsableTB > 0
+    ? (totalVolumeTB / capacity.effectiveUsableTB) * 100
+    : 0
+
+  const activeVolumeCount = volumes.filter((v) => v.plannedSizeTB > 0).length
+  const volumesAreMultiple = activeVolumeCount === 0 || activeVolumeCount % hardware.nodeCount === 0
+
+  // N+1: can remaining (nodeCount-1) nodes host the full workload?
+  const vCpusPerNode = compute.usableVCpus / hardware.nodeCount
+  const memPerNode = compute.usableMemoryGB / hardware.nodeCount
+  const vCpusWithoutOneNode = compute.usableVCpus - vCpusPerNode
+  const memWithoutOneNode = compute.usableMemoryGB - memPerNode
+  const nPlusOneCapable = workloadSummary.totalVCpus <= vCpusWithoutOneNode
+    && workloadSummary.totalMemoryGB <= memWithoutOneNode
+
+  const hasOsVolume = volumes.some((v) =>
+    v.name.toLowerCase().includes('os') ||
+    v.name.toLowerCase().includes('system') ||
+    v.name.toLowerCase().includes('infra')
+  )
+  const osVolumesMirrored = volumes
+    .filter((v) => v.name.toLowerCase().includes('os') || v.name.toLowerCase().includes('system') || v.name.toLowerCase().includes('infra'))
+    .every((v) => v.resiliency === 'three-way-mirror' || v.resiliency === 'two-way-mirror')
+
+  const hasThinVolumes = hardware.volumeProvisioning === 'thin'
+
+  const checks: BPCheck[] = [
+    {
+      label: 'Pool utilization below 70%',
+      status: utilizationPct === 0 ? 'pass' : utilizationPct <= 70 ? 'pass' : utilizationPct <= 85 ? 'warn' : 'fail',
+      detail: utilizationPct === 0
+        ? 'No volumes planned yet.'
+        : `Current utilization: ${utilizationPct.toFixed(1)}%. S2D needs at least 30% free space to auto-repair after a drive failure.`,
+    },
+    {
+      label: 'Volume count is a multiple of node count',
+      status: volumesAreMultiple ? 'pass' : 'warn',
+      detail: volumesAreMultiple
+        ? `${activeVolumeCount} volumes on ${hardware.nodeCount} nodes — balanced slab distribution.`
+        : `${activeVolumeCount} volumes is not a multiple of ${hardware.nodeCount}. Slab distribution may be uneven across nodes.`,
+    },
+    {
+      label: 'N+1 failover compute headroom',
+      status: workloadSummary.totalVCpus === 0
+        ? 'pass'
+        : nPlusOneCapable ? 'pass' : 'warn',
+      detail: workloadSummary.totalVCpus === 0
+        ? 'No workloads planned.'
+        : nPlusOneCapable
+          ? `All workloads fit on ${hardware.nodeCount - 1} nodes (${Math.round(vCpusWithoutOneNode)} vCPUs, ${Math.round(memWithoutOneNode)} GB RAM available).`
+          : `Workloads require ${workloadSummary.totalVCpus} vCPUs / ${workloadSummary.totalMemoryGB} GB RAM but only ${Math.round(vCpusWithoutOneNode)} vCPUs / ${Math.round(memWithoutOneNode)} GB RAM available with one node down.`,
+    },
+    {
+      label: 'OS/infrastructure volumes use mirror resiliency',
+      status: !hasOsVolume ? 'pass' : osVolumesMirrored ? 'pass' : 'warn',
+      detail: !hasOsVolume
+        ? 'No OS/system volumes detected. Ensure infrastructure volumes use Two-Way or Three-Way Mirror for VM availability during disk failures.'
+        : osVolumesMirrored
+          ? 'OS/system volumes are using mirror resiliency.'
+          : 'One or more OS/system volumes use parity resiliency. Mirror is strongly recommended for OS workloads due to write latency.',
+    },
+    {
+      label: 'Thin provisioning not used for production workloads',
+      status: hasThinVolumes ? 'warn' : 'pass',
+      detail: hasThinVolumes
+        ? 'Thin provisioning is enabled. If logical volume sizes exceed pool capacity, VMs crash without warning. Monitor pool space continuously in production.'
+        : 'Thick provisioning in use — each volume reserves its full pool footprint. Safer for production.',
+    },
+  ]
+
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">Deployment Best Practices</div>
+      <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+        {checks.map((c) => (
+          <li key={c.label} className="flex items-start gap-3 px-4 py-3">
+            <span className="mt-0.5 shrink-0">
+              {c.status === 'pass' && <CheckCircle2 className="w-4 h-4 text-green-500" />}
+              {c.status === 'warn' && <AlertTriangle className="w-4 h-4 text-amber-500" />}
+              {c.status === 'fail' && <XCircle className="w-4 h-4 text-red-500" />}
+            </span>
+            <div>
+              <div className="text-sm font-medium">{c.label}</div>
+              <div className="text-xs text-gray-500 mt-0.5">{c.detail}</div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
   )
 }
