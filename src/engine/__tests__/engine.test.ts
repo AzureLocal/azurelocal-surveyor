@@ -71,11 +71,15 @@ describe('SOFS engine', () => {
   it('500 users, 40 GB profiles, 20 GB redirected folders', () => {
     const result = computeSofs({
       userCount: 500,
+      concurrentUsers: 0,
       profileSizeGB: 40,
       redirectedFolderSizeGB: 20,
+      containerType: 'split',
       sofsGuestVmCount: 2,
       sofsVCpusPerVm: 4,
       sofsMemoryPerVmGB: 16,
+      autoSizeDrivesPerNode: 0,
+      autoSizeNodes: 2,
     })
     expect(result.totalProfileStorageTB).toBeCloseTo(500 * 40 / 1024, 2)
     expect(result.totalRedirectedStorageTB).toBeCloseTo(500 * 20 / 1024, 2)

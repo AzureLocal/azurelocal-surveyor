@@ -8,6 +8,7 @@ import type { SofsInputs, SofsResult } from './types'
  * single VM can serve. It requires HA — minimum 2 guest VMs.
  *
  * Data flow mirrors the "SOFS Planner" sheet (25 formulas).
+ * Additional features: #41 IOPS, #43 auto-sizing, #45 container types.
  */
 export function computeSofs(inputs: SofsInputs): SofsResult {
   const totalProfileStorageTB = round2((inputs.userCount * inputs.profileSizeGB) / 1024)
@@ -19,12 +20,34 @@ export function computeSofs(inputs: SofsInputs): SofsResult {
   const sofsVCpusTotal = inputs.sofsGuestVmCount * inputs.sofsVCpusPerVm
   const sofsMemoryTotalGB = inputs.sofsGuestVmCount * inputs.sofsMemoryPerVmGB
 
+  // #41: IOPS estimates (FSLogix steady-state and login storm)
+  // Source: FSLogix sizing guidance — ~10 IOPS/user steady-state, ~50 IOPS/user peak
+  const steadyStateIopsPerUser = 10
+  const loginStormIopsPerUser = 50
+  const sizingUsers = inputs.concurrentUsers > 0 ? inputs.concurrentUsers : inputs.userCount
+  const totalSteadyStateIops = sizingUsers * steadyStateIopsPerUser
+  const totalLoginStormIops = sizingUsers * loginStormIopsPerUser
+
+  // #43: auto-sizing — calculate drive size needed to hit storage target
+  let autoSizeDriveSizeTB = 0
+  if (inputs.autoSizeDrivesPerNode > 0 && inputs.autoSizeNodes > 0) {
+    const totalDrives = inputs.autoSizeDrivesPerNode * inputs.autoSizeNodes
+    // Add ~20% overhead factor for resiliency + system use on SOFS cluster
+    const rawNeeded = totalStorageTB * 3  // assume three-way-mirror on SOFS
+    autoSizeDriveSizeTB = round2(rawNeeded / totalDrives)
+  }
+
   return {
     totalProfileStorageTB,
     totalRedirectedStorageTB,
     totalStorageTB,
     sofsVCpusTotal,
     sofsMemoryTotalGB,
+    steadyStateIopsPerUser,
+    loginStormIopsPerUser,
+    totalSteadyStateIops,
+    totalLoginStormIops,
+    autoSizeDriveSizeTB,
   }
 }
 

@@ -213,13 +213,20 @@ export interface AvdResult {
 
 // ─── SOFS (Sheet: "SOFS Planner") ────────────────────────────────────────────
 
+export type SofsContainerType = 'single' | 'split' | 'three'
+
 export interface SofsInputs {
   userCount: number
+  concurrentUsers: number        // for IOPS estimate during login storm
   profileSizeGB: number
   redirectedFolderSizeGB: number
+  containerType: SofsContainerType  // #45: profile container architecture
   sofsGuestVmCount: number       // typically 2 for HA
   sofsVCpusPerVm: number
   sofsMemoryPerVmGB: number
+  // #43: auto-sizing — target drive count to calculate required drive size
+  autoSizeDrivesPerNode: number  // 0 = manual, > 0 = auto-calculate drive size
+  autoSizeNodes: number          // node count for auto-sizing SOFS cluster
 }
 
 export interface SofsResult {
@@ -228,6 +235,13 @@ export interface SofsResult {
   totalStorageTB: number
   sofsVCpusTotal: number
   sofsMemoryTotalGB: number
+  // #41: IOPS estimates
+  steadyStateIopsPerUser: number
+  loginStormIopsPerUser: number
+  totalSteadyStateIops: number
+  totalLoginStormIops: number
+  // #43: auto-sizing
+  autoSizeDriveSizeTB: number    // calculated drive size to meet demand; 0 if disabled
 }
 
 // ─── Compute (Sheet: "Compute Report") ───────────────────────────────────────

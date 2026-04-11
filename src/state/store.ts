@@ -80,11 +80,15 @@ const DEFAULT_AVD: AvdInputs = {
 
 const DEFAULT_SOFS: SofsInputs = {
   userCount: 100,
+  concurrentUsers: 0,
   profileSizeGB: 40,
   redirectedFolderSizeGB: 10,
+  containerType: 'split',
   sofsGuestVmCount: 2,
   sofsVCpusPerVm: 4,
   sofsMemoryPerVmGB: 16,
+  autoSizeDrivesPerNode: 0,
+  autoSizeNodes: 2,
 }
 
 const DEFAULT_AKS: AksInputs = {
