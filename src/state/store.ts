@@ -67,11 +67,15 @@ const DEFAULT_HARDWARE: HardwareInputs = {
 
 const DEFAULT_AVD: AvdInputs = {
   totalUsers: 100,
+  concurrentUsers: 0,
   workloadType: 'medium',
   multiSession: true,
   profileSizeGB: 40,
+  growthBufferPct: 20,
   officeContainerEnabled: true,
   officeContainerSizeGB: 20,
+  dataDiskPerHostGB: 0,
+  profileStorageLocation: 's2d',
 }
 
 const DEFAULT_SOFS: SofsInputs = {

@@ -170,28 +170,45 @@ export interface WorkloadSummaryResult {
 
 // ─── AVD (Sheet: "AVD Planning") ─────────────────────────────────────────────
 
+export type AvdProfileStorageLocation = 's2d' | 'sofs' | 'azure-files' | 'external'
+
 export interface AvdInputs {
   totalUsers: number
+  concurrentUsers: number         // #26: 0 = use totalUsers for sizing; > 0 = size session hosts for this peak
   workloadType: AvdWorkloadType
-  multiSession: boolean          // true = Windows 11 multi-session; false = single-session VDI
-  profileSizeGB: number          // FSLogix VHD(X) size per user
+  multiSession: boolean           // true = Windows 11 multi-session; false = single-session VDI
+  profileSizeGB: number           // FSLogix VHD(X) size per user
+  growthBufferPct: number         // #27: percent growth buffer applied to profile storage (0–50)
   officeContainerEnabled: boolean
-  officeContainerSizeGB: number  // additional FSLogix Office Container per user
+  officeContainerSizeGB: number   // additional FSLogix Office Container per user
+  dataDiskPerHostGB: number       // #31: additional data/temp disk per session host (0 if none)
+  profileStorageLocation: AvdProfileStorageLocation  // #33
 }
 
 export interface AvdResult {
   usersPerHost: number
-  sessionHostCount: number       // ceil(totalUsers / usersPerHost)
+  sessionHostCount: number        // ceil(sizingUsers / usersPerHost)
+  sizingUsers: number             // concurrentUsers if set, else totalUsers
   vCpusPerHost: number
   memoryPerHostGB: number
+  // #29: density analysis
+  cpuLimitedUsersPerHost: number
+  ramLimitedUsersPerHost: number
+  limitingFactor: 'cpu' | 'ram' | 'preset'
   totalVCpus: number
   totalMemoryGB: number
   // Storage broken out to match the "calculator TB vs WAC TB" pattern
   osDiskPerHostGB: number
+  dataDiskPerHostGB: number       // #31
   totalOsStorageTB: number
-  totalProfileStorageTB: number
+  totalDataDiskStorageTB: number  // #31
+  totalProfileStorageTB: number   // includes growth buffer
+  profileStorageWithGrowthTB: number   // #27: profile storage × (1 + growthBuffer%)
   totalOfficeContainerStorageTB: number
-  totalStorageTB: number         // all AVD storage combined
+  totalStorageTB: number          // all AVD storage combined
+  // #35: network bandwidth estimates
+  bandwidthPerUserMbps: number
+  totalBandwidthMbps: number
 }
 
 // ─── SOFS (Sheet: "SOFS Planner") ────────────────────────────────────────────

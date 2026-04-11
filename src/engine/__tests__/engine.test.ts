@@ -10,8 +10,16 @@ import type { HardwareInputs, VolumeSpec } from '../types'
 // ─── AVD Tests ────────────────────────────────────────────────────────────────
 
 describe('AVD engine', () => {
+  const BASE_AVD = {
+    concurrentUsers: 0,
+    growthBufferPct: 0,
+    dataDiskPerHostGB: 0,
+    profileStorageLocation: 's2d' as const,
+  }
+
   it('light workload multi-session: 100 users → 7 hosts', () => {
     const result = computeAvd({
+      ...BASE_AVD,
       totalUsers: 100,
       workloadType: 'light',
       multiSession: true,
@@ -29,6 +37,7 @@ describe('AVD engine', () => {
 
   it('medium workload multi-session: 500 users → 63 hosts', () => {
     const result = computeAvd({
+      ...BASE_AVD,
       totalUsers: 500,
       workloadType: 'medium',
       multiSession: true,
@@ -43,6 +52,7 @@ describe('AVD engine', () => {
 
   it('heavy workload single-session VDI: each user gets own VM', () => {
     const result = computeAvd({
+      ...BASE_AVD,
       totalUsers: 50,
       workloadType: 'heavy',
       multiSession: false,

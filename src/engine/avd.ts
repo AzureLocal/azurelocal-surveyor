@@ -13,6 +13,9 @@ interface HostProfile {
   usersPerHostMulti: number   // multi-session (Windows 11 Enterprise multi-session)
   usersPerHostSingle: number  // single-session VDI (always 1)
   osDiskGB: number
+  vCpusPerUser: number        // typical vCPU need per concurrent user (#29)
+  memGBPerUser: number        // typical RAM need per concurrent user (#29)
+  bandwidthMbps: number       // typical bandwidth per user (#35)
 }
 
 const HOST_PROFILES: Record<AvdWorkloadType, HostProfile> = {
@@ -22,6 +25,9 @@ const HOST_PROFILES: Record<AvdWorkloadType, HostProfile> = {
     usersPerHostMulti: 16,
     usersPerHostSingle: 1,
     osDiskGB: 128,
+    vCpusPerUser: 0.125,
+    memGBPerUser: 0.5,
+    bandwidthMbps: 0.25,
   },
   medium: {
     vCpus: 4,
@@ -29,6 +35,9 @@ const HOST_PROFILES: Record<AvdWorkloadType, HostProfile> = {
     usersPerHostMulti: 8,
     usersPerHostSingle: 1,
     osDiskGB: 128,
+    vCpusPerUser: 0.5,
+    memGBPerUser: 2,
+    bandwidthMbps: 0.35,
   },
   heavy: {
     vCpus: 8,
@@ -36,6 +45,9 @@ const HOST_PROFILES: Record<AvdWorkloadType, HostProfile> = {
     usersPerHostMulti: 4,
     usersPerHostSingle: 1,
     osDiskGB: 128,
+    vCpusPerUser: 2,
+    memGBPerUser: 8,
+    bandwidthMbps: 1.5,
   },
   power: {
     vCpus: 16,
@@ -43,6 +55,9 @@ const HOST_PROFILES: Record<AvdWorkloadType, HostProfile> = {
     usersPerHostMulti: 2,
     usersPerHostSingle: 1,
     osDiskGB: 256,
+    vCpusPerUser: 8,
+    memGBPerUser: 32,
+    bandwidthMbps: 15,
   },
 }
 
@@ -59,33 +74,72 @@ export function computeAvd(inputs: AvdInputs): AvdResult {
     ? profile.usersPerHostMulti
     : profile.usersPerHostSingle
 
-  const sessionHostCount = Math.ceil(inputs.totalUsers / usersPerHost)
+  // #26: use concurrentUsers for session host sizing when set
+  const sizingUsers = inputs.concurrentUsers > 0 ? inputs.concurrentUsers : inputs.totalUsers
+  const sessionHostCount = Math.ceil(sizingUsers / usersPerHost)
 
   const totalVCpus = sessionHostCount * profile.vCpus
   const totalMemoryGB = sessionHostCount * profile.memoryGB
 
+  // #29: density analysis — CPU-limited vs RAM-limited
+  const cpuLimitedUsersPerHost = profile.vCpusPerUser > 0
+    ? Math.floor(profile.vCpus / profile.vCpusPerUser)
+    : usersPerHost
+  const ramLimitedUsersPerHost = profile.memGBPerUser > 0
+    ? Math.floor(profile.memoryGB / profile.memGBPerUser)
+    : usersPerHost
+  let limitingFactor: 'cpu' | 'ram' | 'preset' = 'preset'
+  if (cpuLimitedUsersPerHost < usersPerHost) limitingFactor = 'cpu'
+  else if (ramLimitedUsersPerHost < usersPerHost) limitingFactor = 'ram'
+
   // Storage
   const totalOsStorageTB = round2((sessionHostCount * profile.osDiskGB) / 1024)
-  const totalProfileStorageTB = round2((inputs.totalUsers * inputs.profileSizeGB) / 1024)
+
+  // #31: data/temp disk per host
+  const dataDiskTB = inputs.dataDiskPerHostGB > 0
+    ? round2((sessionHostCount * inputs.dataDiskPerHostGB) / 1024)
+    : 0
+
+  // Profile storage uses totalUsers (not sizingUsers) — profiles are always allocated for all users
+  const baseProfileStorageTB = (inputs.totalUsers * inputs.profileSizeGB) / 1024
+  // #27: apply growth buffer to profile storage
+  const growthMultiplier = 1 + (inputs.growthBufferPct / 100)
+  const totalProfileStorageTB = round2(baseProfileStorageTB * growthMultiplier)
+  const profileStorageWithGrowthTB = totalProfileStorageTB
+
   const totalOfficeContainerStorageTB = inputs.officeContainerEnabled
     ? round2((inputs.totalUsers * inputs.officeContainerSizeGB) / 1024)
     : 0
+
   const totalStorageTB = round2(
-    totalOsStorageTB + totalProfileStorageTB + totalOfficeContainerStorageTB
+    totalOsStorageTB + dataDiskTB + totalProfileStorageTB + totalOfficeContainerStorageTB
   )
+
+  // #35: network bandwidth
+  const bandwidthPerUserMbps = profile.bandwidthMbps
+  const totalBandwidthMbps = round2(sizingUsers * bandwidthPerUserMbps)
 
   return {
     usersPerHost,
     sessionHostCount,
+    sizingUsers,
     vCpusPerHost: profile.vCpus,
     memoryPerHostGB: profile.memoryGB,
+    cpuLimitedUsersPerHost,
+    ramLimitedUsersPerHost,
+    limitingFactor,
     totalVCpus,
     totalMemoryGB,
     osDiskPerHostGB: profile.osDiskGB,
+    dataDiskPerHostGB: inputs.dataDiskPerHostGB,
     totalOsStorageTB,
+    totalDataDiskStorageTB: dataDiskTB,
     totalProfileStorageTB,
+    profileStorageWithGrowthTB,
     totalOfficeContainerStorageTB,
     totalStorageTB,
+    bandwidthPerUserMbps,
+    totalBandwidthMbps,
   }
 }
 
