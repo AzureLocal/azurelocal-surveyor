@@ -139,6 +139,9 @@ export interface VmScenario {
   memoryPerVmGB: number
   storagePerVmGB: number
   resiliency: ResiliencyType
+  // Per-scenario overcommit: effective vCPU demand = (vmCount × vCpusPerVm) / vCpuOvercommitRatio
+  // Default 1 = full vCPU demand. Higher values mean these VMs can share cores more aggressively.
+  vCpuOvercommitRatio: number
 }
 
 export interface BackupArchiveScenario {

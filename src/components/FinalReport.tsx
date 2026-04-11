@@ -47,12 +47,12 @@ export default function FinalReport() {
     totalStorageTB += aks.totalStorageTB
   }
   if (state.infraVms.enabled) {
-    totalVCpus    += state.infraVms.vmCount * state.infraVms.vCpusPerVm
+    totalVCpus    += (state.infraVms.vmCount * state.infraVms.vCpusPerVm) / state.infraVms.vCpuOvercommitRatio
     totalMemoryGB += state.infraVms.vmCount * state.infraVms.memoryPerVmGB
     totalStorageTB += (state.infraVms.vmCount * state.infraVms.storagePerVmGB) / 1024
   }
   if (state.devTestVms.enabled) {
-    totalVCpus    += state.devTestVms.vmCount * state.devTestVms.vCpusPerVm
+    totalVCpus    += (state.devTestVms.vmCount * state.devTestVms.vCpusPerVm) / state.devTestVms.vCpuOvercommitRatio
     totalMemoryGB += state.devTestVms.vmCount * state.devTestVms.memoryPerVmGB
     totalStorageTB += (state.devTestVms.vmCount * state.devTestVms.storagePerVmGB) / 1024
   }
@@ -60,7 +60,7 @@ export default function FinalReport() {
     totalStorageTB += state.backupArchive.storageTB
   }
   if (state.customVms.enabled) {
-    totalVCpus    += state.customVms.vmCount * state.customVms.vCpusPerVm
+    totalVCpus    += (state.customVms.vmCount * state.customVms.vCpusPerVm) / state.customVms.vCpuOvercommitRatio
     totalMemoryGB += state.customVms.vmCount * state.customVms.memoryPerVmGB
     totalStorageTB += (state.customVms.vmCount * state.customVms.storagePerVmGB) / 1024
   }

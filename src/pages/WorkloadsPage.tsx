@@ -16,9 +16,9 @@ export default function WorkloadsPage() {
   let totalMemoryGB = 0
   if (avdEnabled) { totalVCpus += avdResult.totalVCpus; totalMemoryGB += avdResult.totalMemoryGB }
   if (aks.enabled) { totalVCpus += aksResult.totalVCpus; totalMemoryGB += aksResult.totalMemoryGB }
-  if (infraVms.enabled) { totalVCpus += infraVms.vmCount * infraVms.vCpusPerVm; totalMemoryGB += infraVms.vmCount * infraVms.memoryPerVmGB }
-  if (devTestVms.enabled) { totalVCpus += devTestVms.vmCount * devTestVms.vCpusPerVm; totalMemoryGB += devTestVms.vmCount * devTestVms.memoryPerVmGB }
-  if (customVms.enabled) { totalVCpus += customVms.vmCount * customVms.vCpusPerVm; totalMemoryGB += customVms.vmCount * customVms.memoryPerVmGB }
+  if (infraVms.enabled) { totalVCpus += (infraVms.vmCount * infraVms.vCpusPerVm) / infraVms.vCpuOvercommitRatio; totalMemoryGB += infraVms.vmCount * infraVms.memoryPerVmGB }
+  if (devTestVms.enabled) { totalVCpus += (devTestVms.vmCount * devTestVms.vCpusPerVm) / devTestVms.vCpuOvercommitRatio; totalMemoryGB += devTestVms.vmCount * devTestVms.memoryPerVmGB }
+  if (customVms.enabled) { totalVCpus += (customVms.vmCount * customVms.vCpusPerVm) / customVms.vCpuOvercommitRatio; totalMemoryGB += customVms.vmCount * customVms.memoryPerVmGB }
   // backupArchive is storage-only
 
   const vcpuUsedPct = compute.usableVCpus > 0

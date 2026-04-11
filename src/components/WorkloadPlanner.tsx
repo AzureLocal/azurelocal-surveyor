@@ -75,6 +75,7 @@ function VmFields({
   value: VmScenario
   onChange: (v: Partial<VmScenario>) => void
 }) {
+  const effectiveVCpus = Math.round((value.vmCount * value.vCpusPerVm) / value.vCpuOvercommitRatio)
   return (
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
       <SmallField label="VM count">
@@ -93,7 +94,17 @@ function VmFields({
         <input type="number" min={1} className="input w-full" value={value.storagePerVmGB}
           onChange={(e) => onChange({ storagePerVmGB: +e.target.value })} />
       </SmallField>
-      <SmallField label="Resiliency" className="col-span-2">
+      <SmallField label="vCPU overcommit" hint={`${effectiveVCpus} effective vCPUs`}>
+        <select className="input w-full" value={value.vCpuOvercommitRatio}
+          onChange={(e) => onChange({ vCpuOvercommitRatio: +e.target.value })}>
+          <option value={1}>1:1 (no overcommit)</option>
+          <option value={2}>2:1</option>
+          <option value={4}>4:1</option>
+          <option value={6}>6:1</option>
+          <option value={8}>8:1</option>
+        </select>
+      </SmallField>
+      <SmallField label="Resiliency">
         <ResiliencySelect value={value.resiliency} onChange={(r) => onChange({ resiliency: r })} />
       </SmallField>
     </div>
@@ -102,7 +113,7 @@ function VmFields({
 
 function vmScenarioTotals(s: VmScenario) {
   return {
-    vCpus: s.vmCount * s.vCpusPerVm,
+    vCpus: Math.round((s.vmCount * s.vCpusPerVm) / s.vCpuOvercommitRatio),
     memoryGB: s.vmCount * s.memoryPerVmGB,
     storageTB: (s.vmCount * s.storagePerVmGB) / 1024,
   }
@@ -233,13 +244,15 @@ export default function WorkloadPlanner() {
       {/* ── 3. Infrastructure VMs ── */}
       <ScenarioCard label="Infrastructure VMs" enabled={infraVms.enabled} onToggle={() => setInfraVms({ enabled: !infraVms.enabled })}>
         <VmFields value={infraVms} onChange={setInfraVms} />
-        <ScenarioTotals vCpus={infraTotals.vCpus} memGB={infraTotals.memoryGB} storageTB={infraTotals.storageTB} />
+        <ScenarioTotals vCpus={infraTotals.vCpus} memGB={infraTotals.memoryGB} storageTB={infraTotals.storageTB}
+          rawVCpus={infraVms.vmCount * infraVms.vCpusPerVm} overcommit={infraVms.vCpuOvercommitRatio} />
       </ScenarioCard>
 
       {/* ── 4. Dev / Test VMs ── */}
       <ScenarioCard label="Dev / Test VMs" enabled={devTestVms.enabled} onToggle={() => setDevTestVms({ enabled: !devTestVms.enabled })}>
         <VmFields value={devTestVms} onChange={setDevTestVms} />
-        <ScenarioTotals vCpus={devTestTotals.vCpus} memGB={devTestTotals.memoryGB} storageTB={devTestTotals.storageTB} />
+        <ScenarioTotals vCpus={devTestTotals.vCpus} memGB={devTestTotals.memoryGB} storageTB={devTestTotals.storageTB}
+          rawVCpus={devTestVms.vmCount * devTestVms.vCpusPerVm} overcommit={devTestVms.vCpuOvercommitRatio} />
       </ScenarioCard>
 
       {/* ── 5. Backup / Archive ── */}
@@ -259,7 +272,8 @@ export default function WorkloadPlanner() {
       {/* ── 6. Custom VMs ── */}
       <ScenarioCard label="Custom VMs" enabled={customVms.enabled} onToggle={() => setCustomVms({ enabled: !customVms.enabled })}>
         <VmFields value={customVms} onChange={setCustomVms} />
-        <ScenarioTotals vCpus={customTotals.vCpus} memGB={customTotals.memoryGB} storageTB={customTotals.storageTB} />
+        <ScenarioTotals vCpus={customTotals.vCpus} memGB={customTotals.memoryGB} storageTB={customTotals.storageTB}
+          rawVCpus={customVms.vmCount * customVms.vCpusPerVm} overcommit={customVms.vCpuOvercommitRatio} />
       </ScenarioCard>
 
       {/* ── 7. SOFS ── */}
@@ -310,10 +324,19 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
   )
 }
 
-function ScenarioTotals({ vCpus = 0, memGB = 0, storageTB }: { vCpus?: number; memGB?: number; storageTB: number }) {
+function ScenarioTotals({ vCpus = 0, memGB = 0, storageTB, rawVCpus, overcommit }: {
+  vCpus?: number; memGB?: number; storageTB: number; rawVCpus?: number; overcommit?: number
+}) {
   return (
     <div className="mt-1 pt-2 border-t border-gray-100 dark:border-gray-700 flex gap-4 text-xs text-gray-500">
-      {vCpus > 0 && <span>vCPUs: <strong className="text-gray-900 dark:text-white">{vCpus}</strong></span>}
+      {vCpus > 0 && (
+        <span>
+          Effective vCPUs: <strong className="text-gray-900 dark:text-white">{vCpus}</strong>
+          {rawVCpus && overcommit && overcommit > 1 && (
+            <span className="ml-1 text-gray-400">({rawVCpus} raw ÷ {overcommit})</span>
+          )}
+        </span>
+      )}
       {memGB > 0 && <span>RAM: <strong className="text-gray-900 dark:text-white">{memGB} GB</strong></span>}
       <span>Storage: <strong className="text-gray-900 dark:text-white">{storageTB.toFixed(2)} TB</strong></span>
     </div>

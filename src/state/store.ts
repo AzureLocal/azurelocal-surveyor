@@ -103,6 +103,7 @@ const DEFAULT_INFRA_VMS: VmScenario = {
   memoryPerVmGB: 16,
   storagePerVmGB: 500,
   resiliency: 'three-way-mirror',
+  vCpuOvercommitRatio: 1,
 }
 
 const DEFAULT_DEV_TEST_VMS: VmScenario = {
@@ -112,6 +113,7 @@ const DEFAULT_DEV_TEST_VMS: VmScenario = {
   memoryPerVmGB: 8,
   storagePerVmGB: 100,
   resiliency: 'two-way-mirror',
+  vCpuOvercommitRatio: 2,
 }
 
 const DEFAULT_BACKUP_ARCHIVE: BackupArchiveScenario = {
@@ -127,6 +129,7 @@ const DEFAULT_CUSTOM_VMS: VmScenario = {
   memoryPerVmGB: 32,
   storagePerVmGB: 200,
   resiliency: 'three-way-mirror',
+  vCpuOvercommitRatio: 1,
 }
 
 export const useSurveyorStore = create<SurveyorState>()(
