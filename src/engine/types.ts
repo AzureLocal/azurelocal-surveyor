@@ -41,6 +41,17 @@ export interface HardwareInputs {
 
 // ─── Advanced Settings (Sheet: "Advanced Settings") ──────────────────────────
 
+// ─── Advanced Settings Overrides (#64) ───────────────────────────────────────
+// Any non-zero value replaces the formula-calculated result.
+// Mirrors the Excel "Override" column pattern: IF(override<>"", override, formula).
+
+export interface AdvancedSettingsOverrides {
+  driveUsableTb?: number           // per drive TB — replaces driveSizeTB × efficiencyFactor
+  avdSessionHostsNeeded?: number   // total session hosts — replaces ceil(users / density)
+  avdProfileLogicalTb?: number     // total profile logical TB — replaces users × profileGB / 1024
+  sofsProfileDemandTb?: number     // total SOFS profile demand TB — replaces userCount × profileGB / 1024
+}
+
 export interface AdvancedSettings {
   capacityEfficiencyFactor: number     // default 0.92 — filesystem overhead per drive
   infraVolumeSizeTB: number            // logical size of infra (system) volume, default 0.25
@@ -48,6 +59,7 @@ export interface AdvancedSettings {
   systemReservedMemoryGB: number       // default 8 per node
   systemReservedVCpus: number          // default 4 per node for Hyper-V / Arc VM agent
   defaultResiliency: ResiliencyType
+  overrides: AdvancedSettingsOverrides // manual overrides for formula-calculated values (#64)
 }
 
 export const DEFAULT_ADVANCED_SETTINGS: AdvancedSettings = {
@@ -57,6 +69,7 @@ export const DEFAULT_ADVANCED_SETTINGS: AdvancedSettings = {
   systemReservedMemoryGB: 8,
   systemReservedVCpus: 4,
   defaultResiliency: 'three-way-mirror',
+  overrides: {},
 }
 
 // ─── Capacity (Sheet: "Capacity Report") ─────────────────────────────────────

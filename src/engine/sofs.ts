@@ -1,4 +1,4 @@
-import type { SofsInputs, SofsResult } from './types'
+import type { AdvancedSettingsOverrides, SofsInputs, SofsResult } from './types'
 
 /**
  * Compute SOFS guest cluster sizing.
@@ -10,8 +10,12 @@ import type { SofsInputs, SofsResult } from './types'
  * Data flow mirrors the "SOFS Planner" sheet (25 formulas).
  * Additional features: #41 IOPS, #43 auto-sizing, #45 container types.
  */
-export function computeSofs(inputs: SofsInputs): SofsResult {
-  const totalProfileStorageTB = round2((inputs.userCount * inputs.profileSizeGB) / 1024)
+export function computeSofs(inputs: SofsInputs, overrides?: AdvancedSettingsOverrides): SofsResult {
+  // #64: override SOFS profile demand when set
+  const totalProfileStorageTB =
+    overrides?.sofsProfileDemandTb && overrides.sofsProfileDemandTb > 0
+      ? overrides.sofsProfileDemandTb
+      : round2((inputs.userCount * inputs.profileSizeGB) / 1024)
   const totalRedirectedStorageTB = round2(
     (inputs.userCount * inputs.redirectedFolderSizeGB) / 1024
   )

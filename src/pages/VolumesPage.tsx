@@ -16,8 +16,8 @@ export default function VolumesPage() {
   const { hardware, advanced, volumes } = state
   const capacity = computeCapacity(hardware, advanced)
   const compute  = computeCompute(hardware, advanced)
-  const avd      = computeAvd(state.avd)
-  const sofs     = computeSofs(state.sofs)
+  const avd      = computeAvd(state.avd, state.advanced.overrides)
+  const sofs     = computeSofs(state.sofs, state.advanced.overrides)
   const aks      = computeAks(state.aks)
 
   // Aggregate workload demand from all enabled scenarios for accurate health checks

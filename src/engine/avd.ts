@@ -1,4 +1,4 @@
-import type { AvdInputs, AvdResult, AvdWorkloadType } from './types'
+import type { AdvancedSettingsOverrides, AvdInputs, AvdResult, AvdWorkloadType } from './types'
 
 /**
  * Per-session-host specs indexed by workload type.
@@ -68,7 +68,7 @@ const HOST_PROFILES: Record<AvdWorkloadType, HostProfile> = {
  *   totalUsers + workloadType → usersPerHost → sessionHostCount
  *   → vCPU/memory totals → storage totals
  */
-export function computeAvd(inputs: AvdInputs): AvdResult {
+export function computeAvd(inputs: AvdInputs, overrides?: AdvancedSettingsOverrides): AvdResult {
   const profile = HOST_PROFILES[inputs.workloadType]
   const usersPerHost = inputs.multiSession
     ? profile.usersPerHostMulti
@@ -76,7 +76,11 @@ export function computeAvd(inputs: AvdInputs): AvdResult {
 
   // #26: use concurrentUsers for session host sizing when set
   const sizingUsers = inputs.concurrentUsers > 0 ? inputs.concurrentUsers : inputs.totalUsers
-  const sessionHostCount = Math.ceil(sizingUsers / usersPerHost)
+  // #64: override session host count if set
+  const sessionHostCount =
+    overrides?.avdSessionHostsNeeded && overrides.avdSessionHostsNeeded > 0
+      ? overrides.avdSessionHostsNeeded
+      : Math.ceil(sizingUsers / usersPerHost)
 
   // #59: user type mix weighted average profile size
   let effectiveProfileSizeGB = inputs.profileSizeGB
@@ -113,7 +117,11 @@ export function computeAvd(inputs: AvdInputs): AvdResult {
     : 0
 
   // Profile storage uses totalUsers (not sizingUsers) — profiles are always allocated for all users
-  const baseProfileStorageTB = (inputs.totalUsers * effectiveProfileSizeGB) / 1024
+  // #64: override profile logical TB if set
+  const baseProfileStorageTB =
+    overrides?.avdProfileLogicalTb && overrides.avdProfileLogicalTb > 0
+      ? overrides.avdProfileLogicalTb
+      : (inputs.totalUsers * effectiveProfileSizeGB) / 1024
   // #27: apply growth buffer to profile storage
   const growthMultiplier = 1 + (inputs.growthBufferPct / 100)
   const totalProfileStorageTB = round2(baseProfileStorageTB * growthMultiplier)

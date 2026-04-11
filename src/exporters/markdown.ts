@@ -17,7 +17,7 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
   const capacity = computeCapacity(state.hardware, state.advanced)
   const summary = computeVolumeSummary(state.volumes, capacity)
   const compute = computeCompute(state.hardware, state.advanced)
-  const avd = computeAvd(state.avd)
+  const avd = computeAvd(state.avd, state.advanced.overrides)
 
   const lines: string[] = []
   const hw = state.hardware

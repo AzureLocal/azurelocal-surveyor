@@ -1,9 +1,25 @@
+import { useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
 import { DEFAULT_ADVANCED_SETTINGS } from '../engine/types'
-import type { ResiliencyType } from '../engine/types'
+import type { AdvancedSettingsOverrides, ResiliencyType } from '../engine/types'
 
 export default function AdvancedSettings() {
   const { advanced, setAdvanced } = useSurveyorStore()
+  const [overridesOpen, setOverridesOpen] = useState(false)
+
+  const overrides: AdvancedSettingsOverrides = advanced.overrides ?? {}
+  const hasActiveOverride = Object.values(overrides).some((v) => v !== undefined && v > 0)
+
+  function setOverride(key: keyof AdvancedSettingsOverrides, value: string) {
+    const parsed = parseFloat(value)
+    setAdvanced({
+      overrides: {
+        ...overrides,
+        [key]: !value || isNaN(parsed) ? undefined : parsed,
+      },
+    })
+  }
 
   return (
     <div className="space-y-4">
@@ -68,6 +84,65 @@ export default function AdvancedSettings() {
         Reset to defaults
       </button>
 
+      {/* Override Calculated Values (#64) */}
+      <div className={`border rounded-lg overflow-hidden ${hasActiveOverride ? 'border-amber-300 dark:border-amber-700' : 'border-gray-200 dark:border-gray-700'}`}>
+        <button
+          className={`flex items-center gap-2 w-full px-4 py-3 text-left transition-colors ${hasActiveOverride ? 'bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-900/30' : 'bg-gray-50 dark:bg-gray-800 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+          onClick={() => setOverridesOpen((o) => !o)}
+        >
+          {overridesOpen ? <ChevronDown className="w-4 h-4 shrink-0 text-gray-400" /> : <ChevronRight className="w-4 h-4 shrink-0 text-gray-400" />}
+          <span className="text-sm font-semibold flex-1">Override Calculated Values</span>
+          {hasActiveOverride && (
+            <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-200 dark:bg-amber-800 text-amber-800 dark:text-amber-200">
+              Override active
+            </span>
+          )}
+        </button>
+        {overridesOpen && (
+          <div className="p-4 space-y-4 border-t border-gray-200 dark:border-gray-700">
+            <p className="text-xs text-gray-500">
+              Enter a value to override the formula-calculated result. Leave blank to use the formula.
+              This mirrors the Excel workbook's "Override column" pattern:{' '}
+              <code className="font-mono text-xs">IF(override≠"", override, formula)</code>
+            </p>
+            <div className="grid grid-cols-2 gap-4">
+              <OverrideField
+                label="Drive usable capacity (TB)"
+                hint="replaces drive size × efficiency factor"
+                value={overrides.driveUsableTb}
+                onChange={(v) => setOverride('driveUsableTb', v)}
+              />
+              <OverrideField
+                label="AVD session hosts needed"
+                hint="replaces ceil(users ÷ density)"
+                value={overrides.avdSessionHostsNeeded}
+                onChange={(v) => setOverride('avdSessionHostsNeeded', v)}
+              />
+              <OverrideField
+                label="AVD profile logical storage (TB)"
+                hint="replaces users × profile GB ÷ 1024"
+                value={overrides.avdProfileLogicalTb}
+                onChange={(v) => setOverride('avdProfileLogicalTb', v)}
+              />
+              <OverrideField
+                label="SOFS profile demand (TB)"
+                hint="replaces user count × profile GB ÷ 1024"
+                value={overrides.sofsProfileDemandTb}
+                onChange={(v) => setOverride('sofsProfileDemandTb', v)}
+              />
+            </div>
+            {hasActiveOverride && (
+              <button
+                className="text-xs text-amber-600 dark:text-amber-400 hover:underline"
+                onClick={() => setAdvanced({ overrides: {} })}
+              >
+                Clear all overrides
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* TB ↔ TiB Conversion Reference (#57) */}
       <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
         <div className="bg-gray-50 dark:bg-gray-800 px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -114,6 +189,32 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
         {hint && <span className="ml-1 text-xs text-gray-500">({hint})</span>}
       </label>
       {children}
+    </div>
+  )
+}
+
+function OverrideField({
+  label, hint, value, onChange,
+}: {
+  label: string; hint?: string; value: number | undefined; onChange: (v: string) => void
+}) {
+  const isActive = value !== undefined && value > 0
+  return (
+    <div>
+      <label className="block text-sm font-medium mb-1">
+        {label}
+        {hint && <span className="ml-1 text-xs text-gray-400">({hint})</span>}
+        {isActive && <span className="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400">override active</span>}
+      </label>
+      <input
+        type="number"
+        min={0}
+        step={0.01}
+        placeholder="blank = use formula"
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        className={`input ${isActive ? 'border-amber-400 dark:border-amber-600 bg-amber-50 dark:bg-amber-900/10' : ''}`}
+      />
     </div>
   )
 }

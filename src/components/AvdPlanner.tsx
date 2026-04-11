@@ -50,8 +50,8 @@ const STORAGE_LOCATION_DESCRIPTIONS: Record<AvdProfileStorageLocation, string> =
 }
 
 export default function AvdPlanner() {
-  const { avd, setAvd } = useSurveyorStore()
-  const result = computeAvd(avd)
+  const { avd, setAvd, advanced } = useSurveyorStore()
+  const result = computeAvd(avd, advanced.overrides)
   const [checklistOpen, setChecklistOpen] = useState(false)
 
   return (

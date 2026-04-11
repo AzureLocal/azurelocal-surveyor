@@ -3,6 +3,59 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { CapacityResult } from '../engine/types'
 import { round2 } from '../engine/capacity'
 
+// ─── Capacity Pool Stacked Bar (#10) ─────────────────────────────────────────
+
+function CapacityStackedBar({
+  capacity,
+  volumesUsedTB = 0,
+}: {
+  capacity: CapacityResult
+  volumesUsedTB?: number
+}) {
+  const total = capacity.rawPoolTB
+  if (total <= 0) return null
+
+  // Pool footprint of planned volumes: logical ÷ resiliency factor
+  const volumeFootprintTB = volumesUsedTB > 0
+    ? Math.min(volumesUsedTB / capacity.resiliencyFactor, capacity.availableForVolumesTB)
+    : 0
+  const remainingTB = Math.max(0, capacity.availableForVolumesTB - volumeFootprintTB)
+
+  const segments = [
+    { label: 'Reserve', tb: capacity.reserveTB, color: 'bg-gray-400 dark:bg-gray-500' },
+    { label: 'Infra volume', tb: capacity.infraVolumeTB, color: 'bg-blue-300 dark:bg-blue-700' },
+    { label: 'Volumes', tb: volumeFootprintTB, color: 'bg-brand-500 dark:bg-brand-400' },
+    { label: 'Remaining usable', tb: remainingTB, color: 'bg-green-400 dark:bg-green-600' },
+  ].filter((s) => s.tb > 0)
+
+  return (
+    <div className="px-4 py-3">
+      <div className="text-xs font-medium text-gray-500 mb-2">Pool Breakdown (of {total} TB raw)</div>
+      {/* Stacked bar */}
+      <div className="flex rounded-md overflow-hidden h-5 w-full border border-gray-200 dark:border-gray-700">
+        {segments.map((seg) => (
+          <div
+            key={seg.label}
+            className={`${seg.color} h-full transition-all`}
+            style={{ width: `${(seg.tb / total) * 100}%`, minWidth: seg.tb > 0 ? '2px' : '0' }}
+            title={`${seg.label}: ${round2(seg.tb)} TB (${((seg.tb / total) * 100).toFixed(1)}%)`}
+          />
+        ))}
+      </div>
+      {/* Legend */}
+      <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
+        {segments.map((seg) => (
+          <div key={seg.label} className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span className={`inline-block w-2.5 h-2.5 rounded-sm ${seg.color}`} />
+            <span>{seg.label}</span>
+            <span className="font-mono text-gray-700 dark:text-gray-300">{round2(seg.tb)} TB</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 const RESILIENCY_LABELS: Record<string, string> = {
   'two-way-mirror':   'Two-Way Mirror (50%)',
   'three-way-mirror': 'Three-Way Mirror (33%)',
@@ -24,13 +77,22 @@ const GLOSSARY = [
   { term: 'Effective Usable',  def: 'The planning number — how much data fits with your default resiliency. = Available Pool × resiliency efficiency.' },
 ]
 
-export default function CapacityReport({ result }: { result: CapacityResult }) {
+export default function CapacityReport({
+  result,
+  volumesUsedTB,
+}: {
+  result: CapacityResult
+  volumesUsedTB?: number
+}) {
   const [glossaryOpen, setGlossaryOpen] = useState(false)
   const resiliencyPct = (result.resiliencyFactor * 100).toFixed(1)
 
   return (
     <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
       <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">Capacity Report</div>
+      {/* Pool breakdown stacked bar chart (#10) */}
+      <CapacityStackedBar capacity={result} volumesUsedTB={volumesUsedTB} />
+      <div className="border-t border-gray-100 dark:border-gray-800" />
       <table className="w-full text-sm">
         <tbody>
           <Section label="Raw Pool" />

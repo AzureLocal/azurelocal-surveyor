@@ -26,8 +26,8 @@ export default function FinalReport() {
   const capacity = computeCapacity(state.hardware, state.advanced)
   const volumeSummary = computeVolumeSummary(state.volumes, capacity)
   const compute = computeCompute(state.hardware, state.advanced)
-  const avd = computeAvd(state.avd)
-  const sofs = computeSofs(state.sofs)
+  const avd = computeAvd(state.avd, state.advanced.overrides)
+  const sofs = computeSofs(state.sofs, state.advanced.overrides)
   const aks = computeAks(state.aks)
 
   // Aggregate workload totals across all enabled scenarios — fixes #15
@@ -120,7 +120,7 @@ export default function FinalReport() {
 
       <section>
         <h2 className="text-lg font-semibold mb-3">Capacity</h2>
-        <CapacityReport result={capacity} />
+        <CapacityReport result={capacity} volumesUsedTB={volumeSummary.totalPlannedTB} />
       </section>
 
       <section>

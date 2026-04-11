@@ -32,8 +32,8 @@ export default function ReportsPage() {
   const { hardware, advanced } = state
   const capacity = computeCapacity(hardware, advanced)
   const compute = computeCompute(hardware, advanced)
-  const avd = computeAvd(state.avd)
-  const sofs = computeSofs(state.sofs)
+  const avd = computeAvd(state.avd, state.advanced.overrides)
+  const sofs = computeSofs(state.sofs, state.advanced.overrides)
   const aks = computeAks(state.aks)
 
   // Aggregate workload totals (same pattern as FinalReport/VolumesPage)
@@ -99,7 +99,7 @@ export default function ReportsPage() {
           <p className="text-sm text-gray-500">
             Raw pool, usable capacity, reserve drives, and effective usable — the planning number for workloads.
           </p>
-          <CapacityReport result={capacity} />
+          <CapacityReport result={capacity} volumesUsedTB={state.volumes.reduce((s, v) => s + v.plannedSizeTB, 0)} />
         </div>
       )}
 

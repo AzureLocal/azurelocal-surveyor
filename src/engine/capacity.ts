@@ -62,7 +62,11 @@ export function computeCapacity(
   const { capacityEfficiencyFactor, infraVolumeSizeTB, defaultResiliency } = settings
 
   // Step 1: per-drive usable (filesystem overhead applied here, not at pool level)
-  const usablePerDriveTB = capacityDriveSizeTB * capacityEfficiencyFactor
+  // #64: use manual override when set (non-zero)
+  const usablePerDriveTB =
+    settings.overrides?.driveUsableTb && settings.overrides.driveUsableTb > 0
+      ? settings.overrides.driveUsableTb
+      : capacityDriveSizeTB * capacityEfficiencyFactor
 
   // Step 2: total usable raw → all drives across all nodes after per-drive overhead
   const rawPoolTB = capacityDriveSizeTB * capacityDrivesPerNode * nodeCount

@@ -130,11 +130,12 @@ export default function WorkloadPlanner() {
     backupArchive, setBackupArchive,
     customVms, setCustomVms,
     sofs, sofsEnabled, setSofsEnabled,
+    advanced,
   } = useSurveyorStore()
 
-  const avdResult = computeAvd(avd)
+  const avdResult = computeAvd(avd, advanced.overrides)
   const aksResult = computeAks(aks)
-  const sofsResult = computeSofs(sofs)
+  const sofsResult = computeSofs(sofs, advanced.overrides)
   const infraTotals = vmScenarioTotals(infraVms)
   const devTestTotals = vmScenarioTotals(devTestVms)
   const customTotals = vmScenarioTotals(customVms)

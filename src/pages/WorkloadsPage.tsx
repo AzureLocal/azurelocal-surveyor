@@ -8,7 +8,7 @@ import ComputeReport from '../components/ComputeReport'
 export default function WorkloadsPage() {
   const { hardware, advanced, avd, avdEnabled, aks, infraVms, devTestVms, customVms } = useSurveyorStore()
   const compute = computeCompute(hardware, advanced)
-  const avdResult = computeAvd(avd)
+  const avdResult = computeAvd(avd, advanced.overrides)
   const aksResult = computeAks(aks)
 
   // Aggregate enabled scenarios for utilization bars

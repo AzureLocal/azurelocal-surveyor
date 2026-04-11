@@ -46,8 +46,8 @@ const READINESS_CHECKLIST = [
 ]
 
 export default function SofsPlanner() {
-  const { sofs, setSofs } = useSurveyorStore()
-  const result = computeSofs(sofs)
+  const { sofs, setSofs, advanced } = useSurveyorStore()
+  const result = computeSofs(sofs, advanced.overrides)
   const [checklistOpen, setChecklistOpen] = useState(false)
 
   return (

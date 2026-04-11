@@ -1,5 +1,39 @@
 import type { ComputeResult } from '../engine/types'
 
+// ─── Utilization gauge (#10) ──────────────────────────────────────────────────
+
+function UtilizationBar({
+  label, used, total, unit, color,
+}: {
+  label: string; used: number; total: number; unit: string; color: string
+}) {
+  if (total <= 0) return null
+  const pct = Math.min((used / total) * 100, 100)
+  const overPct = used > total ? ((used - total) / total) * 100 : 0
+  return (
+    <div>
+      <div className="flex justify-between text-xs mb-1">
+        <span className="font-medium">{label}</span>
+        <span className="text-gray-500">
+          {Math.round(used).toLocaleString()} / {Math.round(total).toLocaleString()} {unit}
+          <span className="ml-1 font-mono text-gray-700 dark:text-gray-300">({pct.toFixed(1)}%)</span>
+        </span>
+      </div>
+      <div className="h-3 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden border border-gray-200 dark:border-gray-700 relative">
+        <div
+          className={`h-full rounded-full transition-all ${overPct > 0 ? 'bg-red-500' : color}`}
+          style={{ width: `${Math.min(pct, 100)}%` }}
+        />
+        {overPct > 0 && (
+          <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-white">
+            OVER CAPACITY
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function ComputeReport({ result, totalVCpus, totalMemoryGB }: {
   result: ComputeResult
   totalVCpus?: number
@@ -14,6 +48,31 @@ export default function ComputeReport({ result, totalVCpus, totalMemoryGB }: {
 
   return (
     <div className="space-y-4">
+      {/* Utilization gauges (#10) */}
+      {(totalVCpus !== undefined || totalMemoryGB !== undefined) && (
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+          <div className="text-sm font-semibold text-gray-700 dark:text-gray-300">Compute Utilization</div>
+          {totalVCpus !== undefined && (
+            <UtilizationBar
+              label="vCPU"
+              used={totalVCpus}
+              total={result.usableVCpus}
+              unit="vCPUs"
+              color={totalVCpus / result.usableVCpus > 0.9 ? 'bg-amber-500' : 'bg-brand-500'}
+            />
+          )}
+          {totalMemoryGB !== undefined && (
+            <UtilizationBar
+              label="Memory"
+              used={totalMemoryGB}
+              total={result.usableMemoryGB}
+              unit="GB"
+              color={totalMemoryGB / result.usableMemoryGB > 0.9 ? 'bg-amber-500' : 'bg-brand-500'}
+            />
+          )}
+        </div>
+      )}
+
       {/* Main compute table */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">Compute Report</div>
