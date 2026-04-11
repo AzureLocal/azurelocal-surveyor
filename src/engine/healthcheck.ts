@@ -140,6 +140,89 @@ export function runHealthCheck(params: {
     }
   }
 
+  // ── Minimum node count (#20 expansion) ────────────────────────────────────
+
+  if (hardware.nodeCount < 2) {
+    issues.push({
+      code: 'HC_MIN_NODES',
+      severity: 'error',
+      message: 'Azure Local requires at least 2 nodes. Single-node deployments are not supported with S2D.',
+    })
+  } else if (hardware.nodeCount === 2) {
+    issues.push({
+      code: 'HC_TWO_NODE_ADVISORY',
+      severity: 'info',
+      message: '2-node cluster: only Two-Way Mirror and Nested Two-Way Mirror resiliency are supported. Consider 3+ nodes for Three-Way Mirror protection in production.',
+    })
+  }
+
+  // ── Drive count per node ───────────────────────────────────────────────────
+
+  if (hardware.capacityDrivesPerNode < 2) {
+    issues.push({
+      code: 'HC_LOW_DRIVE_COUNT',
+      severity: 'error',
+      message: `Only ${hardware.capacityDrivesPerNode} capacity drive(s) per node. S2D requires at least 2 capacity drives per node for pool participation.`,
+    })
+  } else if (hardware.capacityDrivesPerNode < 4) {
+    issues.push({
+      code: 'HC_FEW_DRIVES',
+      severity: 'warning',
+      message: `${hardware.capacityDrivesPerNode} capacity drives per node is below the recommended minimum of 4 for balanced slab distribution. Consider more drives per node.`,
+    })
+  }
+
+  // ── Drive symmetry (#20 expansion) ────────────────────────────────────────
+  // All nodes should have the same drive count and size. Since this tool only
+  // has one drive config, we can only check for obvious misconfigurations.
+  if (hardware.capacityDriveSizeTB <= 0) {
+    issues.push({
+      code: 'HC_INVALID_DRIVE_SIZE',
+      severity: 'error',
+      message: 'Capacity drive size must be greater than 0 TB.',
+    })
+  }
+
+  // ── Memory adequacy (#20 expansion) ───────────────────────────────────────
+
+  if (hardware.memoryPerNodeGB < 64) {
+    issues.push({
+      code: 'HC_LOW_MEMORY',
+      severity: 'warning',
+      message: `${hardware.memoryPerNodeGB} GB RAM per node is below the recommended minimum of 64 GB for Azure Local production deployments.`,
+    })
+  }
+
+  // ── CPU core count (#20 expansion) ────────────────────────────────────────
+
+  if (hardware.coresPerNode < 8) {
+    issues.push({
+      code: 'HC_LOW_CORES',
+      severity: 'warning',
+      message: `${hardware.coresPerNode} cores per node is low. Azure Local production workloads typically require at least 16 physical cores per node.`,
+    })
+  }
+
+  // ── All-Flash drive type check (#20 expansion) ─────────────────────────────
+
+  if (hardware.capacityMediaType === 'hdd' && hardware.cacheMediaType === 'none') {
+    issues.push({
+      code: 'HC_HDD_NO_CACHE',
+      severity: 'warning',
+      message: 'All-HDD configuration without a cache tier will have significantly lower IOPS than recommended for VM workloads. Add NVMe or SSD cache drives.',
+    })
+  }
+
+  // ── No workload vs capacity mismatch ─────────────────────────────────────
+
+  if (volumes.length > 0 && workloadSummary.totalStorageTB === 0) {
+    issues.push({
+      code: 'HC_VOLUMES_NO_WORKLOADS',
+      severity: 'info',
+      message: 'Volumes are planned but no workloads are enabled. Enable workloads on the Workloads page to validate storage demand against planned volumes.',
+    })
+  }
+
   return {
     passed: issues.filter((i) => i.severity === 'error').length === 0,
     issues,

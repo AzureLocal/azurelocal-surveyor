@@ -12,9 +12,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
       {/* Sidebar — always dark navy to match azurelocal.cloud brand */}
       <aside className="w-56 shrink-0 flex flex-col" style={{ backgroundColor: '#0f3057' }}>
-        <div className="px-4 py-5 border-b border-white/10">
-          <div className="text-xs font-semibold text-blue-200 uppercase tracking-wider">Azure Local</div>
-          <div className="text-lg font-bold leading-tight text-white">Surveyor</div>
+        <div className="px-4 py-4 border-b border-white/10">
+          {/* Azure Local logo mark — hexagon with circuit styling */}
+          <div className="flex items-center gap-2.5 mb-1">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className="shrink-0">
+              <polygon points="14,2 25,8 25,20 14,26 3,20 3,8" fill="#0078d4" stroke="#66aee4" strokeWidth="1.5"/>
+              <circle cx="14" cy="14" r="4" fill="white" opacity="0.9"/>
+              <line x1="14" y1="10" x2="14" y2="5" stroke="white" strokeWidth="1.5" opacity="0.6"/>
+              <line x1="14" y1="18" x2="14" y2="23" stroke="white" strokeWidth="1.5" opacity="0.6"/>
+              <line x1="10.5" y1="12" x2="6" y2="9.5" stroke="white" strokeWidth="1.5" opacity="0.6"/>
+              <line x1="17.5" y1="16" x2="22" y2="18.5" stroke="white" strokeWidth="1.5" opacity="0.6"/>
+            </svg>
+            <div>
+              <div className="text-xs font-semibold text-blue-200 uppercase tracking-widest leading-none">Azure Local</div>
+              <div className="text-base font-bold leading-tight text-white">Surveyor</div>
+            </div>
+          </div>
+          <div className="text-xs text-blue-300/60 mt-1">Capacity Planning Tool</div>
         </div>
         <nav className="flex-1 py-4 space-y-0.5 px-2">
           <NavItem to="/" label="Hardware" icon={Server} end />
