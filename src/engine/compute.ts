@@ -15,7 +15,10 @@ export function computeCompute(
   inputs: HardwareInputs,
   settings: AdvancedSettings
 ): ComputeResult {
-  const { nodeCount, coresPerNode, memoryPerNodeGB, hyperthreadingEnabled } = inputs
+  const nodeCount    = Math.max(1, isFinite(inputs.nodeCount) ? inputs.nodeCount : 1)
+  const coresPerNode = Math.max(1, isFinite(inputs.coresPerNode) ? inputs.coresPerNode : 1)
+  const memoryPerNodeGB = Math.max(0, isFinite(inputs.memoryPerNodeGB) ? inputs.memoryPerNodeGB : 0)
+  const { hyperthreadingEnabled } = inputs
   const { vCpuOversubscriptionRatio, systemReservedVCpus, systemReservedMemoryGB } = settings
 
   // CPU — hyperthreading doubles logical core count

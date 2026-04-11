@@ -54,11 +54,18 @@ export function minNodesForResiliency(resiliency: ResiliencyType): number {
  *   7. effectiveUsableTB = availableForVolumesTB × resiliencyFactor  (planning number)
  *   8. TiB equivalent    = TB × (1 000 000 000 000 / 1 099 511 627 776) ≈ × 0.909099
  */
+/** Sanitize a number — replace NaN/Infinity/negative with a safe fallback. */
+function safe(n: number, fallback = 0): number {
+  return isFinite(n) && !isNaN(n) ? n : fallback
+}
+
 export function computeCapacity(
   inputs: HardwareInputs,
   settings: AdvancedSettings
 ): CapacityResult {
-  const { nodeCount, capacityDrivesPerNode, capacityDriveSizeTB } = inputs
+  const nodeCount            = Math.max(1, safe(inputs.nodeCount, 1))
+  const capacityDrivesPerNode = Math.max(0, safe(inputs.capacityDrivesPerNode, 0))
+  const capacityDriveSizeTB  = Math.max(0, safe(inputs.capacityDriveSizeTB, 0))
   const { capacityEfficiencyFactor, infraVolumeSizeTB, defaultResiliency } = settings
 
   // Step 1: per-drive usable (filesystem overhead applied here, not at pool level)

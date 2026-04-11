@@ -1,136 +1,133 @@
 /**
- * LayoutCompare — compare current drive config against an alternative.
- * Ports the "Drive Layout Comparison" sheet (53 formulas).
- *
- * Alternative config auto-calculates drive size to match the same total
- * raw capacity — revealing the reserve-cost tradeoff of more/fewer drives.
+ * LayoutCompare — Drive Layout Comparison table.
+ * Ports sheet 10 exactly: same total raw capacity, different drive counts.
+ * Shows rows for 1–16 drives/node, auto-calculating drive size to preserve
+ * total raw, so you can see how reserve cost changes with drive count.
  */
-import { useState } from 'react'
 import { useSurveyorStore } from '../state/store'
 import { computeCapacity, round2 } from '../engine/capacity'
 import type { HardwareInputs } from '../engine/types'
 
 export default function LayoutCompare() {
   const { hardware, advanced } = useSurveyorStore()
-  const current = computeCapacity(hardware, advanced)
-
-  // Alternative: user changes drives/node and node count; drive size auto-calculated
-  // to preserve same total raw capacity — mirrors Excel Drive Layout Comparison (#65)
-  const [altDrivesPerNode, setAltDrivesPerNode] = useState(hardware.capacityDrivesPerNode)
-  const [altNodes, setAltNodes]               = useState(hardware.nodeCount)
 
   const currentRawTB = hardware.capacityDriveSizeTB * hardware.capacityDrivesPerNode * hardware.nodeCount
-  const altDriveSizeTB = altDrivesPerNode > 0 && altNodes > 0
-    ? round2(currentRawTB / (altNodes * altDrivesPerNode))
-    : 0
+  const nodeCount    = hardware.nodeCount
 
-  const altHw: HardwareInputs = {
-    ...hardware,
-    nodeCount: altNodes,
-    capacityDrivesPerNode: altDrivesPerNode,
-    capacityDriveSizeTB: altDriveSizeTB,
-  }
-  const altResult = computeCapacity(altHw, advanced)
-  const delta = round2(altResult.effectiveUsableTB - current.effectiveUsableTB)
+  // Generate rows for drive counts 1–16, same as Excel rows B14:B21 extended
+  const rows = Array.from({ length: 16 }, (_, i) => i + 1).map((drivesPerNode) => {
+    const driveSizeTB  = drivesPerNode > 0 ? round2(currentRawTB / (drivesPerNode * nodeCount)) : 0
+    const totalDrives  = drivesPerNode * nodeCount
+    const usablePerDriveTB = round2(driveSizeTB * advanced.capacityEfficiencyFactor)
+    const reserveDrives = Math.min(nodeCount, 4)
+    const reserveTB    = round2(reserveDrives * usablePerDriveTB)
+
+    // Available pool = (total drives × usable/drive) − reserve − infra volume footprint
+    // Infra footprint uses default resiliency factor from advanced settings
+    const altHw: HardwareInputs = {
+      ...hardware,
+      capacityDrivesPerNode: drivesPerNode,
+      capacityDriveSizeTB: driveSizeTB,
+    }
+    const result = computeCapacity(altHw, advanced)
+
+    const isCurrent = drivesPerNode === hardware.capacityDrivesPerNode
+    return { drivesPerNode, driveSizeTB, totalDrives, usablePerDriveTB, reserveTB, result, isCurrent }
+  })
+
+  const currentRow = rows.find((r) => r.isCurrent)
+  const currentEffective = currentRow?.result.effectiveUsableTB ?? 0
 
   return (
-    <div className="space-y-6">
-      <p className="text-sm text-gray-500">
-        The alternative configuration automatically matches your current total raw capacity but with a different
-        drive count per node. This reveals the <strong>reserve-cost tradeoff</strong>: more smaller drives = smaller
-        reserve TB = more available pool capacity, for the same raw investment.
-      </p>
-
-      <div className="grid grid-cols-2 gap-8">
-        {/* Current — read-only */}
-        <div>
-          <h3 className="text-sm font-semibold mb-3 text-brand-700 dark:text-brand-300">Current config</h3>
-          <ConfigTable rows={[
-            ['Nodes', String(hardware.nodeCount)],
-            ['Drives / node', String(hardware.capacityDrivesPerNode)],
-            ['Drive size', `${hardware.capacityDriveSizeTB} TB`],
-            ['Total raw', `${current.rawPoolTB} TB`],
-            ['Reserve drives', String(current.reserveDrives)],
-            ['Reserve (TB)', `${round2(current.reserveTB)} TB`],
-          ]} />
-          <CapacityBlock value={current.effectiveUsableTB} />
-        </div>
-
-        {/* Alternative — drives/node and node count editable; drive size auto-calculated */}
-        <div>
-          <h3 className="text-sm font-semibold mb-3 text-gray-600 dark:text-gray-400">Alternative config</h3>
-          <div className="space-y-2 mb-3">
-            <AltField label="Nodes" value={altNodes} onChange={setAltNodes} />
-            <AltField label="Capacity drives / node" value={altDrivesPerNode} onChange={setAltDrivesPerNode} />
-            <div className="flex items-center gap-2">
-              <span className="text-xs w-36 shrink-0 text-gray-500">Drive size (auto)</span>
-              <span className="text-sm font-mono font-semibold px-2 py-1.5 bg-gray-100 dark:bg-gray-800 rounded flex-1 text-center">
-                {altDriveSizeTB} TB
-              </span>
-            </div>
-          </div>
-          <ConfigTable rows={[
-            ['Total raw', `${round2(currentRawTB)} TB`],
-            ['Reserve drives', String(altResult.reserveDrives)],
-            ['Reserve (TB)', `${round2(altResult.reserveTB)} TB`],
-          ]} />
-          <CapacityBlock value={altResult.effectiveUsableTB} />
-        </div>
+    <div className="space-y-4">
+      {/* Current config summary */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden text-sm">
+        <Stat label="Cluster nodes" value={`${nodeCount}`} />
+        <Stat label="Total raw capacity" value={`${round2(currentRawTB)} TB`} note="held constant across all rows" />
+        <Stat label="Efficiency factor" value={`${advanced.capacityEfficiencyFactor}`} />
+        <Stat label="Reserve drives" value={`${Math.min(nodeCount, 4)} (min(nodes, 4))`} />
       </div>
 
-      {/* Delta */}
-      <div className={`rounded-lg px-4 py-3 text-sm font-semibold ${delta >= 0 ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300' : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300'}`}>
-        {delta >= 0 ? '+' : ''}{delta} TB effective usable with alternative layout
-        {delta !== 0 && (
-          <span className="ml-2 text-xs font-normal opacity-70">
-            {delta > 0
-              ? '(more available — smaller reserve cost per drive)'
-              : '(less available — larger drives cost more reserve TB)'}
-          </span>
-        )}
+      {/* Comparison table */}
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50 dark:bg-gray-800 text-left border-b border-gray-200 dark:border-gray-700">
+              <th className="px-3 py-2.5 font-semibold text-gray-600 dark:text-gray-300">Drives / Node</th>
+              <th className="px-3 py-2.5 font-semibold text-gray-600 dark:text-gray-300 text-right">Drive Size (TB)</th>
+              <th className="px-3 py-2.5 font-semibold text-gray-600 dark:text-gray-300 text-right">Total Drives</th>
+              <th className="px-3 py-2.5 font-semibold text-gray-600 dark:text-gray-300 text-right">Usable / Drive (TB)</th>
+              <th className="px-3 py-2.5 font-semibold text-gray-600 dark:text-gray-300 text-right">Reserve (TB)</th>
+              <th className="px-3 py-2.5 font-semibold text-gray-600 dark:text-gray-300 text-right">Available Pool (TB)</th>
+              <th className="px-3 py-2.5 font-semibold text-gray-600 dark:text-gray-300 text-right">Effective Usable (TB)</th>
+              <th className="px-3 py-2.5 font-semibold text-gray-600 dark:text-gray-300 text-right">vs Current</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const delta = round2(row.result.effectiveUsableTB - currentEffective)
+              return (
+                <tr
+                  key={row.drivesPerNode}
+                  className={`border-t border-gray-100 dark:border-gray-800 ${
+                    row.isCurrent
+                      ? 'bg-brand-50 dark:bg-brand-900/30 font-semibold'
+                      : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                  }`}
+                >
+                  <td className="px-3 py-2">
+                    {row.drivesPerNode}
+                    {row.isCurrent && (
+                      <span className="ml-2 text-xs font-medium text-brand-600 dark:text-brand-400">← current</span>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-right font-mono">{row.driveSizeTB}</td>
+                  <td className="px-3 py-2 text-right">{row.totalDrives}</td>
+                  <td className="px-3 py-2 text-right font-mono">{row.usablePerDriveTB}</td>
+                  <td className="px-3 py-2 text-right font-mono text-red-600 dark:text-red-400">{row.reserveTB}</td>
+                  <td className="px-3 py-2 text-right font-mono">{round2(row.result.availableForVolumesTB)}</td>
+                  <td className="px-3 py-2 text-right font-mono font-semibold">
+                    {round2(row.result.effectiveUsableTB)}
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    {row.isCurrent ? (
+                      <span className="text-gray-400">—</span>
+                    ) : (
+                      <span className={delta > 0 ? 'text-green-600 dark:text-green-400' : delta < 0 ? 'text-red-500' : 'text-gray-400'}>
+                        {delta > 0 ? '+' : ''}{delta} TB
+                      </span>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
 
-      {/* Reserve education — mirrors Excel Drive Sizing Advisory section */}
-      <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 text-xs text-gray-500 space-y-1">
-        <p className="font-semibold text-gray-700 dark:text-gray-300">Why does reserve cost change between configurations?</p>
-        <p>S2D reserves <strong>min(nodeCount, 4) drives</strong> for automatic repair after a drive failure. Reserve cost in TB = reserveDrives × driveSizeTB.</p>
-        <p>With more smaller drives: each reserved drive is cheaper in TB, so more of the pool is available for your volumes — even though the total raw capacity is identical.</p>
-        <p className="text-amber-600 dark:text-amber-400">Keep pool utilization below 70% to ensure S2D has headroom to complete auto-repair after a failure.</p>
+      {/* Key insight — mirrors Excel B23:B25 */}
+      <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 text-sm space-y-1.5">
+        <p className="font-semibold text-blue-900 dark:text-blue-200">Key Insight</p>
+        <p className="text-blue-800 dark:text-blue-300">
+          More drives per node = smaller individual drive size = smaller reserve. S2D always reserves{' '}
+          <strong>min(nodes, 4) drives</strong> for auto-repair — so smaller drives cost less reserve TB,
+          leaving more pool available for your volumes. Total raw capacity is identical across all rows.
+        </p>
+        <p className="text-blue-700 dark:text-blue-400 text-xs">
+          Drive sizes shown are calculated (total raw ÷ total drives) — actual hardware must match a
+          real available drive size from your vendor.
+        </p>
       </div>
     </div>
   )
 }
 
-function ConfigTable({ rows }: { rows: [string, string][] }) {
+function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
-    <table className="w-full text-xs mb-3">
-      <tbody>
-        {rows.map(([label, value]) => (
-          <tr key={label} className="border-t border-gray-100 dark:border-gray-800">
-            <td className="py-1 text-gray-500">{label}</td>
-            <td className="py-1 text-right font-mono">{value}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  )
-}
-
-function CapacityBlock({ value }: { value: number }) {
-  return (
-    <div className="rounded-lg bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 px-4 py-3">
-      <div className="text-xs text-gray-500">Effective usable</div>
-      <div className="text-2xl font-bold">{value} <span className="text-base font-normal text-gray-500">TB</span></div>
-    </div>
-  )
-}
-
-function AltField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {
-  return (
-    <div className="flex items-center gap-2">
-      <label className="text-xs w-36 shrink-0">{label}</label>
-      <input type="number" step={1} min={1} className="input flex-1" value={value}
-        onChange={(e) => onChange(Math.max(1, +e.target.value))} />
+    <div className="bg-white dark:bg-gray-900 px-4 py-3">
+      <div className="text-xs text-gray-500 mb-0.5">{label}</div>
+      <div className="text-sm font-semibold">{value}</div>
+      {note && <div className="text-xs text-gray-400 mt-0.5">{note}</div>}
     </div>
   )
 }

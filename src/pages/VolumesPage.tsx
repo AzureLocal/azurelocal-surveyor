@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import VolumeTable from '../components/VolumeTable'
 import HealthCheck from '../components/HealthCheck'
-import LayoutCompare from '../components/LayoutCompare'
 import { useSurveyorStore } from '../state/store'
 import { computeCapacity } from '../engine/capacity'
 import { computeCompute } from '../engine/compute'
@@ -51,11 +50,6 @@ export default function VolumesPage() {
       <VolumeTable />
 
       <HealthCheck result={health} />
-
-      <section>
-        <h2 className="text-xl font-semibold mb-4">Drive Layout Comparison</h2>
-        <LayoutCompare />
-      </section>
 
       <section>
         <h2 className="text-xl font-semibold mb-4">Resiliency Reference Guide</h2>

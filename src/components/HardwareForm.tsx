@@ -51,6 +51,10 @@ export default function HardwareForm() {
           <input type="number" min={0.1} step={0.01} value={hardware.capacityDriveSizeTB}
             onChange={(e) => setHardware({ capacityDriveSizeTB: +e.target.value })}
             className="input" />
+          <p className="text-xs text-gray-400 mt-1">
+            Enter the vendor-rated size — e.g. <strong>7.68</strong> for a Dell 7.68 TB NVMe.
+            Windows and WAC will show this drive as ~{hardware.capacityDriveSizeTB ? (hardware.capacityDriveSizeTB * 0.909495).toFixed(2) : '—'} TiB (binary units).
+          </p>
         </Field>
 
         <Field label="Capacity media type">

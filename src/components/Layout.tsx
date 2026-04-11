@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   Server, Cpu, Monitor, HardDrive, BarChart3,
-  Settings, BookOpen, Link2, FileText, Container, X,
+  Settings, BookOpen, Link2, FileText, Container, X, Layers,
 } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
 import AdvancedSettings from './AdvancedSettings'
@@ -40,6 +40,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {sofsEnabled  && <NavItem to="/sofs" label="SOFS" icon={HardDrive}  />}
           {aks.enabled  && <NavItem to="/aks"  label="AKS"  icon={Container}  />}
           <NavItem to="/volumes" label="Volumes" icon={HardDrive} />
+          <NavItem to="/drive-layout" label="Drive Layout" icon={Layers} />
           <NavItem to="/reports" label="Reports" icon={BarChart3} />
           <NavItem to="/thin-provisioning" label="Thin Provision" icon={BookOpen} />
           <NavItem to="/references" label="References" icon={Link2} />
