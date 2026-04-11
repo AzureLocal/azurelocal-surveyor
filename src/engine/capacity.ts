@@ -27,6 +27,8 @@ export function getResiliencyFactor(resiliency: ResiliencyType, nodeCount: numbe
       return 0.8
     case 'nested-two-way':
       return 0.25
+    default:
+      return 1 / 3  // fallback to three-way-mirror if resiliency is invalid/stale
   }
 }
 
@@ -39,6 +41,7 @@ export function minNodesForResiliency(resiliency: ResiliencyType): number {
     case 'three-way-mirror':  return 3
     case 'dual-parity':       return 4
     case 'nested-two-way':    return 2
+    default:                  return 3  // fallback to three-way-mirror
   }
 }
 

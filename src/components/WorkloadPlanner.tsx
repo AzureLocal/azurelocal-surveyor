@@ -16,6 +16,14 @@ import { computeSofs } from '../engine/sofs'
 import { computeMabs } from '../engine/mabs'
 import type { ResiliencyType, VmScenario } from '../engine/types'
 
+/** Parse numeric input — returns current value if input is empty or NaN. */
+function num(e: React.ChangeEvent<HTMLInputElement>, current: number): number {
+  const v = e.target.value
+  if (v === '' || v === '-') return current
+  const n = +v
+  return isNaN(n) ? current : n
+}
+
 // ─── Scenario card wrapper ────────────────────────────────────────────────────
 
 function ScenarioCard({
@@ -81,19 +89,19 @@ function VmFields({
     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
       <SmallField label="VM count">
         <input type="number" min={1} className="input w-full" value={value.vmCount}
-          onChange={(e) => onChange({ vmCount: +e.target.value })} />
+          onChange={(e) => onChange({ vmCount: num(e, value.vmCount) })} />
       </SmallField>
       <SmallField label="vCPUs / VM">
         <input type="number" min={1} className="input w-full" value={value.vCpusPerVm}
-          onChange={(e) => onChange({ vCpusPerVm: +e.target.value })} />
+          onChange={(e) => onChange({ vCpusPerVm: num(e, value.vCpusPerVm) })} />
       </SmallField>
       <SmallField label="RAM / VM (GB)">
         <input type="number" min={1} className="input w-full" value={value.memoryPerVmGB}
-          onChange={(e) => onChange({ memoryPerVmGB: +e.target.value })} />
+          onChange={(e) => onChange({ memoryPerVmGB: num(e, value.memoryPerVmGB) })} />
       </SmallField>
       <SmallField label="Storage / VM (GB)">
         <input type="number" min={1} className="input w-full" value={value.storagePerVmGB}
-          onChange={(e) => onChange({ storagePerVmGB: +e.target.value })} />
+          onChange={(e) => onChange({ storagePerVmGB: num(e, value.storagePerVmGB) })} />
       </SmallField>
       <SmallField label="vCPU overcommit" hint={`${effectiveVCpus} effective vCPUs`}>
         <select className="input w-full" value={value.vCpuOvercommitRatio}
@@ -190,35 +198,35 @@ export default function WorkloadPlanner() {
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <SmallField label="Clusters">
             <input type="number" min={1} className="input w-full" value={aks.clusterCount}
-              onChange={(e) => setAks({ clusterCount: +e.target.value })} />
+              onChange={(e) => setAks({ clusterCount: num(e, aks.clusterCount) })} />
           </SmallField>
           <SmallField label="Control plane nodes / cluster" hint="1=dev, 3=HA">
             <input type="number" min={1} max={3} className="input w-full" value={aks.controlPlaneNodesPerCluster}
-              onChange={(e) => setAks({ controlPlaneNodesPerCluster: +e.target.value })} />
+              onChange={(e) => setAks({ controlPlaneNodesPerCluster: num(e, aks.controlPlaneNodesPerCluster) })} />
           </SmallField>
           <SmallField label="Worker nodes / cluster">
             <input type="number" min={1} className="input w-full" value={aks.workerNodesPerCluster}
-              onChange={(e) => setAks({ workerNodesPerCluster: +e.target.value })} />
+              onChange={(e) => setAks({ workerNodesPerCluster: num(e, aks.workerNodesPerCluster) })} />
           </SmallField>
           <SmallField label="vCPUs / worker">
             <input type="number" min={1} className="input w-full" value={aks.vCpusPerWorker}
-              onChange={(e) => setAks({ vCpusPerWorker: +e.target.value })} />
+              onChange={(e) => setAks({ vCpusPerWorker: num(e, aks.vCpusPerWorker) })} />
           </SmallField>
           <SmallField label="RAM / worker (GB)">
             <input type="number" min={1} className="input w-full" value={aks.memoryPerWorkerGB}
-              onChange={(e) => setAks({ memoryPerWorkerGB: +e.target.value })} />
+              onChange={(e) => setAks({ memoryPerWorkerGB: num(e, aks.memoryPerWorkerGB) })} />
           </SmallField>
           <SmallField label="OS disk / node (GB)" hint="default 200">
             <input type="number" min={100} className="input w-full" value={aks.osDiskPerNodeGB}
-              onChange={(e) => setAks({ osDiskPerNodeGB: +e.target.value })} />
+              onChange={(e) => setAks({ osDiskPerNodeGB: num(e, aks.osDiskPerNodeGB) })} />
           </SmallField>
           <SmallField label="Persistent volumes (TB)">
             <input type="number" min={0} step={0.1} className="input w-full" value={aks.persistentVolumesTB}
-              onChange={(e) => setAks({ persistentVolumesTB: +e.target.value })} />
+              onChange={(e) => setAks({ persistentVolumesTB: num(e, aks.persistentVolumesTB) })} />
           </SmallField>
           <SmallField label="Data services (TB)" hint="Arc SQL, etc.">
             <input type="number" min={0} step={0.1} className="input w-full" value={aks.dataServicesTB}
-              onChange={(e) => setAks({ dataServicesTB: +e.target.value })} />
+              onChange={(e) => setAks({ dataServicesTB: num(e, aks.dataServicesTB) })} />
           </SmallField>
           <SmallField label="Storage resiliency" className="col-span-2">
             <ResiliencySelect value={aks.resiliency} onChange={(r) => setAks({ resiliency: r })} />

@@ -80,6 +80,7 @@ describe('SOFS engine', () => {
       sofsGuestVmCount: 2,
       sofsVCpusPerVm: 4,
       sofsMemoryPerVmGB: 16,
+      internalMirror: 'three-way',
       autoSizeDrivesPerNode: 0,
       autoSizeNodes: 2,
     })

@@ -159,6 +159,9 @@ export interface VmScenario {
 
 // ─── MABS (Microsoft Azure Backup Server) ───────────────────────────────────
 
+/** Internal Storage Spaces mirror type inside the MABS VM. */
+export type MabsInternalMirror = 'two-way' | 'three-way' | 'simple'
+
 export interface MabsInputs {
   protectedDataTB: number           // total data being backed up across all workloads
   dailyChangeRatePct: number        // typical 10% for mixed workloads
@@ -168,12 +171,17 @@ export interface MabsInputs {
   mabsMemoryGB: number              // MABS VM RAM (default 32)
   mabsOsDiskGB: number              // MABS VM OS disk (default 200)
   resiliency: ResiliencyType        // backup volume resiliency (typically dual-parity)
+  // #70: internal Storage Spaces mirror inside the MABS VM
+  internalMirror: MabsInternalMirror
 }
 
 export interface MabsResult {
   scratchVolumeTB: number           // staging/cache area
   backupDataVolumeTB: number        // full + incremental retention
-  totalStorageTB: number            // scratch + backup data
+  totalStorageTB: number            // scratch + backup data (logical)
+  // #70: internal mirror compounding
+  internalMirrorFactor: number      // multiplier (1=simple, 2=two-way, 3=three-way)
+  internalFootprintTB: number       // totalStorageTB × internalMirrorFactor
   mabsVCpus: number                 // VM compute
   mabsMemoryGB: number              // VM memory
   mabsOsDiskTB: number              // OS disk in TB
@@ -258,6 +266,9 @@ export interface AvdResult {
 
 export type SofsContainerType = 'single' | 'split' | 'three'
 
+/** Internal mirror type used inside the SOFS guest cluster (Storage Spaces / S2D). */
+export type SofsInternalMirror = 'two-way' | 'three-way' | 'simple'
+
 export interface SofsInputs {
   userCount: number
   concurrentUsers: number        // for IOPS estimate during login storm
@@ -267,6 +278,8 @@ export interface SofsInputs {
   sofsGuestVmCount: number       // typically 2 for HA
   sofsVCpusPerVm: number
   sofsMemoryPerVmGB: number
+  // #69: internal mirror type — compounds with Azure Local cluster resiliency
+  internalMirror: SofsInternalMirror
   // #43: auto-sizing — target drive count to calculate required drive size
   autoSizeDrivesPerNode: number  // 0 = manual, > 0 = auto-calculate drive size
   autoSizeNodes: number          // node count for auto-sizing SOFS cluster
@@ -278,6 +291,9 @@ export interface SofsResult {
   totalStorageTB: number
   sofsVCpusTotal: number
   sofsMemoryTotalGB: number
+  // #69: internal mirror compounding
+  internalMirrorFactor: number   // multiplier for internal mirror (1=simple, 2=two-way, 3=three-way)
+  internalFootprintTB: number    // totalStorageTB × internalMirrorFactor (before Azure Local resiliency)
   // #41: IOPS estimates
   steadyStateIopsPerUser: number
   loginStormIopsPerUser: number

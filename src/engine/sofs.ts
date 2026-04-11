@@ -1,4 +1,14 @@
-import type { AdvancedSettingsOverrides, SofsInputs, SofsResult } from './types'
+import type { AdvancedSettingsOverrides, SofsInputs, SofsInternalMirror, SofsResult } from './types'
+
+/** Returns the multiplier for SOFS internal mirror type. */
+function internalMirrorMultiplier(mirror: SofsInternalMirror): number {
+  switch (mirror) {
+    case 'three-way': return 3
+    case 'two-way':   return 2
+    case 'simple':    return 1
+    default:          return 3  // fallback to three-way
+  }
+}
 
 /** Sanitize a number — replace NaN/Infinity/negative with a safe fallback. */
 function safe(n: number, fallback = 0): number {
@@ -36,6 +46,10 @@ export function computeSofs(inputs: SofsInputs, overrides?: AdvancedSettingsOver
   )
   const totalStorageTB = round2(totalProfileStorageTB + totalRedirectedStorageTB)
 
+  // #69: internal mirror compounding — data is mirrored inside the SOFS guest cluster
+  const mirrorFactor = internalMirrorMultiplier(inputs.internalMirror)
+  const internalFootprintTB = round2(totalStorageTB * mirrorFactor)
+
   const sofsVCpusTotal = sofsGuestVmCount * sofsVCpusPerVm
   const sofsMemoryTotalGB = sofsGuestVmCount * sofsMemoryPerVmGB
 
@@ -48,12 +62,11 @@ export function computeSofs(inputs: SofsInputs, overrides?: AdvancedSettingsOver
   const totalLoginStormIops = sizingUsers * loginStormIopsPerUser
 
   // #43: auto-sizing — calculate drive size needed to hit storage target
+  // Uses the internal mirror footprint (not just logical) for accurate sizing
   let autoSizeDriveSizeTB = 0
   if (autoSizeDrivesPerNode > 0 && autoSizeNodes > 0) {
     const totalDrives = autoSizeDrivesPerNode * autoSizeNodes
-    // Add ~20% overhead factor for resiliency + system use on SOFS cluster
-    const rawNeeded = totalStorageTB * 3  // assume three-way-mirror on SOFS
-    autoSizeDriveSizeTB = round2(rawNeeded / totalDrives)
+    autoSizeDriveSizeTB = round2(internalFootprintTB / totalDrives)
   }
 
   return {
@@ -62,6 +75,8 @@ export function computeSofs(inputs: SofsInputs, overrides?: AdvancedSettingsOver
     totalStorageTB,
     sofsVCpusTotal,
     sofsMemoryTotalGB,
+    internalMirrorFactor: mirrorFactor,
+    internalFootprintTB,
     steadyStateIopsPerUser,
     loginStormIopsPerUser,
     totalSteadyStateIops,

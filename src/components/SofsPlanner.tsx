@@ -13,7 +13,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
 import { computeSofs } from '../engine/sofs'
-import type { SofsContainerType } from '../engine/types'
+import type { SofsContainerType, SofsInternalMirror } from '../engine/types'
 
 const CONTAINER_TYPE_INFO: Record<SofsContainerType, { label: string; desc: string }> = {
   single: {
@@ -45,6 +45,14 @@ const READINESS_CHECKLIST = [
   'Backup solution for profile VHD(X) files validated (VSS-aware or file-level)',
 ]
 
+/** Parse numeric input — returns current value if input is empty or NaN. */
+function num(e: React.ChangeEvent<HTMLInputElement>, current: number): number {
+  const v = e.target.value
+  if (v === '' || v === '-') return current
+  const n = +v
+  return isNaN(n) ? current : n
+}
+
 export default function SofsPlanner() {
   const { sofs, setSofs, advanced } = useSurveyorStore()
   const result = computeSofs(sofs, advanced.overrides)
@@ -56,22 +64,22 @@ export default function SofsPlanner() {
       <div className="grid grid-cols-2 gap-4">
         <Field label="Total users">
           <input type="number" min={1} className="input" value={sofs.userCount}
-            onChange={(e) => setSofs({ userCount: +e.target.value })} />
+            onChange={(e) => setSofs({ userCount: num(e, sofs.userCount) })} />
         </Field>
 
         <Field label="Concurrent users (login storm)" hint="#41 — 0 = use total">
           <input type="number" min={0} className="input" value={sofs.concurrentUsers}
-            onChange={(e) => setSofs({ concurrentUsers: +e.target.value })} />
+            onChange={(e) => setSofs({ concurrentUsers: num(e, sofs.concurrentUsers) })} />
         </Field>
 
         <Field label="FSLogix profile size (GB)">
           <input type="number" min={1} className="input" value={sofs.profileSizeGB}
-            onChange={(e) => setSofs({ profileSizeGB: +e.target.value })} />
+            onChange={(e) => setSofs({ profileSizeGB: num(e, sofs.profileSizeGB) })} />
         </Field>
 
         <Field label="Redirected folders size (GB)">
           <input type="number" min={0} className="input" value={sofs.redirectedFolderSizeGB}
-            onChange={(e) => setSofs({ redirectedFolderSizeGB: +e.target.value })} />
+            onChange={(e) => setSofs({ redirectedFolderSizeGB: num(e, sofs.redirectedFolderSizeGB) })} />
         </Field>
 
         <Field label="Profile container type (#45)" className="col-span-2">
@@ -83,26 +91,35 @@ export default function SofsPlanner() {
           </select>
         </Field>
 
+        <Field label="SOFS internal mirror type (#69)" hint="inside guest cluster">
+          <select className="input w-full" value={sofs.internalMirror}
+            onChange={(e) => setSofs({ internalMirror: e.target.value as SofsInternalMirror })}>
+            <option value="three-way">Three-Way Mirror (3× footprint)</option>
+            <option value="two-way">Two-Way Mirror (2× footprint)</option>
+            <option value="simple">Simple / No Mirror (1×)</option>
+          </select>
+        </Field>
+
         <Field label="SOFS guest VM count" hint="min 2 for HA">
           <input type="number" min={2} className="input" value={sofs.sofsGuestVmCount}
-            onChange={(e) => setSofs({ sofsGuestVmCount: +e.target.value })} />
+            onChange={(e) => setSofs({ sofsGuestVmCount: num(e, sofs.sofsGuestVmCount) })} />
         </Field>
 
         <Field label="vCPUs / SOFS VM">
           <input type="number" min={2} className="input" value={sofs.sofsVCpusPerVm}
-            onChange={(e) => setSofs({ sofsVCpusPerVm: +e.target.value })} />
+            onChange={(e) => setSofs({ sofsVCpusPerVm: num(e, sofs.sofsVCpusPerVm) })} />
         </Field>
 
         <Field label="RAM / SOFS VM (GB)">
           <input type="number" min={4} className="input" value={sofs.sofsMemoryPerVmGB}
-            onChange={(e) => setSofs({ sofsMemoryPerVmGB: +e.target.value })} />
+            onChange={(e) => setSofs({ sofsMemoryPerVmGB: num(e, sofs.sofsMemoryPerVmGB) })} />
         </Field>
       </div>
 
       {/* Container type advisory */}
       <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
-        <span className="font-semibold">{CONTAINER_TYPE_INFO[sofs.containerType].label}:</span>{' '}
-        {CONTAINER_TYPE_INFO[sofs.containerType].desc}
+        <span className="font-semibold">{(CONTAINER_TYPE_INFO[sofs.containerType] ?? CONTAINER_TYPE_INFO.split).label}:</span>{' '}
+        {(CONTAINER_TYPE_INFO[sofs.containerType] ?? CONTAINER_TYPE_INFO.split).desc}
       </div>
 
       {/* ── Sizing Results ── */}
@@ -112,12 +129,31 @@ export default function SofsPlanner() {
           <tbody>
             <Row label="Profile storage" value={`${result.totalProfileStorageTB} TB`} />
             <Row label="Redirected folder storage" value={`${result.totalRedirectedStorageTB} TB`} />
-            <Row label="Total storage" value={`${result.totalStorageTB} TB`} highlight />
+            <Row label="Total logical storage" value={`${result.totalStorageTB} TB`} highlight />
+            <Row label={`Internal mirror (${sofs.internalMirror === 'simple' ? '1×' : sofs.internalMirror === 'two-way' ? '2×' : '3×'})`}
+              value={`${result.internalFootprintTB} TB`} />
             <Row label="Total SOFS vCPUs" value={String(result.sofsVCpusTotal)} />
             <Row label="Total SOFS RAM" value={`${result.sofsMemoryTotalGB} GB`} />
           </tbody>
         </table>
       </div>
+
+      {/* ── Resiliency Compounding (#69) ── */}
+      {result.internalMirrorFactor > 1 && (
+        <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3 text-sm space-y-1">
+          <p className="font-semibold text-amber-900 dark:text-amber-200">Resiliency Compounding</p>
+          <p className="text-amber-800 dark:text-amber-300 text-xs">
+            SOFS stores {result.totalStorageTB} TB of logical data with a{' '}
+            <strong>{sofs.internalMirror === 'two-way' ? 'two-way' : 'three-way'} mirror</strong> inside the guest cluster,
+            consuming <strong>{result.internalFootprintTB} TB</strong> of virtual disk space.
+            That virtual disk sits on an Azure Local CSV volume which has its own resiliency
+            (e.g. three-way mirror = 3× pool footprint).
+            The compounding effect means {result.totalStorageTB} TB of user profiles may consume
+            up to <strong>{result.internalFootprintTB} × 3 = {(result.internalFootprintTB * 3).toFixed(2)} TB</strong> of
+            raw pool space at three-way mirror on the host cluster.
+          </p>
+        </div>
+      )}
 
       {/* ── IOPS Estimate (#41) ── */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -156,23 +192,23 @@ export default function SofsPlanner() {
           <div className="grid grid-cols-2 gap-4">
             <Field label="SOFS cluster nodes">
               <input type="number" min={2} className="input" value={sofs.autoSizeNodes}
-                onChange={(e) => setSofs({ autoSizeNodes: +e.target.value })} />
+                onChange={(e) => setSofs({ autoSizeNodes: num(e, sofs.autoSizeNodes) })} />
             </Field>
             <Field label="Capacity drives per node (0 = disable)">
               <input type="number" min={0} className="input" value={sofs.autoSizeDrivesPerNode}
-                onChange={(e) => setSofs({ autoSizeDrivesPerNode: +e.target.value })} />
+                onChange={(e) => setSofs({ autoSizeDrivesPerNode: num(e, sofs.autoSizeDrivesPerNode) })} />
             </Field>
           </div>
           {result.autoSizeDriveSizeTB > 0 ? (
             <div className="rounded-lg bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 px-4 py-3">
-              <div className="text-xs text-gray-500">Required drive size (three-way-mirror, includes 3× footprint)</div>
+              <div className="text-xs text-gray-500">Required drive size ({sofs.internalMirror} mirror, includes {result.internalMirrorFactor}× footprint)</div>
               <div className="text-2xl font-bold text-brand-700 dark:text-brand-300 mt-1">
                 {result.autoSizeDriveSizeTB} TB
                 <span className="text-sm font-normal text-gray-500 ml-2">per drive</span>
               </div>
               <div className="text-xs text-gray-400 mt-1">
                 {sofs.autoSizeDrivesPerNode} drives × {sofs.autoSizeNodes} nodes = {sofs.autoSizeDrivesPerNode * sofs.autoSizeNodes} total drives
-                to store {result.totalStorageTB} TB at 3× mirror footprint
+                to store {result.totalStorageTB} TB at {result.internalMirrorFactor}× mirror footprint
               </div>
             </div>
           ) : (

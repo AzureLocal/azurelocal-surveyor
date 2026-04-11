@@ -15,6 +15,27 @@ interface RefCategory {
   links: RefLink[]
 }
 
+const COMMUNITY_GUIDES: RefCategory = {
+  category: 'Community Guides (azurelocal.cloud)',
+  links: [
+    {
+      title: 'AVD on Azure Local',
+      url: 'https://azurelocal.cloud/azurelocal-avd/',
+      description: 'End-to-end guide for deploying Azure Virtual Desktop on Azure Local with FSLogix profile sizing.',
+    },
+    {
+      title: 'SOFS + FSLogix on Azure Local',
+      url: 'https://azurelocal.cloud/azurelocal-sofs-fslogix/',
+      description: 'Scale-Out File Server guest cluster deployment for FSLogix profile share HA.',
+    },
+    {
+      title: 'Azure Local Surveyor',
+      url: 'https://azurelocal.cloud/azurelocal-surveyor/',
+      description: 'Documentation for this capacity planning tool — feature overview, usage, and methodology.',
+    },
+  ],
+}
+
 const REFERENCES: RefCategory[] = [
   {
     category: 'Capacity & Storage',
@@ -144,7 +165,7 @@ export default function ReferencesPage() {
         </p>
       </div>
 
-      {REFERENCES.map((section) => (
+      {[COMMUNITY_GUIDES, ...REFERENCES].map((section) => (
         <section key={section.category}>
           <h2 className="text-xl font-semibold mb-4">{section.category}</h2>
           <div className="space-y-3">

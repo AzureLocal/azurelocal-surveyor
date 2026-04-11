@@ -68,24 +68,41 @@ const HOST_PROFILES: Record<AvdWorkloadType, HostProfile> = {
  *   totalUsers + workloadType → usersPerHost → sessionHostCount
  *   → vCPU/memory totals → storage totals
  */
+/** Sanitize a number — replace NaN/Infinity/negative with a safe fallback. */
+function safe(n: number, fallback = 0): number {
+  return isFinite(n) && !isNaN(n) ? n : fallback
+}
+
 export function computeAvd(inputs: AvdInputs, overrides?: AdvancedSettingsOverrides): AvdResult {
-  const profile = HOST_PROFILES[inputs.workloadType]
+  const profile = HOST_PROFILES[inputs.workloadType] ?? HOST_PROFILES.medium
+  const totalUsers      = Math.max(0, safe(inputs.totalUsers, 0))
+  const concurrentUsers = Math.max(0, safe(inputs.concurrentUsers, 0))
+  const profileSizeGB   = Math.max(0, safe(inputs.profileSizeGB, 40))
+  const growthBufferPct  = Math.max(0, safe(inputs.growthBufferPct, 0))
+  const officeContainerSizeGB = Math.max(0, safe(inputs.officeContainerSizeGB, 0))
+  const dataDiskPerHostGB = Math.max(0, safe(inputs.dataDiskPerHostGB, 0))
+
   const usersPerHost = inputs.multiSession
     ? profile.usersPerHostMulti
     : profile.usersPerHostSingle
 
   // #26: use concurrentUsers for session host sizing when set
-  const sizingUsers = inputs.concurrentUsers > 0 ? inputs.concurrentUsers : inputs.totalUsers
+  const sizingUsers = concurrentUsers > 0 ? concurrentUsers : totalUsers
   // #64: override session host count if set
   const sessionHostCount =
     overrides?.avdSessionHostsNeeded && overrides.avdSessionHostsNeeded > 0
       ? overrides.avdSessionHostsNeeded
-      : Math.ceil(sizingUsers / usersPerHost)
+      : usersPerHost > 0 ? Math.ceil(sizingUsers / usersPerHost) : 0
 
   // #59: user type mix weighted average profile size
-  let effectiveProfileSizeGB = inputs.profileSizeGB
+  let effectiveProfileSizeGB = profileSizeGB
   if (inputs.userTypeMixEnabled && inputs.userTypeMix) {
-    const { taskPct, taskProfileGB, knowledgePct, knowledgeProfileGB, powerPct, powerProfileGB } = inputs.userTypeMix
+    const taskPct = safe(inputs.userTypeMix.taskPct, 0)
+    const taskProfileGB = safe(inputs.userTypeMix.taskProfileGB, 15)
+    const knowledgePct = safe(inputs.userTypeMix.knowledgePct, 0)
+    const knowledgeProfileGB = safe(inputs.userTypeMix.knowledgeProfileGB, 40)
+    const powerPct = safe(inputs.userTypeMix.powerPct, 0)
+    const powerProfileGB = safe(inputs.userTypeMix.powerProfileGB, 80)
     const totalPct = taskPct + knowledgePct + powerPct
     if (totalPct > 0) {
       effectiveProfileSizeGB = Math.round(
@@ -112,8 +129,8 @@ export function computeAvd(inputs: AvdInputs, overrides?: AdvancedSettingsOverri
   const totalOsStorageTB = round2((sessionHostCount * profile.osDiskGB) / 1024)
 
   // #31: data/temp disk per host
-  const dataDiskTB = inputs.dataDiskPerHostGB > 0
-    ? round2((sessionHostCount * inputs.dataDiskPerHostGB) / 1024)
+  const dataDiskTB = dataDiskPerHostGB > 0
+    ? round2((sessionHostCount * dataDiskPerHostGB) / 1024)
     : 0
 
   // Profile storage uses totalUsers (not sizingUsers) — profiles are always allocated for all users
@@ -121,14 +138,14 @@ export function computeAvd(inputs: AvdInputs, overrides?: AdvancedSettingsOverri
   const baseProfileStorageTB =
     overrides?.avdProfileLogicalTb && overrides.avdProfileLogicalTb > 0
       ? overrides.avdProfileLogicalTb
-      : (inputs.totalUsers * effectiveProfileSizeGB) / 1024
+      : (totalUsers * effectiveProfileSizeGB) / 1024
   // #27: apply growth buffer to profile storage
-  const growthMultiplier = 1 + (inputs.growthBufferPct / 100)
+  const growthMultiplier = 1 + (growthBufferPct / 100)
   const totalProfileStorageTB = round2(baseProfileStorageTB * growthMultiplier)
   const profileStorageWithGrowthTB = totalProfileStorageTB
 
   const totalOfficeContainerStorageTB = inputs.officeContainerEnabled
-    ? round2((inputs.totalUsers * inputs.officeContainerSizeGB) / 1024)
+    ? round2((totalUsers * officeContainerSizeGB) / 1024)
     : 0
 
   const totalStorageTB = round2(
@@ -152,7 +169,7 @@ export function computeAvd(inputs: AvdInputs, overrides?: AdvancedSettingsOverri
     totalMemoryGB,
     effectiveProfileSizeGB,
     osDiskPerHostGB: profile.osDiskGB,
-    dataDiskPerHostGB: inputs.dataDiskPerHostGB,
+    dataDiskPerHostGB,
     totalOsStorageTB,
     totalDataDiskStorageTB: dataDiskTB,
     totalProfileStorageTB,

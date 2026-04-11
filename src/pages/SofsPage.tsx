@@ -1,3 +1,4 @@
+import { ExternalLink } from 'lucide-react'
 import SofsPlanner from '../components/SofsPlanner'
 import { useSurveyorStore } from '../state/store'
 
@@ -32,7 +33,36 @@ export default function SofsPage() {
         </div>
       )}
 
+      {/* #73: SOFS explanation and docs link */}
+      <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 p-4 text-sm space-y-2">
+        <p className="text-gray-700 dark:text-gray-300">
+          <strong>Scale-Out File Server (SOFS)</strong> is a Windows Server guest cluster running inside
+          Azure Local that provides highly available SMB file shares for FSLogix profile containers.
+          SOFS is recommended when AVD user counts exceed ~200 users or when you need HA for profile
+          storage independent of any single VM. The SOFS guest VMs use S2D or Storage Spaces internally
+          to mirror data, which compounds with the Azure Local cluster resiliency.
+        </p>
+        <div className="flex flex-wrap gap-3 pt-1">
+          <DocLink href="https://azurelocal.cloud/azurelocal-sofs-fslogix/" label="SOFS + FSLogix Guide" />
+          <DocLink href="https://learn.microsoft.com/windows-server/failover-clustering/sofs-overview" label="Microsoft Learn: SOFS Overview" />
+        </div>
+      </div>
+
       <SofsPlanner />
     </div>
+  )
+}
+
+function DocLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-700 dark:text-brand-300 bg-white dark:bg-gray-900 border border-brand-200 dark:border-brand-800 rounded-md hover:bg-brand-50 dark:hover:bg-brand-900/50 transition-colors"
+    >
+      <ExternalLink className="w-3 h-3" />
+      {label}
+    </a>
   )
 }

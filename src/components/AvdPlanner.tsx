@@ -49,6 +49,14 @@ const STORAGE_LOCATION_DESCRIPTIONS: Record<AvdProfileStorageLocation, string> =
   'external': 'Third-party NAS/SMB share external to Azure Local. Full control but additional infrastructure to manage.',
 }
 
+/** Parse numeric input — returns current value if input is empty or NaN. */
+function num(e: React.ChangeEvent<HTMLInputElement>, current: number): number {
+  const v = e.target.value
+  if (v === '' || v === '-') return current
+  const n = +v
+  return isNaN(n) ? current : n
+}
+
 export default function AvdPlanner() {
   const { avd, setAvd, advanced } = useSurveyorStore()
   const result = computeAvd(avd, advanced.overrides)
@@ -60,12 +68,12 @@ export default function AvdPlanner() {
       <div className="grid grid-cols-2 gap-4">
         <Field label="Total users" hint="All licensed users, including non-concurrent">
           <input type="number" min={1} className="input" value={avd.totalUsers}
-            onChange={(e) => setAvd({ totalUsers: +e.target.value })} />
+            onChange={(e) => setAvd({ totalUsers: num(e, avd.totalUsers) })} />
         </Field>
 
         <Field label="Concurrent users (peak)" hint="#26 — 0 = size for all users">
           <input type="number" min={0} className="input" value={avd.concurrentUsers}
-            onChange={(e) => setAvd({ concurrentUsers: +e.target.value })} />
+            onChange={(e) => setAvd({ concurrentUsers: num(e, avd.concurrentUsers) })} />
           {avd.concurrentUsers > 0 && (
             <p className="text-xs text-brand-600 dark:text-brand-400 mt-1">
               Sizing for {avd.concurrentUsers} concurrent users (not all {avd.totalUsers})
@@ -98,7 +106,7 @@ export default function AvdPlanner() {
             </div>
           ) : (
             <input type="number" min={1} className="input" value={avd.profileSizeGB}
-              onChange={(e) => setAvd({ profileSizeGB: +e.target.value })} />
+              onChange={(e) => setAvd({ profileSizeGB: num(e, avd.profileSizeGB) })} />
           )}
         </Field>
 
@@ -112,7 +120,7 @@ export default function AvdPlanner() {
 
         <Field label="Profile storage growth buffer %" hint="#27 — applied to total profile storage">
           <input type="number" min={0} max={100} step={5} className="input" value={avd.growthBufferPct}
-            onChange={(e) => setAvd({ growthBufferPct: +e.target.value })} />
+            onChange={(e) => setAvd({ growthBufferPct: num(e, avd.growthBufferPct) })} />
         </Field>
 
         <Field label="Office Container">
@@ -126,13 +134,13 @@ export default function AvdPlanner() {
         {avd.officeContainerEnabled && (
           <Field label="Office Container size (GB)">
             <input type="number" min={1} className="input" value={avd.officeContainerSizeGB}
-              onChange={(e) => setAvd({ officeContainerSizeGB: +e.target.value })} />
+              onChange={(e) => setAvd({ officeContainerSizeGB: num(e, avd.officeContainerSizeGB) })} />
           </Field>
         )}
 
         <Field label="Data / temp disk per host (GB)" hint="#31 — 0 if not needed">
           <input type="number" min={0} step={10} className="input" value={avd.dataDiskPerHostGB}
-            onChange={(e) => setAvd({ dataDiskPerHostGB: +e.target.value })} />
+            onChange={(e) => setAvd({ dataDiskPerHostGB: num(e, avd.dataDiskPerHostGB) })} />
         </Field>
 
         <Field label="FSLogix profile storage location" hint="#33">
@@ -172,7 +180,7 @@ export default function AvdPlanner() {
                     <div className="flex items-center gap-1">
                       <input type="number" min={0} max={100} className="input flex-1"
                         value={avd.userTypeMix[pctKey]}
-                        onChange={(e) => setAvd({ userTypeMix: { ...avd.userTypeMix, [pctKey]: +e.target.value } })} />
+                        onChange={(e) => setAvd({ userTypeMix: { ...avd.userTypeMix, [pctKey]: num(e, avd.userTypeMix[pctKey] as number) } })} />
                       <span className="text-xs text-gray-500">%</span>
                     </div>
                   </div>
@@ -180,7 +188,7 @@ export default function AvdPlanner() {
                     <label className="block text-xs font-medium mb-1">Profile size (GB)</label>
                     <input type="number" min={1} className="input w-full"
                       value={avd.userTypeMix[gbKey]}
-                      onChange={(e) => setAvd({ userTypeMix: { ...avd.userTypeMix, [gbKey]: +e.target.value } })} />
+                      onChange={(e) => setAvd({ userTypeMix: { ...avd.userTypeMix, [gbKey]: num(e, avd.userTypeMix[gbKey] as number) } })} />
                   </div>
                   <div className="text-sm text-gray-500">
                     {avd.totalUsers > 0 && (

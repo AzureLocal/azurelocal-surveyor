@@ -1,6 +1,15 @@
+import { ExternalLink } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
 import { computeMabs } from '../engine/mabs'
-import type { ResiliencyType } from '../engine/types'
+import type { ResiliencyType, MabsInternalMirror } from '../engine/types'
+
+/** Parse numeric input — returns current value if input is empty or NaN. */
+function num(e: React.ChangeEvent<HTMLInputElement>, current: number): number {
+  const v = e.target.value
+  if (v === '' || v === '-') return current
+  const n = +v
+  return isNaN(n) ? current : n
+}
 
 export default function MabsPage() {
   const { mabs, setMabs, mabsEnabled, setMabsEnabled } = useSurveyorStore()
@@ -46,34 +55,59 @@ export default function MabsPage() {
         </ol>
       </div>
 
+      {/* #73: MABS explanation and docs links */}
+      <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 p-4 text-sm space-y-2">
+        <p className="text-gray-700 dark:text-gray-300">
+          <strong>Microsoft Azure Backup Server (MABS)</strong> provides enterprise backup for Azure Local
+          workloads — VMs, SQL databases, and file servers. MABS runs as a single Windows Server VM and
+          uses Storage Spaces (classic) internally to pool virtual data disks for scratch/cache and backup
+          retention. On-prem retention is typically 7–14 days before recovery points offload to Azure
+          Recovery Services Vault. This is the recommended approach for small-to-mid sites that lack
+          dedicated backup infrastructure.
+        </p>
+        <div className="flex flex-wrap gap-3 pt-1">
+          <DocLink href="https://learn.microsoft.com/azure/backup/backup-mabs-install-azure-stack" label="Microsoft Learn: MABS on Azure Local" />
+          <DocLink href="https://learn.microsoft.com/azure/backup/backup-azure-microsoft-azure-backup" label="Microsoft Learn: MABS Overview" />
+        </div>
+      </div>
+
       {/* ── Inputs ── */}
       <div className="grid grid-cols-2 gap-4">
         <Field label="Protected data (TB)" hint="total data being backed up">
           <input type="number" min={0.1} step={0.1} className="input" value={mabs.protectedDataTB}
-            onChange={(e) => setMabs({ protectedDataTB: +e.target.value })} />
+            onChange={(e) => setMabs({ protectedDataTB: num(e, mabs.protectedDataTB) })} />
         </Field>
 
         <Field label="Daily change rate (%)" hint="typical 10% for mixed workloads">
           <input type="number" min={1} max={50} step={1} className="input" value={mabs.dailyChangeRatePct}
-            onChange={(e) => setMabs({ dailyChangeRatePct: +e.target.value })} />
+            onChange={(e) => setMabs({ dailyChangeRatePct: num(e, mabs.dailyChangeRatePct) })} />
         </Field>
 
         <Field label="On-prem retention (days)" hint="before Azure offload">
           <input type="number" min={1} max={90} step={1} className="input" value={mabs.onPremRetentionDays}
-            onChange={(e) => setMabs({ onPremRetentionDays: +e.target.value })} />
+            onChange={(e) => setMabs({ onPremRetentionDays: num(e, mabs.onPremRetentionDays) })} />
         </Field>
 
         <Field label="Scratch/cache (% of protected)" hint="staging area for backup jobs">
           <input type="number" min={5} max={50} step={1} className="input" value={mabs.scratchCachePct}
-            onChange={(e) => setMabs({ scratchCachePct: +e.target.value })} />
+            onChange={(e) => setMabs({ scratchCachePct: num(e, mabs.scratchCachePct) })} />
         </Field>
 
-        <Field label="Backup volume resiliency" hint="dual-parity recommended for cold backup">
+        <Field label="Backup volume resiliency" hint="Azure Local cluster volume">
           <select className="input" value={mabs.resiliency}
             onChange={(e) => setMabs({ resiliency: e.target.value as ResiliencyType })}>
             <option value="dual-parity">Dual Parity (50–80%)</option>
             <option value="three-way-mirror">Three-Way Mirror (33%)</option>
             <option value="two-way-mirror">Two-Way Mirror (50%)</option>
+          </select>
+        </Field>
+
+        <Field label="Storage Spaces mirror (#70)" hint="inside MABS VM">
+          <select className="input" value={mabs.internalMirror}
+            onChange={(e) => setMabs({ internalMirror: e.target.value as MabsInternalMirror })}>
+            <option value="two-way">Two-Way Mirror (2× footprint)</option>
+            <option value="three-way">Three-Way Mirror (3× footprint)</option>
+            <option value="simple">Simple / No Mirror (1×)</option>
           </select>
         </Field>
       </div>
@@ -88,15 +122,15 @@ export default function MabsPage() {
           <div className="grid grid-cols-3 gap-4">
             <Field label="vCPUs">
               <input type="number" min={2} max={32} step={1} className="input" value={mabs.mabsVCpus}
-                onChange={(e) => setMabs({ mabsVCpus: +e.target.value })} />
+                onChange={(e) => setMabs({ mabsVCpus: num(e, mabs.mabsVCpus) })} />
             </Field>
             <Field label="RAM (GB)">
               <input type="number" min={8} max={256} step={8} className="input" value={mabs.mabsMemoryGB}
-                onChange={(e) => setMabs({ mabsMemoryGB: +e.target.value })} />
+                onChange={(e) => setMabs({ mabsMemoryGB: num(e, mabs.mabsMemoryGB) })} />
             </Field>
             <Field label="OS disk (GB)">
               <input type="number" min={100} max={500} step={50} className="input" value={mabs.mabsOsDiskGB}
-                onChange={(e) => setMabs({ mabsOsDiskGB: +e.target.value })} />
+                onChange={(e) => setMabs({ mabsOsDiskGB: num(e, mabs.mabsOsDiskGB) })} />
             </Field>
           </div>
         </div>
@@ -111,12 +145,31 @@ export default function MabsPage() {
               detail={`${mabs.scratchCachePct}% of ${mabs.protectedDataTB} TB protected`} />
             <Row label="Backup data volume" value={`${result.backupDataVolumeTB} TB`}
               detail={`Full copy + ${mabs.dailyChangeRatePct}% daily change × ${mabs.onPremRetentionDays} days`} />
-            <Row label="Total on-prem storage" value={`${result.totalStorageTB} TB`} highlight />
+            <Row label="Total logical storage" value={`${result.totalStorageTB} TB`} highlight />
+            <Row label={`Storage Spaces mirror (${mabs.internalMirror === 'simple' ? '1×' : mabs.internalMirror === 'two-way' ? '2×' : '3×'})`}
+              value={`${result.internalFootprintTB} TB`}
+              detail={`Logical ${result.totalStorageTB} TB × ${result.internalMirrorFactor} mirror = virtual disk demand`} />
             <Row label="MABS VM compute" value={`${result.mabsVCpus} vCPUs, ${result.mabsMemoryGB} GB RAM`} />
             <Row label="MABS VM OS disk" value={`${mabs.mabsOsDiskGB} GB`} />
           </tbody>
         </table>
       </div>
+
+      {/* Resiliency Compounding (#70) */}
+      {result.internalMirrorFactor > 1 && (
+        <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3 text-sm space-y-1">
+          <p className="font-semibold text-amber-900 dark:text-amber-200">Resiliency Compounding</p>
+          <p className="text-amber-800 dark:text-amber-300 text-xs">
+            MABS needs {result.totalStorageTB} TB of logical backup storage. Storage Spaces inside the VM
+            uses a <strong>{mabs.internalMirror} mirror</strong>, requiring{' '}
+            <strong>{result.internalFootprintTB} TB</strong> of virtual disk space.
+            Those virtual disks sit on Azure Local CSV volumes with their own resiliency.
+            For example, at dual-parity (50%) the total pool footprint would be{' '}
+            <strong>{(result.internalFootprintTB * 2).toFixed(2)} TB</strong>.
+            At three-way mirror it would be <strong>{(result.internalFootprintTB * 3).toFixed(2)} TB</strong>.
+          </p>
+        </div>
+      )}
 
       {/* Storage breakdown visual */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -165,6 +218,20 @@ export default function MabsPage() {
         </p>
       </div>
     </div>
+  )
+}
+
+function DocLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-700 dark:text-brand-300 bg-white dark:bg-gray-900 border border-brand-200 dark:border-brand-800 rounded-md hover:bg-brand-50 dark:hover:bg-brand-900/50 transition-colors"
+    >
+      <ExternalLink className="w-3 h-3" />
+      {label}
+    </a>
   )
 }
 

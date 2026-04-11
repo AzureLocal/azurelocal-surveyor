@@ -94,6 +94,7 @@ const DEFAULT_SOFS: SofsInputs = {
   sofsGuestVmCount: 2,
   sofsVCpusPerVm: 4,
   sofsMemoryPerVmGB: 16,
+  internalMirror: 'three-way',
   autoSizeDrivesPerNode: 0,
   autoSizeNodes: 2,
 }
@@ -130,6 +131,7 @@ const DEFAULT_MABS: MabsInputs = {
   mabsMemoryGB: 32,
   mabsOsDiskGB: 200,
   resiliency: 'dual-parity',
+  internalMirror: 'two-way',
 }
 
 export const useSurveyorStore = create<SurveyorState>()(
@@ -216,6 +218,43 @@ export const useSurveyorStore = create<SurveyorState>()(
           virtualMachines: DEFAULT_VIRTUAL_MACHINES,
         }),
     }),
-    { name: 'surveyor-state' }  // persisted to localStorage
+    {
+      name: 'surveyor-state',
+      version: 2,  // bump when store shape changes
+      migrate: (persisted: unknown, version: number) => {
+        const state = persisted as Record<string, unknown>
+        if (version < 2) {
+          // v2: consolidated infraVms/devTestVms/customVms → virtualMachines,
+          //     removed backupArchive, added mabs/mabsEnabled
+          if (!state.virtualMachines) state.virtualMachines = DEFAULT_VIRTUAL_MACHINES
+          if (!state.mabs) state.mabs = DEFAULT_MABS
+          if (state.mabsEnabled === undefined) state.mabsEnabled = false
+          // Ensure sofs has all required fields
+          if (state.sofs && typeof state.sofs === 'object') {
+            const s = state.sofs as Record<string, unknown>
+            if (s.containerType === undefined) s.containerType = 'split'
+            if (s.internalMirror === undefined) s.internalMirror = 'three-way'
+            if (s.autoSizeDrivesPerNode === undefined) s.autoSizeDrivesPerNode = 0
+            if (s.autoSizeNodes === undefined) s.autoSizeNodes = 2
+          }
+          // Ensure mabs has internalMirror
+          if (state.mabs && typeof state.mabs === 'object') {
+            const m = state.mabs as Record<string, unknown>
+            if (m.internalMirror === undefined) m.internalMirror = 'two-way'
+          }
+          // Ensure advanced has overrides
+          if (state.advanced && typeof state.advanced === 'object') {
+            const a = state.advanced as Record<string, unknown>
+            if (!a.overrides) a.overrides = {}
+          }
+          // Clean up removed fields
+          delete state.infraVms
+          delete state.devTestVms
+          delete state.customVms
+          delete state.backupArchive
+        }
+        return state as unknown as SurveyorState
+      },
+    }
   )
 )

@@ -1,4 +1,14 @@
-import type { MabsInputs, MabsResult } from './types'
+import type { MabsInputs, MabsInternalMirror, MabsResult } from './types'
+
+/** Returns the multiplier for MABS internal Storage Spaces mirror type. */
+function internalMirrorMultiplier(mirror: MabsInternalMirror): number {
+  switch (mirror) {
+    case 'three-way': return 3
+    case 'two-way':   return 2
+    case 'simple':    return 1
+    default:          return 2  // fallback to two-way
+  }
+}
 
 /** Sanitize a number — replace NaN/Infinity/negative with a safe fallback. */
 function safe(n: number, fallback = 0): number {
@@ -47,10 +57,16 @@ export function computeMabs(inputs: MabsInputs): MabsResult {
   const totalStorageTB = round2(scratchVolumeTB + backupDataVolumeTB)
   const mabsOsDiskTB = round2(mabsOsDiskGB / 1024)
 
+  // #70: internal Storage Spaces mirror compounding
+  const mirrorFactor = internalMirrorMultiplier(inputs.internalMirror)
+  const internalFootprintTB = round2(totalStorageTB * mirrorFactor)
+
   return {
     scratchVolumeTB,
     backupDataVolumeTB,
     totalStorageTB,
+    internalMirrorFactor: mirrorFactor,
+    internalFootprintTB,
     mabsVCpus,
     mabsMemoryGB,
     mabsOsDiskTB,
