@@ -172,12 +172,24 @@ export interface WorkloadSummaryResult {
 
 export type AvdProfileStorageLocation = 's2d' | 'sofs' | 'azure-files' | 'external'
 
+export interface AvdUserTypeMix {
+  taskPct: number           // % of task workers (light profile)
+  taskProfileGB: number     // profile size for task workers
+  knowledgePct: number      // % of knowledge workers (medium profile)
+  knowledgeProfileGB: number
+  powerPct: number          // % of power workers (large profile)
+  powerProfileGB: number
+}
+
 export interface AvdInputs {
   totalUsers: number
   concurrentUsers: number         // #26: 0 = use totalUsers for sizing; > 0 = size session hosts for this peak
   workloadType: AvdWorkloadType
   multiSession: boolean           // true = Windows 11 multi-session; false = single-session VDI
-  profileSizeGB: number           // FSLogix VHD(X) size per user
+  profileSizeGB: number           // FSLogix VHD(X) size per user (overridden by mix when enabled)
+  // #59: user type mix for weighted profile size
+  userTypeMixEnabled: boolean
+  userTypeMix: AvdUserTypeMix
   growthBufferPct: number         // #27: percent growth buffer applied to profile storage (0–50)
   officeContainerEnabled: boolean
   officeContainerSizeGB: number   // additional FSLogix Office Container per user
@@ -197,6 +209,8 @@ export interface AvdResult {
   limitingFactor: 'cpu' | 'ram' | 'preset'
   totalVCpus: number
   totalMemoryGB: number
+  // #59: effective profile size (from mix when enabled, or fixed)
+  effectiveProfileSizeGB: number
   // Storage broken out to match the "calculator TB vs WAC TB" pattern
   osDiskPerHostGB: number
   dataDiskPerHostGB: number       // #31

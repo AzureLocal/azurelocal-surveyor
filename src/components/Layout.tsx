@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import {
   Server, Cpu, Monitor, HardDrive, BarChart3,
-  Settings, BookOpen, Link2
+  Settings, BookOpen, Link2, FileText
 } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
 
@@ -25,6 +25,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <NavItem to="/reports" label="Reports" icon={BarChart3} />
           <NavItem to="/thin-provisioning" label="Thin Provision" icon={BookOpen} />
           <NavItem to="/references" label="References" icon={Link2} />
+          <NavItem to="/docs" label="Docs" icon={FileText} />
         </nav>
         <div className="px-2 py-3 border-t border-white/10">
           <button

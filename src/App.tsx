@@ -7,6 +7,7 @@ import VolumesPage from './pages/VolumesPage'
 import ReportsPage from './pages/ReportsPage'
 import ThinProvisioningPage from './pages/ThinProvisioningPage'
 import ReferencesPage from './pages/ReferencesPage'
+import DocsPage from './pages/DocsPage'
 import Layout from './components/Layout'
 
 export default function App() {
@@ -21,6 +22,7 @@ export default function App() {
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/thin-provisioning" element={<ThinProvisioningPage />} />
         <Route path="/references" element={<ReferencesPage />} />
+        <Route path="/docs" element={<DocsPage />} />
       </Routes>
     </Layout>
   )

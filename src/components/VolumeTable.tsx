@@ -30,7 +30,10 @@ export default function VolumeTable() {
       <div>
         <div className="flex justify-between text-xs text-gray-500 mb-1">
           <span>Storage utilization</span>
-          <span>{summary.utilizationPct}% of {capacity.effectiveUsableTB} TB</span>
+          <span>
+            {summary.utilizationPct}% of {capacity.effectiveUsableTB} TB
+            <span className="ml-1 text-gray-400">({(capacity.effectiveUsableTB * 0.909495).toFixed(1)} TiB in WAC)</span>
+          </span>
         </div>
         <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700">
           <div
@@ -47,10 +50,11 @@ export default function VolumeTable() {
             <tr className="bg-gray-50 dark:bg-gray-800 text-left">
               <th className="px-4 py-2 font-semibold">Name</th>
               <th className="px-4 py-2 font-semibold">Resiliency</th>
-              <th className="px-4 py-2 font-semibold text-right">Calculator TB</th>
+              <th className="px-4 py-2 font-semibold text-right">Planned TB</th>
+              <th className="px-4 py-2 font-semibold text-right text-gray-400">≈ TiB</th>
               <th className="px-4 py-2 font-semibold text-right">
                 WAC GB
-                <span title="Value to enter in Windows Admin Center or New-Volume -Size" className="ml-1 text-brand-500 cursor-help">ⓘ</span>
+                <span title="Value to enter in Windows Admin Center or New-Volume -Size. WAC shows TiB — 1 TB ≈ 0.91 TiB." className="ml-1 text-brand-500 cursor-help">ⓘ</span>
               </th>
               <th className="px-4 py-2" />
             </tr>
@@ -61,11 +65,12 @@ export default function VolumeTable() {
                 <td className="px-4 py-2">{v.name}</td>
                 <td className="px-4 py-2 text-gray-500">{v.resiliency}</td>
                 <td className="px-4 py-2 text-right">{v.calculatorSizeTB}</td>
+                <td className="px-4 py-2 text-right text-gray-400 text-xs">{(v.calculatorSizeTB * 0.909495).toFixed(2)}</td>
                 <td className="px-4 py-2 text-right font-mono font-semibold text-brand-700 dark:text-brand-300">
                   {v.wacSizeGB}
                 </td>
                 <td className="px-4 py-2 text-right">
-                  <button onClick={() => removeVolume(v.id)} className="text-gray-400 hover:text-red-500">
+                  <button onClick={() => removeVolume(v.id)} className="text-gray-400 hover:text-red-500" title="Remove volume">
                     <Trash2 className="w-4 h-4" />
                   </button>
                 </td>

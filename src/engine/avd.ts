@@ -78,6 +78,18 @@ export function computeAvd(inputs: AvdInputs): AvdResult {
   const sizingUsers = inputs.concurrentUsers > 0 ? inputs.concurrentUsers : inputs.totalUsers
   const sessionHostCount = Math.ceil(sizingUsers / usersPerHost)
 
+  // #59: user type mix weighted average profile size
+  let effectiveProfileSizeGB = inputs.profileSizeGB
+  if (inputs.userTypeMixEnabled && inputs.userTypeMix) {
+    const { taskPct, taskProfileGB, knowledgePct, knowledgeProfileGB, powerPct, powerProfileGB } = inputs.userTypeMix
+    const totalPct = taskPct + knowledgePct + powerPct
+    if (totalPct > 0) {
+      effectiveProfileSizeGB = Math.round(
+        (taskPct * taskProfileGB + knowledgePct * knowledgeProfileGB + powerPct * powerProfileGB) / totalPct
+      )
+    }
+  }
+
   const totalVCpus = sessionHostCount * profile.vCpus
   const totalMemoryGB = sessionHostCount * profile.memoryGB
 
@@ -101,7 +113,7 @@ export function computeAvd(inputs: AvdInputs): AvdResult {
     : 0
 
   // Profile storage uses totalUsers (not sizingUsers) — profiles are always allocated for all users
-  const baseProfileStorageTB = (inputs.totalUsers * inputs.profileSizeGB) / 1024
+  const baseProfileStorageTB = (inputs.totalUsers * effectiveProfileSizeGB) / 1024
   // #27: apply growth buffer to profile storage
   const growthMultiplier = 1 + (inputs.growthBufferPct / 100)
   const totalProfileStorageTB = round2(baseProfileStorageTB * growthMultiplier)
@@ -130,6 +142,7 @@ export function computeAvd(inputs: AvdInputs): AvdResult {
     limitingFactor,
     totalVCpus,
     totalMemoryGB,
+    effectiveProfileSizeGB,
     osDiskPerHostGB: profile.osDiskGB,
     dataDiskPerHostGB: inputs.dataDiskPerHostGB,
     totalOsStorageTB,

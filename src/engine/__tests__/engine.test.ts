@@ -15,6 +15,8 @@ describe('AVD engine', () => {
     growthBufferPct: 0,
     dataDiskPerHostGB: 0,
     profileStorageLocation: 's2d' as const,
+    userTypeMixEnabled: false,
+    userTypeMix: { taskPct: 30, taskProfileGB: 15, knowledgePct: 50, knowledgeProfileGB: 40, powerPct: 20, powerProfileGB: 80 },
   }
 
   it('light workload multi-session: 100 users → 7 hosts', () => {
