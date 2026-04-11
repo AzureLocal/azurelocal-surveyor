@@ -1,12 +1,12 @@
 import { NavLink } from 'react-router-dom'
 import {
   Server, Cpu, Monitor, HardDrive, BarChart3,
-  Settings, BookOpen, Link2, FileText
+  Settings, BookOpen, Link2, FileText, Container
 } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const { avdEnabled, sofsEnabled } = useSurveyorStore()
+  const { avdEnabled, sofsEnabled, aks } = useSurveyorStore()
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
@@ -19,8 +19,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 py-4 space-y-0.5 px-2">
           <NavItem to="/" label="Hardware" icon={Server} end />
           <NavItem to="/workloads" label="Workloads" icon={Cpu} />
-          {avdEnabled  && <NavItem to="/avd"     label="AVD"     icon={Monitor}    />}
-          {sofsEnabled && <NavItem to="/sofs"    label="SOFS"    icon={HardDrive}  />}
+          {avdEnabled   && <NavItem to="/avd"  label="AVD"  icon={Monitor}    />}
+          {sofsEnabled  && <NavItem to="/sofs" label="SOFS" icon={HardDrive}  />}
+          {aks.enabled  && <NavItem to="/aks"  label="AKS"  icon={Container}  />}
           <NavItem to="/volumes" label="Volumes" icon={HardDrive} />
           <NavItem to="/reports" label="Reports" icon={BarChart3} />
           <NavItem to="/thin-provisioning" label="Thin Provision" icon={BookOpen} />

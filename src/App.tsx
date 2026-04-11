@@ -8,6 +8,7 @@ import ReportsPage from './pages/ReportsPage'
 import ThinProvisioningPage from './pages/ThinProvisioningPage'
 import ReferencesPage from './pages/ReferencesPage'
 import DocsPage from './pages/DocsPage'
+import AksPage from './pages/AksPage'
 import Layout from './components/Layout'
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="/workloads" element={<WorkloadsPage />} />
         <Route path="/avd" element={<AvdPage />} />
         <Route path="/sofs" element={<SofsPage />} />
+        <Route path="/aks" element={<AksPage />} />
         <Route path="/volumes" element={<VolumesPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/thin-provisioning" element={<ThinProvisioningPage />} />
