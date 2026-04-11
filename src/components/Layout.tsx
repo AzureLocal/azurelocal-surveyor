@@ -1,12 +1,15 @@
+import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   Server, Cpu, Monitor, HardDrive, BarChart3,
-  Settings, BookOpen, Link2, FileText, Container
+  Settings, BookOpen, Link2, FileText, Container, X,
 } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
+import AdvancedSettings from './AdvancedSettings'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { avdEnabled, sofsEnabled, aks } = useSurveyorStore()
+  const [advancedOpen, setAdvancedOpen] = useState(false)
 
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
@@ -45,7 +48,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <div className="px-2 py-3 border-t border-white/10">
           <button
             className="flex items-center gap-2 w-full px-3 py-2 text-sm text-blue-200 hover:text-white rounded-md hover:bg-white/10 transition-colors"
-            onClick={() => document.getElementById('advanced-settings-dialog')?.showPopover?.()}
+            onClick={() => setAdvancedOpen(true)}
           >
             <Settings className="w-4 h-4" />
             Advanced Settings
@@ -59,6 +62,33 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {children}
         </div>
       </main>
+
+      {/* Advanced Settings modal */}
+      {advancedOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-start justify-end"
+          onClick={(e) => { if (e.target === e.currentTarget) setAdvancedOpen(false) }}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/40" />
+          {/* Panel */}
+          <div className="relative z-10 h-full w-full max-w-xl bg-white dark:bg-gray-900 shadow-2xl flex flex-col">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h2 className="text-base font-semibold">Advanced Settings</h2>
+              <button
+                onClick={() => setAdvancedOpen(false)}
+                className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                title="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto px-5 py-4">
+              <AdvancedSettings />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
