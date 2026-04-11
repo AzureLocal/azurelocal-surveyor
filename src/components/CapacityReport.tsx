@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { ChevronDown, ChevronRight } from 'lucide-react'
 import type { CapacityResult } from '../engine/types'
 import { round2 } from '../engine/capacity'
 
@@ -8,7 +10,22 @@ const RESILIENCY_LABELS: Record<string, string> = {
   'nested-two-way':   'Nested Two-Way (25%)',
 }
 
+const GLOSSARY = [
+  { term: 'Raw Capacity',      def: "Manufacturer's advertised TB across all capacity drives (drive size × drives/node × nodes)." },
+  { term: 'Usable Capacity',   def: 'Raw capacity minus ~8% overhead (TB-to-TiB conversion + NVMe wear-leveling reserve). Applied per drive.' },
+  { term: 'Pool Capacity',     def: 'All usable drives combined into the storage pool. Cache drives are excluded — they only accelerate reads/writes.' },
+  { term: 'Reserve',           def: 'One drive equivalent per node (max 4 nodes) held back by S2D for automatic repair after a drive failure. Not user-configurable.' },
+  { term: 'Infra Volume',      def: '~250 GB logical volume Azure Local creates automatically for internal system operations (the ClusterStorage CSV).' },
+  { term: 'Available Pool',    def: 'Pool minus Reserve minus Infra Volume. This is the pool space your workload volumes draw from.' },
+  { term: 'Volume Size',       def: 'The logical capacity you request when creating a volume — what you ask for.' },
+  { term: 'Footprint',         def: 'Physical pool space a volume actually consumes. A 1 TB Three-Way Mirror volume uses 3 TB of pool footprint.' },
+  { term: 'Efficiency',        def: 'Ratio of logical to physical storage. Two-Way = 50%, Three-Way = 33%, Dual Parity = 50–80% (node-count dependent).' },
+  { term: 'TB vs TiB',         def: 'TB = decimal (10¹² bytes). TiB = binary (2⁴⁰ bytes). Windows Admin Center shows TiB. 1 TB ≈ 0.909 TiB. This tool uses TB.' },
+  { term: 'Effective Usable',  def: 'The planning number — how much data fits with your default resiliency. = Available Pool × resiliency efficiency.' },
+]
+
 export default function CapacityReport({ result }: { result: CapacityResult }) {
+  const [glossaryOpen, setGlossaryOpen] = useState(false)
   const resiliencyPct = (result.resiliencyFactor * 100).toFixed(1)
 
   return (
@@ -27,13 +44,34 @@ export default function CapacityReport({ result }: { result: CapacityResult }) {
 
           <Section label="Available for User Volumes" />
           <Row label="Available for volumes (pool space)" value={`${round2(result.availableForVolumesTB)} TB`} highlight />
-          <Row label="Available for volumes (OS-visible)" value={`${round2(result.availableForVolumesTiB)} TiB`} sub="1 TB = 0.9091 TiB" />
+          <Row label="Available for volumes (OS-visible)" value={`${round2(result.availableForVolumesTiB)} TiB`} sub="1 TB = 0.9091 TiB — value shown in WAC and PowerShell" />
 
           <Section label="Planning Number" />
           <Row label={`Default resiliency: ${RESILIENCY_LABELS[result.resiliencyType] ?? result.resiliencyType}`} value={`${resiliencyPct}% efficiency`} />
           <Row label="Effective usable (plan workloads against this)" value={`${round2(result.effectiveUsableTB)} TB`} highlight bold />
         </tbody>
       </table>
+
+      {/* Capacity Terms Glossary (#62) */}
+      <div className="border-t border-gray-200 dark:border-gray-700">
+        <button
+          className="flex items-center gap-2 w-full px-4 py-2.5 text-xs text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-left"
+          onClick={() => setGlossaryOpen((o) => !o)}
+        >
+          {glossaryOpen ? <ChevronDown className="w-3.5 h-3.5 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0" />}
+          Capacity Terms Glossary
+        </button>
+        {glossaryOpen && (
+          <dl className="divide-y divide-gray-100 dark:divide-gray-800 px-4 pb-3">
+            {GLOSSARY.map(({ term, def }) => (
+              <div key={term} className="py-2">
+                <dt className="text-xs font-semibold text-gray-700 dark:text-gray-300">{term}</dt>
+                <dd className="text-xs text-gray-500 mt-0.5">{def}</dd>
+              </div>
+            ))}
+          </dl>
+        )}
+      </div>
     </div>
   )
 }

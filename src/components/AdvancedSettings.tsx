@@ -67,6 +67,41 @@ export default function AdvancedSettings() {
       >
         Reset to defaults
       </button>
+
+      {/* TB ↔ TiB Conversion Reference (#57) */}
+      <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+        <div className="bg-gray-50 dark:bg-gray-800 px-4 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          TB ↔ TiB Conversion Reference
+        </div>
+        <p className="px-4 pt-2 text-xs text-gray-500">
+          Windows Admin Center, PowerShell, and Disk Management display storage in TiB (binary).
+          This calculator uses TB (decimal). Formula: TiB = TB × 0.909495
+        </p>
+        <table className="w-full text-xs mt-2">
+          <thead>
+            <tr className="border-t border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
+              <th className="px-4 py-1.5 text-left font-medium text-gray-500">Decimal (TB)</th>
+              <th className="px-4 py-1.5 text-right font-medium text-gray-500">Binary (TiB)</th>
+              <th className="px-4 py-1.5 text-right font-medium text-gray-500 hidden sm:table-cell">What Windows shows</th>
+            </tr>
+          </thead>
+          <tbody>
+            {([1, 5, 10, 25, 50, 100] as const).map((tb) => {
+              const tib = (tb * 0.909495).toFixed(2)
+              return (
+                <tr key={tb} className="border-t border-gray-100 dark:border-gray-800">
+                  <td className="px-4 py-1.5">{tb} TB</td>
+                  <td className="px-4 py-1.5 text-right font-mono">{tib} TiB</td>
+                  <td className="px-4 py-1.5 text-right text-gray-400 hidden sm:table-cell">{tib} TiB in WAC / PS</td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+        <p className="px-4 py-2 text-xs text-gray-400">
+          Note: A 7.68 TB NVMe drive shows as ~6.99 TiB in Windows due to binary/decimal difference plus NVMe wear-leveling reserve.
+        </p>
+      </div>
     </div>
   )
 }

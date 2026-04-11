@@ -117,6 +117,16 @@ export function runHealthCheck(params: {
     })
   }
 
+  // ── Thin provisioning over-commit risk (#8) ────────────────────────────────
+
+  if (hardware.volumeProvisioning === 'thin') {
+    issues.push({
+      code: 'HC_THIN_PROVISIONING',
+      severity: 'warning',
+      message: 'Thin provisioning is enabled. Monitor pool space regularly — if logical volume sizes exceed available pool capacity, VMs will crash without warning. Not recommended for production workloads.',
+    })
+  }
+
   // ── Sub-4-node dual-parity restriction ────────────────────────────────────
 
   if (hardware.nodeCount < 4) {
