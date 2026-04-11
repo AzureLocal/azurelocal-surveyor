@@ -16,11 +16,11 @@ const NAV = [
 export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
-      {/* Sidebar */}
-      <aside className="w-56 shrink-0 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 flex flex-col">
-        <div className="px-4 py-5 border-b border-gray-200 dark:border-gray-800">
-          <div className="text-xs font-semibold text-brand-600 uppercase tracking-wider">Azure Local</div>
-          <div className="text-lg font-bold leading-tight">Surveyor</div>
+      {/* Sidebar — always dark navy to match azurelocal.cloud brand */}
+      <aside className="w-56 shrink-0 flex flex-col" style={{ backgroundColor: '#0f3057' }}>
+        <div className="px-4 py-5 border-b border-white/10">
+          <div className="text-xs font-semibold text-blue-200 uppercase tracking-wider">Azure Local</div>
+          <div className="text-lg font-bold leading-tight text-white">Surveyor</div>
         </div>
         <nav className="flex-1 py-4 space-y-0.5 px-2">
           {NAV.map(({ to, label, icon: Icon }) => (
@@ -31,8 +31,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               className={({ isActive }) =>
                 `flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ` +
                 (isActive
-                  ? 'bg-brand-50 dark:bg-brand-900/30 text-brand-700 dark:text-brand-300'
-                  : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800')
+                  ? 'bg-brand-500/40 text-white'
+                  : 'text-blue-200 hover:bg-white/10 hover:text-white')
               }
             >
               <Icon className="w-4 h-4 shrink-0" />
@@ -40,9 +40,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </NavLink>
           ))}
         </nav>
-        <div className="px-2 py-3 border-t border-gray-200 dark:border-gray-800">
+        <div className="px-2 py-3 border-t border-white/10">
           <button
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-gray-500 hover:text-gray-900 dark:hover:text-gray-100 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-blue-200 hover:text-white rounded-md hover:bg-white/10 transition-colors"
             onClick={() => document.getElementById('advanced-settings-dialog')?.showPopover?.()}
           >
             <Settings className="w-4 h-4" />
