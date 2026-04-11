@@ -9,7 +9,7 @@ import { computeVolumeSummary } from '../engine/volumes'
 import { computeCompute } from '../engine/compute'
 import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
-import { computeWorkloadSummary } from '../engine/workloads'
+import { computeAks } from '../engine/aks'
 import { runHealthCheck } from '../engine/healthcheck'
 import CapacityReport from './CapacityReport'
 import ComputeReport from './ComputeReport'
@@ -27,8 +27,67 @@ export default function FinalReport() {
   const compute = computeCompute(state.hardware, state.advanced)
   const avd = computeAvd(state.avd)
   const sofs = computeSofs(state.sofs)
-  const workloadSummary = computeWorkloadSummary(state.workloads)
-  const health = runHealthCheck({ hardware: state.hardware, settings: state.advanced, volumes: state.volumes, capacity, compute, workloadSummary })
+  const aks = computeAks(state.aks)
+
+  // Aggregate workload totals across all enabled scenarios — fixes #15
+  // (previously used legacy WorkloadSpec[] which was always empty)
+  let totalVCpus = 0
+  let totalMemoryGB = 0
+  let totalStorageTB = 0
+
+  if (state.avdEnabled) {
+    totalVCpus    += avd.totalVCpus
+    totalMemoryGB += avd.totalMemoryGB
+    totalStorageTB += avd.totalStorageTB
+  }
+  if (state.aks.enabled) {
+    totalVCpus    += aks.totalVCpus
+    totalMemoryGB += aks.totalMemoryGB
+    totalStorageTB += aks.totalStorageTB
+  }
+  if (state.infraVms.enabled) {
+    totalVCpus    += state.infraVms.vmCount * state.infraVms.vCpusPerVm
+    totalMemoryGB += state.infraVms.vmCount * state.infraVms.memoryPerVmGB
+    totalStorageTB += (state.infraVms.vmCount * state.infraVms.storagePerVmGB) / 1024
+  }
+  if (state.devTestVms.enabled) {
+    totalVCpus    += state.devTestVms.vmCount * state.devTestVms.vCpusPerVm
+    totalMemoryGB += state.devTestVms.vmCount * state.devTestVms.memoryPerVmGB
+    totalStorageTB += (state.devTestVms.vmCount * state.devTestVms.storagePerVmGB) / 1024
+  }
+  if (state.backupArchive.enabled) {
+    totalStorageTB += state.backupArchive.storageTB
+  }
+  if (state.customVms.enabled) {
+    totalVCpus    += state.customVms.vmCount * state.customVms.vCpusPerVm
+    totalMemoryGB += state.customVms.vmCount * state.customVms.memoryPerVmGB
+    totalStorageTB += (state.customVms.vmCount * state.customVms.storagePerVmGB) / 1024
+  }
+  // SOFS guest VMs consume compute from the main cluster — fixes #15
+  if (state.sofsEnabled) {
+    totalVCpus    += sofs.sofsVCpusTotal
+    totalMemoryGB += sofs.sofsMemoryTotalGB
+    totalStorageTB += sofs.totalStorageTB
+  }
+
+  const workloadSummary = {
+    totalVCpus: Math.round(totalVCpus),
+    totalMemoryGB: Math.round(totalMemoryGB),
+    totalStorageTB: Math.round(totalStorageTB * 100) / 100,
+  }
+
+  const health = runHealthCheck({
+    hardware: state.hardware,
+    settings: state.advanced,
+    volumes: state.volumes,
+    capacity,
+    compute,
+    workloadSummary,
+  })
+
+  const anyWorkloadEnabled = state.avdEnabled || state.aks.enabled || state.infraVms.enabled
+    || state.devTestVms.enabled || state.backupArchive.enabled || state.customVms.enabled
+    || state.sofsEnabled
 
   function copyPowerShell() {
     navigator.clipboard.writeText(generatePowerShell(state))
@@ -96,7 +155,7 @@ export default function FinalReport() {
         </section>
       )}
 
-      {state.workloads.length > 0 && (
+      {anyWorkloadEnabled && (
         <section>
           <h2 className="text-lg font-semibold mb-3">Workloads</h2>
           <dl className="grid grid-cols-3 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden text-sm">
@@ -107,24 +166,30 @@ export default function FinalReport() {
         </section>
       )}
 
-      <section>
-        <h2 className="text-lg font-semibold mb-3">AVD</h2>
-        <dl className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden text-sm">
-          <Stat label="Session hosts" value={String(avd.sessionHostCount)} />
-          <Stat label="Total vCPUs" value={String(avd.totalVCpus)} />
-          <Stat label="Total RAM" value={`${avd.totalMemoryGB} GB`} />
-          <Stat label="Total storage" value={`${avd.totalStorageTB} TB`} />
-        </dl>
-      </section>
+      {/* AVD section — only shown when enabled, fixes #12 */}
+      {state.avdEnabled && (
+        <section>
+          <h2 className="text-lg font-semibold mb-3">AVD</h2>
+          <dl className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden text-sm">
+            <Stat label="Session hosts" value={String(avd.sessionHostCount)} />
+            <Stat label="Total vCPUs" value={String(avd.totalVCpus)} />
+            <Stat label="Total RAM" value={`${avd.totalMemoryGB} GB`} />
+            <Stat label="Total storage" value={`${avd.totalStorageTB} TB`} />
+          </dl>
+        </section>
+      )}
 
-      <section>
-        <h2 className="text-lg font-semibold mb-3">SOFS</h2>
-        <dl className="grid grid-cols-3 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden text-sm">
-          <Stat label="Profile storage" value={`${sofs.totalProfileStorageTB} TB`} />
-          <Stat label="Redirected storage" value={`${sofs.totalRedirectedStorageTB} TB`} />
-          <Stat label="Total storage" value={`${sofs.totalStorageTB} TB`} />
-        </dl>
-      </section>
+      {/* SOFS section — only shown when enabled, fixes #12 */}
+      {state.sofsEnabled && (
+        <section>
+          <h2 className="text-lg font-semibold mb-3">SOFS</h2>
+          <dl className="grid grid-cols-3 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden text-sm">
+            <Stat label="Profile storage" value={`${sofs.totalProfileStorageTB} TB`} />
+            <Stat label="Redirected storage" value={`${sofs.totalRedirectedStorageTB} TB`} />
+            <Stat label="Total storage" value={`${sofs.totalStorageTB} TB`} />
+          </dl>
+        </section>
+      )}
 
       <section>
         <h2 className="text-lg font-semibold mb-3">Health Check</h2>

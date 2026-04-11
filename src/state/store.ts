@@ -22,6 +22,7 @@ export interface SurveyorState {
   avd: AvdInputs
   avdEnabled: boolean
   sofs: SofsInputs
+  sofsEnabled: boolean
   // Workload scenarios
   aks: AksInputs
   infraVms: VmScenario
@@ -41,6 +42,7 @@ export interface SurveyorState {
   setAvd: (a: Partial<AvdInputs>) => void
   setAvdEnabled: (enabled: boolean) => void
   setSofs: (s: Partial<SofsInputs>) => void
+  setSofsEnabled: (enabled: boolean) => void
   setAks: (a: Partial<AksInputs>) => void
   setInfraVms: (s: Partial<VmScenario>) => void
   setDevTestVms: (s: Partial<VmScenario>) => void
@@ -137,6 +139,7 @@ export const useSurveyorStore = create<SurveyorState>()(
       avd: DEFAULT_AVD,
       avdEnabled: false,
       sofs: DEFAULT_SOFS,
+      sofsEnabled: false,
       aks: DEFAULT_AKS,
       infraVms: DEFAULT_INFRA_VMS,
       devTestVms: DEFAULT_DEV_TEST_VMS,
@@ -180,6 +183,9 @@ export const useSurveyorStore = create<SurveyorState>()(
       setSofs: (sf) =>
         set((s) => ({ sofs: { ...s.sofs, ...sf } })),
 
+      setSofsEnabled: (enabled) =>
+        set(() => ({ sofsEnabled: enabled })),
+
       setAks: (a) =>
         set((s) => ({ aks: { ...s.aks, ...a } })),
 
@@ -204,6 +210,7 @@ export const useSurveyorStore = create<SurveyorState>()(
           avd: DEFAULT_AVD,
           avdEnabled: false,
           sofs: DEFAULT_SOFS,
+          sofsEnabled: false,
           aks: DEFAULT_AKS,
           infraVms: DEFAULT_INFRA_VMS,
           devTestVms: DEFAULT_DEV_TEST_VMS,

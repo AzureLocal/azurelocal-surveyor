@@ -39,6 +39,18 @@ export function runHealthCheck(params: {
     }
   }
 
+  // ── Per-volume 64 TB S2D hard limit (#60) ──────────────────────────────────
+
+  for (const vol of volumes) {
+    if (vol.plannedSizeTB > 64) {
+      issues.push({
+        code: 'HC_VOLUME_EXCEEDS_64TB',
+        severity: 'error',
+        message: `Volume "${vol.name}" is ${vol.plannedSizeTB} TB — exceeds the 64 TB S2D maximum. This volume cannot be created in WAC or PowerShell.`,
+      })
+    }
+  }
+
   // ── Pool / capacity utilization ─────────────────────────────────────────────
 
   const totalVolumeTB = volumes.reduce((s, v) => s + v.plannedSizeTB, 0)
@@ -52,11 +64,24 @@ export function runHealthCheck(params: {
       severity: 'error',
       message: `Planned volumes (${totalVolumeTB.toFixed(2)} TB) exceed effective usable capacity (${capacity.effectiveUsableTB.toFixed(2)} TB).`,
     })
-  } else if (utilizationPct > 80) {
+  } else if (utilizationPct > 70) {
+    // Excel workbook warns at 70% — S2D needs rebuild headroom (#58)
     issues.push({
       code: 'HC_HIGH_UTILIZATION',
       severity: 'warning',
-      message: `Storage utilization is ${utilizationPct.toFixed(1)}%. Microsoft recommends staying below 80% to allow for rebuild headroom.`,
+      message: `Storage utilization is ${utilizationPct.toFixed(1)}%. Microsoft recommends staying below 70% to maintain rebuild headroom after a drive failure.`,
+    })
+  }
+
+  // ── Volume count: recommend multiples of node count (#61) ──────────────────
+
+  const activeVolumeCount = volumes.filter((v) => v.plannedSizeTB > 0).length
+  if (activeVolumeCount > 0 && hardware.nodeCount > 1 && activeVolumeCount % hardware.nodeCount !== 0) {
+    const nextMultiple = Math.ceil(activeVolumeCount / hardware.nodeCount) * hardware.nodeCount
+    issues.push({
+      code: 'HC_VOLUME_COUNT_NOT_MULTIPLE',
+      severity: 'info',
+      message: `${activeVolumeCount} volumes on a ${hardware.nodeCount}-node cluster is not a multiple of ${hardware.nodeCount}. Consider ${nextMultiple} volumes for balanced slab distribution across nodes.`,
     })
   }
 

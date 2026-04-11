@@ -3,17 +3,11 @@ import {
   Server, Cpu, Monitor, HardDrive, BarChart3,
   Settings
 } from 'lucide-react'
-
-const NAV = [
-  { to: '/',          label: 'Hardware',    icon: Server      },
-  { to: '/workloads', label: 'Workloads',   icon: Cpu         },
-  { to: '/avd',       label: 'AVD',         icon: Monitor     },
-  { to: '/sofs',      label: 'SOFS',        icon: HardDrive   },
-  { to: '/volumes',   label: 'Volumes',     icon: HardDrive   },
-  { to: '/reports',   label: 'Reports',     icon: BarChart3   },
-]
+import { useSurveyorStore } from '../state/store'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
+  const { avdEnabled, sofsEnabled } = useSurveyorStore()
+
   return (
     <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
       {/* Sidebar — always dark navy to match azurelocal.cloud brand */}
@@ -23,22 +17,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="text-lg font-bold leading-tight text-white">Surveyor</div>
         </div>
         <nav className="flex-1 py-4 space-y-0.5 px-2">
-          {NAV.map(({ to, label, icon: Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === '/'}
-              className={({ isActive }) =>
-                `flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ` +
-                (isActive
-                  ? 'bg-brand-500/40 text-white'
-                  : 'text-blue-200 hover:bg-white/10 hover:text-white')
-              }
-            >
-              <Icon className="w-4 h-4 shrink-0" />
-              {label}
-            </NavLink>
-          ))}
+          <NavItem to="/" label="Hardware" icon={Server} end />
+          <NavItem to="/workloads" label="Workloads" icon={Cpu} />
+          {avdEnabled  && <NavItem to="/avd"     label="AVD"     icon={Monitor}    />}
+          {sofsEnabled && <NavItem to="/sofs"    label="SOFS"    icon={HardDrive}  />}
+          <NavItem to="/volumes" label="Volumes" icon={HardDrive} />
+          <NavItem to="/reports" label="Reports" icon={BarChart3} />
         </nav>
         <div className="px-2 py-3 border-t border-white/10">
           <button
@@ -58,5 +42,27 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </main>
     </div>
+  )
+}
+
+function NavItem({
+  to, label, icon: Icon, end,
+}: {
+  to: string; label: string; icon: React.ElementType; end?: boolean
+}) {
+  return (
+    <NavLink
+      to={to}
+      end={end}
+      className={({ isActive }) =>
+        `flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ` +
+        (isActive
+          ? 'bg-brand-500/40 text-white'
+          : 'text-blue-200 hover:bg-white/10 hover:text-white')
+      }
+    >
+      <Icon className="w-4 h-4 shrink-0" />
+      {label}
+    </NavLink>
   )
 }
