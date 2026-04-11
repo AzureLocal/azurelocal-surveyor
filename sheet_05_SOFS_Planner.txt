@@ -1,0 +1,146 @@
+SHEET 5: SOFS Planner
+====================================================================================================
+
+Total cells with content: 141
+
+B2         | VALUE    | SOFS Planner — Separate File Server Cluster for FSLogix Profiles
+B3         | VALUE    | Sizes a dedicated SOFS cluster (separate from compute cluster) for hosting FSLogix profile containers via CA SMB shares 
+B5         | VALUE    | SECTION 1: SOFS SCENARIO INPUTS
+B6         | VALUE    | Enable SOFS scenario?
+B8         | VALUE    | SOFS CLUSTER HARDWARE
+B9         | VALUE    | SOFS node count
+B10        | VALUE    | Drives per SOFS node
+B11        | VALUE    | Drive capacity (each)
+B12        | VALUE    | SOFS STORAGE POOL
+B13        | VALUE    | Resiliency type
+B14        | VALUE    | Capacity efficiency factor
+B15        | VALUE    | Profile container type
+B16        | VALUE    | SOFS volume resiliency on main cluster
+B18        | VALUE    | Total raw capacity
+B19        | VALUE    | Resiliency efficiency
+B20        | VALUE    | Usable capacity (after resiliency + overhead)
+B21        | VALUE    | Drive reserve (largest drive capacity)
+B22        | VALUE    | Available for volumes
+B24        | VALUE    | FSLOGIX PROFILE DEMAND
+B25        | VALUE    | Profile storage location (from WP)
+B26        | VALUE    | Total AVD users
+B27        | VALUE    | Profile size per user
+B28        | VALUE    | Growth buffer
+B29        | VALUE    | Profile logical demand
+B30        | VALUE    | Profile footprint on SOFS (after resiliency)
+B31        | VALUE    | Remaining SOFS capacity after profiles
+B32        | VALUE    | Capacity utilization
+B34        | VALUE    | IOPS ESTIMATE
+B35        | VALUE    | Steady-state IOPS per user
+B36        | VALUE    | Login/logoff storm IOPS per user
+B37        | VALUE    | Concurrent users
+B38        | VALUE    | Login storm % (simultaneous logins)
+B39        | VALUE    | Steady-state total IOPS
+B40        | VALUE    | Peak storm IOPS
+B42        | VALUE    | SOFS VM COMPUTE (on main cluster)
+B43        | VALUE    | vCPU per SOFS VM
+B44        | VALUE    | RAM per SOFS VM
+B45        | VALUE    | SOFS VM count
+B46        | VALUE    | Total SOFS vCPU demand
+B47        | VALUE    | Total SOFS RAM demand
+B50        | VALUE    | SOFS READINESS CHECKLIST
+B51        | VALUE    | Capacity: SOFS can hold all profiles?
+B52        | VALUE    | Utilization: Under 80% threshold?
+B53        | VALUE    | Node count: Matches resiliency type?
+B54        | VALUE    | Separate cluster: Not sharing with VM compute?
+B56        | VALUE    | IMPORTANT NOTES
+B57        | VALUE    | ⚠️ Microsoft does NOT support running SOFS and VM workloads on the same Azure Local cluster for production.
+B58        | VALUE    | ✅ Supported: Dedicated SOFS cluster (2+ nodes) with its own S2D pool, serving CA SMB shares for FSLogix profiles.
+B59        | VALUE    | ℹ️ SOFS exposes continuously available (CA) SMB shares — node failovers are transparent to FSLogix sessions.
+B60        | VALUE    | ℹ️ FSLogix profile containers default to 30 GB max per VHD(X). Use Redirections.xml to exclude caches (Teams, browser) a
+B61        | VALUE    | ℹ️ For alternative storage options (Azure Files, ANF, NAS), set the profile storage location in Workload Planner and thi
+C6         | VALUE    | No
+C9         | VALUE    | 3
+C10        | VALUE    | 4
+C11        | FORMULA  | IF($C$6="No",0,IF(C30=0,0,ROUNDUP(C30/(C9*C10*C19*C14-1),2)))
+C13        | FORMULA  | IF($C$6="No","",'AVD Planning'!C22)
+C14        | VALUE    | 0.92
+C15        | VALUE    | Single
+C16        | VALUE    | Two-Way Mirror
+C18        | FORMULA  | IF($C$6="No",0,C9*C10*C11)
+C19        | FORMULA  | IF($C$6="No",0,IF(C13="Three-Way Mirror",1/3,IF(C13="Two-Way Mirror",0.5,IF(C13="Dual Parity",IF(C9>=16,0.8,IF(C9>=9,0.7
+C20        | FORMULA  | IF($C$6="No",0,ROUND(C18*C19*C14,2))
+C21        | FORMULA  | IF($C$6="No",0,C11)
+C22        | FORMULA  | IF($C$6="No",0,MAX(0,ROUND(C20-C21,2)))
+C25        | FORMULA  | IF($C$6="No","",'Workload Planner'!C17)
+C26        | FORMULA  | IF($C$6="No",0,'Workload Planner'!C18)
+C27        | FORMULA  | IF($C$6="No",0,'Workload Planner'!C20)
+C28        | FORMULA  | IF($C$6="No",0,'Workload Planner'!C21)
+C29        | FORMULA  | IF($C$6="No",0,ROUND((C26*C27*(1+C28))/1024,2))
+C30        | FORMULA  | IF($C$6="No",0,IF(C19=0,0,ROUND(C29/C19,2)))
+C31        | FORMULA  | IF($C$6="No",0,ROUND(C22-C30,2))
+C32        | FORMULA  | IF($C$6="No",0,IF(C22=0,0,C30/C22))
+C35        | VALUE    | 10
+C36        | VALUE    | 50
+C37        | FORMULA  | IF($C$6="No",0,'Workload Planner'!C19)
+C38        | VALUE    | 0.2
+C39        | FORMULA  | IF($C$6="No",0,C37*C35*IF(C15="Split",3,1))
+C40        | FORMULA  | IF($C$6="No",0,ROUND(((C37*(1-C38)*C35)+(C37*C38*C36))*IF(C15="Split",3,1),0))
+C43        | VALUE    | 8
+C44        | VALUE    | 16
+C45        | FORMULA  | IF($C$6="No",0,C9)
+C46        | FORMULA  | IF($C$6="No",0,C45*C43)
+C47        | FORMULA  | IF($C$6="No",0,C45*C44)
+C51        | FORMULA  | IF($C$6="No","N/A",IF(C31>=0,"PASS","FAIL"))
+C52        | FORMULA  | IF($C$6="No","N/A",IF(C32<=0.8,"PASS","FAIL"))
+C53        | FORMULA  | IF($C$6="No","N/A",IF(OR(AND(C13="Two-Way Mirror",C9>=2),AND(C13="Three-Way Mirror",C9>=3),AND(C13="Dual Parity",C9>=4),
+C54        | FORMULA  | IF($C$6="No","N/A","VERIFY")
+D9         | VALUE    | nodes
+D10        | VALUE    | drives
+D11        | VALUE    | TB
+D18        | VALUE    | TB
+D20        | VALUE    | TB
+D21        | VALUE    | TB
+D22        | VALUE    | TB
+D26        | VALUE    | users
+D27        | VALUE    | GB
+D29        | VALUE    | TB
+D30        | VALUE    | TB
+D31        | VALUE    | TB
+D35        | VALUE    | IOPS
+D36        | VALUE    | IOPS
+D37        | VALUE    | users
+D39        | VALUE    | IOPS
+D40        | VALUE    | IOPS
+D43        | VALUE    | vCPU
+D44        | VALUE    | GB
+D45        | VALUE    | VMs
+D46        | VALUE    | vCPU
+D47        | VALUE    | GB
+F6         | VALUE    | Set to No to skip SOFS entirely. All downstream tabs respect this flag.
+F9         | VALUE    | Minimum 2 nodes for SOFS + cloud witness. Microsoft supported production model.
+F10        | VALUE    | NVMe or SSD recommended for FSLogix IOPS. Same count per node required.
+F11        | VALUE    | Auto-calculated from profile demand. Drive size = pool needed ÷ (nodes × drives × resiliency eff × cap eff - 1 drive res
+F13        | VALUE    | Linked from AVD Planning C22. Change profile resiliency there.
+F14        | VALUE    | S2D filesystem overhead. Default 92% (same as compute cluster).
+F15        | VALUE    | Single = 1 VHD per user (profile+Office combined). Split = 3 VHDs per user (profile + Office/ODFC + other). Split triple
+F16        | VALUE    | Resiliency for the SOFS VM storage volumes on the Azure Local compute cluster. Independent from SOFS internal resiliency
+F18        | VALUE    | Nodes × drives/node × drive size.
+F19        | VALUE    | Data fraction after mirror/parity overhead.
+F20        | VALUE    | Raw × resiliency efficiency × capacity efficiency factor.
+F21        | VALUE    | S2D reserves capacity of largest drive for rebuild. Deducted from raw.
+F22        | VALUE    | Usable minus drive reserve. This is what you can allocate to FSLogix volumes.
+F25        | VALUE    | Linked from Workload Planner C17. SOFS tab relevant when NOT "S2D Volume (local)".
+F26        | VALUE    | Linked from Workload Planner.
+F29        | VALUE    | Users × profile size × (1 + growth buffer) / 1024.
+F30        | VALUE    | Logical demand ÷ resiliency efficiency. This is the actual pool space consumed.
+F31        | VALUE    | Available minus footprint. Negative = need more drives/nodes.
+F32        | VALUE    | Keep under 80% for S2D performance headroom.
+F35        | VALUE    | Typical FSLogix steady state: ~10 IOPS per active session.
+F36        | VALUE    | Peak during login/logoff: ~50 IOPS per user (VHD mount/dismount).
+F38        | VALUE    | % of users logging in simultaneously during peak (e.g., 9 AM). 10-30% typical.
+F40        | VALUE    | Steady users × steady IOPS + storm users × storm IOPS. Plan storage to handle this.
+F43        | VALUE    | Typical SOFS VM: 4-8 vCPU. Depends on concurrent SMB sessions.
+F44        | VALUE    | Typical SOFS VM: 8-16 GB. More for large concurrent profile mounts.
+F45        | VALUE    | Equals SOFS node count. Each node = 1 VM on the Azure Local cluster.
+F46        | VALUE    | Total vCPU consumed on main cluster by SOFS VMs.
+F47        | VALUE    | Total RAM consumed on main cluster by SOFS VMs.
+F51        | VALUE    | Available capacity >= profile footprint.
+F52        | VALUE    | S2D performance degrades above 80% utilization.
+F53        | VALUE    | 2-Way Mirror = 2+ nodes, 3-Way Mirror = 3+ nodes.
+F54        | VALUE    | MS does not support SOFS + VM workloads on same cluster for production.

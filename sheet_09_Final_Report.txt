@@ -1,0 +1,407 @@
+SHEET 9: Final Report
+====================================================================================================
+
+Total cells with content: 402
+
+B2         | VALUE    | S2D CAPACITY CALCULATOR — FINAL REPORT
+B3         | FORMULA  | "Generated from calculator inputs. All values linked to source tabs. Last updated: "&TEXT(NOW(),"mm/dd/yyyy hh:mm AM/PM"
+B5         | VALUE    | SECTION 1: CLUSTER HARDWARE SUMMARY
+B6         | VALUE    | Cluster Nodes
+B7         | VALUE    | Drive Configuration
+B8         | VALUE    | Capacity Drives per Node
+B9         | VALUE    | Drive Size (Advertised)
+B10        | VALUE    | Total Capacity Drives
+B11        | VALUE    | Total Raw Capacity
+B12        | VALUE    | Usable Pool (after ~8% NVMe overhead)
+B13        | VALUE    | Reserve (drive failure repair)
+B14        | VALUE    | Infrastructure Volume
+B15        | VALUE    | AVAILABLE CAPACITY FOR VOLUMES
+B17        | VALUE    | SECTION 2: CAPACITY ALLOCATION
+B18        | VALUE    | Available Pool Capacity
+B19        | VALUE    | Total Physical Footprint (all scenarios)
+B20        | VALUE    | Total Usable Volume Capacity (logical)
+B21        | VALUE    | Volume Count
+B23        | VALUE    | REMAINING POOL CAPACITY
+B24        | VALUE    | Pool Utilization
+B25        | VALUE    | Fit Check
+B27        | VALUE    | Pool Capacity
+B41        | VALUE    | SECTION 3: SCENARIO BREAKDOWN
+B42        | VALUE    | Scenario
+B43        | VALUE    | S1: AVD Session Hosts
+B44        | VALUE    | S1: AVD FSLogix Profiles
+B45        | VALUE    | S2: AKS on Azure Local
+B46        | VALUE    | S3: Infrastructure VMs
+B47        | VALUE    | S4: Dev/Test VMs
+B48        | VALUE    | S5: Backup / Archive
+B49        | VALUE    | S6: Custom
+B50        | VALUE    | SOFS VM Volumes
+B51        | VALUE    | TOTALS
+B52        | VALUE    | SCENARIO INPUT DETAILS (enabled scenarios only)
+B53        | VALUE    | AVD Session Hosts
+B54        | VALUE    |   Session host VMs
+B55        | VALUE    |   OS disk per host
+B56        | VALUE    |   Data/temp disk per host
+B57        | VALUE    |   Resiliency
+B58        | VALUE    | AVD FSLogix Profiles
+B59        | VALUE    |   Total AVD users
+B60        | VALUE    |   Profile size per user
+B61        | VALUE    |   Growth buffer
+B62        | VALUE    |   Resiliency
+B65        | VALUE    | SECTION 4: VOLUME CREATION TABLE — DEPLOYMENT REFERENCE
+B66        | VALUE    | Volume Name
+B67        | VALUE    | AVD-SessionHosts
+B68        | VALUE    | AVD-Profiles
+B69        | VALUE    | AKS-Cluster
+B70        | VALUE    | Infra-VMs
+B71        | VALUE    | DevTest-VMs
+B72        | VALUE    | Backup-Archive
+B73        | VALUE    | Custom
+B74        | FORMULA  | IF('SOFS Planner'!$C$6="No","","SOFS-Node1-Vol")
+B75        | FORMULA  | IF('SOFS Planner'!$C$6="No","",IF('Volume Detail'!B14<>"","SOFS-Node2-Vol",""))
+B76        | FORMULA  | IF('SOFS Planner'!$C$6="No","",IF('Volume Detail'!B15<>"","SOFS-Node3-Vol",""))
+B77        | FORMULA  | IF('SOFS Planner'!$C$6="No","",IF('Volume Detail'!B16<>"","SOFS-Node4-Vol",""))
+B78        | VALUE    | TOTALS
+B79        | VALUE    | * TiB (binary) = what Windows Admin Center and PowerShell report. 1 TB ≈ 0.909 TiB. Use TiB values when creating volumes
+B81        | VALUE    | POWERSHELL VOLUME CREATION COMMANDS (copy/paste ready)
+B82        | FORMULA  | IF('Workload Planner'!C8="No","# AVD-SessionHosts — Disabled (skip)","New-Volume -FriendlyName ""AVD-SessionHosts"" -Siz
+B83        | FORMULA  | IF('Workload Planner'!C8="No","# AVD-Profiles — Disabled (skip)","New-Volume -FriendlyName ""AVD-Profiles"" -Size "&TEXT
+B84        | FORMULA  | IF('Workload Planner'!C44="No","# AKS-Cluster — Disabled (skip)","New-Volume -FriendlyName ""AKS-Cluster"" -Size "&TEXT(
+B85        | FORMULA  | IF('Workload Planner'!C66="No","# Infra-VMs — Disabled (skip)","New-Volume -FriendlyName ""Infra-VMs"" -Size "&TEXT('Vol
+B86        | FORMULA  | IF('Workload Planner'!C83="No","# DevTest-VMs — Disabled (skip)","New-Volume -FriendlyName ""DevTest-VMs"" -Size "&TEXT(
+B87        | FORMULA  | IF('Workload Planner'!C99="No","# Backup-Archive — Disabled (skip)","New-Volume -FriendlyName ""Backup-Archive"" -Size "
+B88        | FORMULA  | IF('Workload Planner'!C106="No","# Custom — Disabled (skip)","New-Volume -FriendlyName ""Custom"" -Size "&TEXT('Volume D
+B89        | FORMULA  | IF(OR('SOFS Planner'!$C$6="No",'Volume Detail'!D13=0),"# SOFS-Node1-Vol — Disabled (skip)","New-Volume -FriendlyName ""S
+B90        | FORMULA  | IF(OR('SOFS Planner'!$C$6="No",'Volume Detail'!D14=0),"# SOFS-Node2-Vol — Disabled (skip)","New-Volume -FriendlyName ""S
+B91        | FORMULA  | IF(OR('SOFS Planner'!$C$6="No",'Volume Detail'!D15=0),"# SOFS-Node3-Vol — Disabled (skip)","New-Volume -FriendlyName ""S
+B92        | FORMULA  | IF(OR('SOFS Planner'!$C$6="No",'Volume Detail'!D16=0),"# SOFS-Node4-Vol — Disabled (skip)","New-Volume -FriendlyName ""S
+B93        | VALUE    | Run these commands in an elevated PowerShell session on any cluster node. Adjust -StoragePoolFriendlyName if your pool h
+B97        | VALUE    | SECTION 5: DRIVE LAYOUT INSIGHT
+B98        | VALUE    | Your Current Configuration
+B99        | VALUE    | Drives per Node
+B100       | VALUE    | Drive Size
+B101       | VALUE    | Reserve
+B102       | VALUE    | Available Capacity
+B104       | VALUE    | Best Alternative (more drives = less reserve)
+B105       | VALUE    | Drives per Node (max shown)
+B106       | VALUE    | Drive Size (calculated)
+B107       | VALUE    | Reserve
+B108       | VALUE    | Available Capacity
+B109       | VALUE    | Additional Capacity vs Current
+B110       | VALUE    | Note: More drives per node reduces reserve but costs more and uses more physical slots. Calculated drive sizes are theor
+B112       | VALUE    | SECTION 6: BEST PRACTICE NOTES & GUIDANCE
+B113       | VALUE    | Volume Count
+B115       | VALUE    | Rebuild Headroom
+B117       | VALUE    | Provisioning
+B119       | VALUE    | N+1 Compute
+B121       | VALUE    | Volume Size Limit
+B124       | VALUE    | SECTION 7: COMPUTE CAPACITY ANALYSIS
+B125       | VALUE    | Cluster Hardware
+B126       | VALUE    |   Physical cores per node
+B127       | VALUE    |   Hyperthreading
+B128       | VALUE    |   Logical vCPU per node
+B129       | VALUE    |   RAM per node
+B130       | VALUE    |   Usable RAM per node
+B132       | VALUE    | Cluster Totals
+B133       | VALUE    |   Total cluster vCPU
+B134       | VALUE    |   Total cluster usable RAM
+B135       | VALUE    |   N+1 vCPU (1 node down)
+B136       | VALUE    |   N+1 RAM (1 node down)
+B138       | VALUE    | Compute Demand by Scenario
+B139       | VALUE    | Scenario
+B140       | VALUE    | S1: AVD
+B141       | VALUE    | S2: AKS
+B142       | VALUE    | S3: Infrastructure
+B143       | VALUE    | S4: Dev/Test
+B144       | VALUE    | SOFS VMs
+B145       | VALUE    | TOTALS
+B147       | VALUE    | Compute Fit Analysis
+B148       | VALUE    | Check
+B149       | VALUE    | vCPU (all nodes, with overcommit)
+B150       | VALUE    | RAM (all nodes)
+B151       | VALUE    | N+1 vCPU (with overcommit)
+B152       | VALUE    | N+1 RAM (1 node down)
+B154       | VALUE    | vCPU Overcommit Sensitivity (All Scenarios)
+B155       | VALUE    | Ratio
+B156       | VALUE    | 1:1
+B157       | VALUE    | 2:1
+B158       | VALUE    | 3:1
+B159       | VALUE    | 4:1
+C6         | FORMULA  | 'Hardware Inputs'!C8
+C7         | FORMULA  | 'Hardware Inputs'!C9
+C8         | FORMULA  | 'Hardware Inputs'!C10
+C9         | FORMULA  | 'Hardware Inputs'!C11
+C10        | FORMULA  | 'Hardware Inputs'!C16
+C11        | FORMULA  | 'Hardware Inputs'!C18
+C12        | FORMULA  | 'Hardware Inputs'!C20
+C13        | FORMULA  | 'Hardware Inputs'!C21
+C14        | FORMULA  | 'Hardware Inputs'!C22
+C15        | FORMULA  | 'Hardware Inputs'!C24
+C18        | FORMULA  | 'Workload Planner'!C114
+C19        | FORMULA  | 'Workload Planner'!C124
+C20        | FORMULA  | 'Workload Planner'!C125
+C21        | FORMULA  | 'Workload Planner'!C126
+C23        | FORMULA  | 'Workload Planner'!C128
+C24        | FORMULA  | 'Workload Planner'!C129
+C25        | FORMULA  | IF('Workload Planner'!C128<0,"FAIL — OVER CAPACITY",IF('Workload Planner'!C129>0.7,"WARNING — Above 70% utilization","PA
+C26        | VALUE    | Used
+C27        | FORMULA  | 'Workload Planner'!C124
+C42        | VALUE    | Status
+C43        | FORMULA  | IF('Workload Planner'!C14>0,"Enabled","— Disabled")
+C44        | FORMULA  | IF('Workload Planner'!C23>0,"Enabled","— Disabled")
+C45        | FORMULA  | IF('Workload Planner'!C54>0,"Enabled","— Disabled")
+C46        | FORMULA  | IF('Workload Planner'!C70>0,"Enabled","— Disabled")
+C47        | FORMULA  | IF('Workload Planner'!C87>0,"Enabled","— Disabled")
+C48        | FORMULA  | IF('Workload Planner'!C102>0,"Enabled","— Disabled")
+C49        | FORMULA  | IF('Workload Planner'!C109>0,"Enabled","— Disabled")
+C50        | FORMULA  | IF('SOFS Planner'!$C$6="No","— Disabled",IF('SOFS Planner'!C9>=1,"Enabled","— Disabled"))
+C54        | FORMULA  | 'Workload Planner'!C10
+C55        | FORMULA  | 'Workload Planner'!C11
+C56        | FORMULA  | 'Workload Planner'!C12
+C57        | FORMULA  | 'Workload Planner'!C13
+C59        | FORMULA  | 'Workload Planner'!C18
+C60        | FORMULA  | 'Workload Planner'!C20
+C61        | FORMULA  | 'Workload Planner'!C21
+C62        | FORMULA  | 'Workload Planner'!C22
+C66        | VALUE    | Resiliency
+C67        | FORMULA  | 'Volume Detail'!C6
+C68        | FORMULA  | 'Volume Detail'!C7
+C69        | FORMULA  | 'Volume Detail'!C8
+C70        | FORMULA  | 'Volume Detail'!C9
+C71        | FORMULA  | 'Volume Detail'!C10
+C72        | FORMULA  | 'Volume Detail'!C11
+C73        | FORMULA  | 'Volume Detail'!C12
+C74        | FORMULA  | 'Volume Detail'!C13
+C75        | FORMULA  | IF(B75<>"",'Volume Detail'!C14,"")
+C76        | FORMULA  | IF(B76<>"",'Volume Detail'!C15,"")
+C77        | FORMULA  | IF(B77<>"",'Volume Detail'!C16,"")
+C99        | FORMULA  | 'Drive Layout Comparison'!C7
+C100       | FORMULA  | 'Drive Layout Comparison'!C8
+C101       | FORMULA  | 'Drive Layout Comparison'!F14
+C102       | FORMULA  | 'Drive Layout Comparison'!G14
+C105       | FORMULA  | 'Drive Layout Comparison'!B21
+C106       | FORMULA  | 'Drive Layout Comparison'!C21
+C107       | FORMULA  | 'Drive Layout Comparison'!F21
+C108       | FORMULA  | 'Drive Layout Comparison'!G21
+C109       | FORMULA  | 'Drive Layout Comparison'!H21
+C113       | FORMULA  | "Microsoft recommends volume count as a multiple of your node count ("&'Hardware Inputs'!C8&") for balanced data distrib
+C114       | FORMULA  | "Your current volume count: "&'Workload Planner'!C126&" volumes across "&'Hardware Inputs'!C8&" nodes. "&IF(MOD('Workloa
+C115       | FORMULA  | "Keep pool utilization below 70% to ensure enough free space for automatic drive failure repair. Current: "&TEXT('Worklo
+C116       | FORMULA  | IF('Workload Planner'!C129>0.7,"⚠ Above 70% — limited rebuild headroom. Consider adding drives or reducing workloads.","
+C117       | FORMULA  | "Default provisioning: "&'Hardware Inputs'!C13&". Fixed (thick) is STRONGLY recommended for production. Thin risks pool 
+C118       | FORMULA  | IF('Hardware Inputs'!C13="Fixed (Thick)","✓ Using recommended Fixed provisioning.","⚠ Thin provisioning detected — monit
+C119       | FORMULA  | "Size VM workloads to fit on "&'Hardware Inputs'!C8-1&" of "&'Hardware Inputs'!C8&" nodes. If 1 node goes down, VMs must
+C120       | FORMULA  | "Plan for "&'Hardware Inputs'!C8-1&"-node compute capacity even though storage spans all "&'Hardware Inputs'!C8&" nodes.
+C121       | FORMULA  | "Maximum single volume size: 64 TB. Current largest volume: "&TEXT(MAX('Workload Planner'!C14,'Workload Planner'!C23,'Wo
+C122       | FORMULA  | IF(MAX('Workload Planner'!C14,'Workload Planner'!C23,'Workload Planner'!C54,'Workload Planner'!C70,'Workload Planner'!C8
+C126       | FORMULA  | 'Hardware Inputs'!C29
+C127       | FORMULA  | 'Hardware Inputs'!C30
+C128       | FORMULA  | 'Hardware Inputs'!C35
+C129       | FORMULA  | 'Hardware Inputs'!C31
+C130       | FORMULA  | 'Hardware Inputs'!C36
+C133       | FORMULA  | 'Hardware Inputs'!C37
+C134       | FORMULA  | 'Hardware Inputs'!C38
+C135       | FORMULA  | 'Hardware Inputs'!C39
+C136       | FORMULA  | 'Hardware Inputs'!C40
+C139       | VALUE    | vCPU
+C140       | FORMULA  | 'Workload Planner'!C35
+C141       | FORMULA  | 'Workload Planner'!C62
+C142       | FORMULA  | 'Workload Planner'!C76
+C143       | FORMULA  | 'Workload Planner'!C93
+C144       | FORMULA  | 'SOFS Planner'!C46
+C145       | FORMULA  | SUM(C140:C144)
+C148       | VALUE    | Status
+C149       | FORMULA  | IF(F145<=C133,"PASS","FAIL")
+C150       | FORMULA  | IF(D145<=C134,"PASS","FAIL")
+C151       | FORMULA  | IF(F145<=C135,"PASS","FAIL")
+C152       | FORMULA  | IF(D145<=C136,"PASS","FAIL")
+C155       | VALUE    | AVD Eff. vCPU
+C156       | FORMULA  | 'Workload Planner'!C156
+C157       | FORMULA  | 'Workload Planner'!C157
+C158       | FORMULA  | 'Workload Planner'!C158
+C159       | FORMULA  | 'Workload Planner'!C159
+D6         | VALUE    | nodes
+D8         | VALUE    | per node
+D9         | VALUE    | TB
+D10        | VALUE    | drives
+D11        | VALUE    | TB
+D12        | VALUE    | TB
+D13        | VALUE    | TB
+D14        | VALUE    | TB
+D15        | VALUE    | TB
+D18        | VALUE    | TB
+D19        | VALUE    | TB
+D20        | VALUE    | TB
+D21        | VALUE    | volumes
+D23        | VALUE    | TB
+D26        | VALUE    | Remaining
+D27        | FORMULA  | IF('Workload Planner'!C128>0,'Workload Planner'!C128,0)
+D42        | VALUE    | Resiliency
+D43        | FORMULA  | 'Workload Planner'!C13
+D44        | FORMULA  | 'Workload Planner'!C22
+D45        | FORMULA  | 'Workload Planner'!C53
+D46        | FORMULA  | 'Workload Planner'!C69
+D47        | FORMULA  | 'Workload Planner'!C86
+D48        | FORMULA  | 'Workload Planner'!C101
+D49        | FORMULA  | 'Workload Planner'!C108
+D50        | FORMULA  | 'SOFS Planner'!C16
+D54        | VALUE    | VMs
+D55        | VALUE    | GB
+D56        | VALUE    | GB
+D59        | VALUE    | users
+D60        | VALUE    | GB
+D66        | VALUE    | Create Size (TB)
+D67        | FORMULA  | 'Volume Detail'!D6
+D68        | FORMULA  | 'Volume Detail'!D7
+D69        | FORMULA  | 'Volume Detail'!D8
+D70        | FORMULA  | 'Volume Detail'!D9
+D71        | FORMULA  | 'Volume Detail'!D10
+D72        | FORMULA  | 'Volume Detail'!D11
+D73        | FORMULA  | 'Volume Detail'!D12
+D74        | FORMULA  | 'Volume Detail'!D13
+D75        | FORMULA  | IF(B75<>"",'Volume Detail'!D14,"")
+D76        | FORMULA  | IF(B76<>"",'Volume Detail'!D15,"")
+D77        | FORMULA  | IF(B77<>"",'Volume Detail'!D16,"")
+D78        | FORMULA  | 'Volume Detail'!D23
+D99        | VALUE    | per node
+D100       | VALUE    | TB
+D101       | VALUE    | TB
+D102       | VALUE    | TB
+D105       | VALUE    | per node
+D106       | VALUE    | TB
+D107       | VALUE    | TB
+D108       | VALUE    | TB
+D109       | VALUE    | TB more
+D126       | VALUE    | cores
+D128       | VALUE    | vCPU
+D129       | VALUE    | GB total
+D130       | VALUE    | GB
+D133       | VALUE    | vCPU
+D134       | VALUE    | GB
+D135       | VALUE    | vCPU
+D136       | VALUE    | GB
+D139       | VALUE    | RAM (GB)
+D140       | FORMULA  | 'Workload Planner'!C36
+D141       | FORMULA  | IF('Workload Planner'!C44="No",0,('Workload Planner'!C47*'Workload Planner'!C58)+('Workload Planner'!C48*'Workload Plann
+D142       | FORMULA  | IF('Workload Planner'!C66="No",0,'Workload Planner'!C67*'Workload Planner'!C74)
+D143       | FORMULA  | IF('Workload Planner'!C83="No",0,'Workload Planner'!C84*'Workload Planner'!C91)
+D144       | FORMULA  | 'SOFS Planner'!C47
+D145       | FORMULA  | SUM(D140:D144)
+D148       | VALUE    | Details
+D149       | FORMULA  | F145&" of "&C133&" vCPU ("&ROUND(F145/C133*100,0)&"%)"
+D150       | FORMULA  | D145&" of "&C134&" GB ("&ROUND(D145/C134*100,0)&"%)"
+D151       | FORMULA  | F145&" of "&C135&" vCPU ("&ROUND(F145/C135*100,0)&"%)"
+D152       | FORMULA  | D145&" of "&C136&" GB ("&ROUND(D145/C136*100,0)&"%)"
+D155       | VALUE    | Total Eff. vCPU
+D156       | FORMULA  | 'Workload Planner'!D156
+D157       | FORMULA  | 'Workload Planner'!D157
+D158       | FORMULA  | 'Workload Planner'!D158
+D159       | FORMULA  | 'Workload Planner'!D159
+E15        | FORMULA  | "(WAC shows: "&ROUND('Hardware Inputs'!C24*(1000/1024)^3,2)&" TiB)"
+E42        | VALUE    | Logical (TB)
+E43        | FORMULA  | IF(C43="— Disabled","—",'Workload Planner'!C14)
+E44        | FORMULA  | IF(C44="— Disabled","—",'Workload Planner'!C23)
+E45        | FORMULA  | IF(C45="— Disabled","—",'Workload Planner'!C54)
+E46        | FORMULA  | IF(C46="— Disabled","—",'Workload Planner'!C70)
+E47        | FORMULA  | IF(C47="— Disabled","—",'Workload Planner'!C87)
+E48        | FORMULA  | IF(C48="— Disabled","—",'Workload Planner'!C102)
+E49        | FORMULA  | IF(C49="— Disabled","—",'Workload Planner'!C109)
+E50        | FORMULA  | IF(C50="— Disabled","—",SUM('Volume Detail'!D13:'Volume Detail'!D16))
+E51        | FORMULA  | 'Workload Planner'!C125
+E53        | FORMULA  | IF('Workload Planner'!C8="No","(Disabled)","")
+E58        | FORMULA  | IF('Workload Planner'!C8="No","(Disabled)","")
+E66        | VALUE    | Create Size (TiB)*
+E67        | FORMULA  | 'Volume Detail'!E6
+E68        | FORMULA  | 'Volume Detail'!E7
+E69        | FORMULA  | 'Volume Detail'!E8
+E70        | FORMULA  | 'Volume Detail'!E9
+E71        | FORMULA  | 'Volume Detail'!E10
+E72        | FORMULA  | 'Volume Detail'!E11
+E73        | FORMULA  | 'Volume Detail'!E12
+E74        | FORMULA  | 'Volume Detail'!E13
+E75        | FORMULA  | IF(B75<>"",'Volume Detail'!E14,"")
+E76        | FORMULA  | IF(B76<>"",'Volume Detail'!E15,"")
+E77        | FORMULA  | IF(B77<>"",'Volume Detail'!E16,"")
+E78        | FORMULA  | 'Volume Detail'!E23
+E129       | FORMULA  | "("&'Hardware Inputs'!C32&" GB reserved for host OS)"
+E133       | FORMULA  | 'Hardware Inputs'!C8&" nodes × "&'Hardware Inputs'!C35&" vCPU"
+E134       | FORMULA  | 'Hardware Inputs'!C8&" nodes × "&'Hardware Inputs'!C36&" GB"
+E139       | VALUE    | vCPU Overcommit
+E140       | FORMULA  | 'Workload Planner'!C29
+E141       | FORMULA  | 'Workload Planner'!C61
+E142       | FORMULA  | 'Workload Planner'!C75
+E143       | FORMULA  | 'Workload Planner'!C92
+E144       | VALUE    | 4.2361111111111113E-2
+E155       | VALUE    | Fit (All)
+E156       | FORMULA  | 'Workload Planner'!E156
+E157       | FORMULA  | 'Workload Planner'!E157
+E158       | FORMULA  | 'Workload Planner'!E158
+E159       | FORMULA  | 'Workload Planner'!E159
+F42        | VALUE    | Efficiency
+F43        | FORMULA  | 'Workload Planner'!D13
+F44        | FORMULA  | 'Workload Planner'!D22
+F45        | FORMULA  | 'Workload Planner'!D53
+F46        | FORMULA  | 'Workload Planner'!D69
+F47        | FORMULA  | 'Workload Planner'!D86
+F48        | FORMULA  | 'Workload Planner'!D101
+F49        | FORMULA  | 'Workload Planner'!D108
+F50        | FORMULA  | IF(C50="— Disabled","",IF('SOFS Planner'!C16="Two-Way Mirror","50% eff.",IF('SOFS Planner'!C16="Three-Way Mirror","33% e
+F66        | VALUE    | Pool Footprint (TB)
+F67        | FORMULA  | 'Volume Detail'!F6
+F68        | FORMULA  | 'Volume Detail'!F7
+F69        | FORMULA  | 'Volume Detail'!F8
+F70        | FORMULA  | 'Volume Detail'!F9
+F71        | FORMULA  | 'Volume Detail'!F10
+F72        | FORMULA  | 'Volume Detail'!F11
+F73        | FORMULA  | 'Volume Detail'!F12
+F74        | FORMULA  | 'Volume Detail'!F13
+F75        | FORMULA  | IF(B75<>"",'Volume Detail'!F14,"")
+F76        | FORMULA  | IF(B76<>"",'Volume Detail'!F15,"")
+F77        | FORMULA  | IF(B77<>"",'Volume Detail'!F16,"")
+F78        | FORMULA  | 'Volume Detail'!F23
+F139       | VALUE    | Eff. vCPU
+F140       | FORMULA  | 'Workload Planner'!C37
+F141       | FORMULA  | 'Workload Planner'!C63
+F142       | FORMULA  | 'Workload Planner'!C77
+F143       | FORMULA  | 'Workload Planner'!C94
+F144       | FORMULA  | C144
+F145       | FORMULA  | SUM(F140:F144)
+F155       | VALUE    | Fit (N+1)
+F156       | FORMULA  | 'Workload Planner'!F156
+F157       | FORMULA  | 'Workload Planner'!F157
+F158       | FORMULA  | 'Workload Planner'!F158
+F159       | FORMULA  | 'Workload Planner'!F159
+G42        | VALUE    | Footprint (TB)
+G43        | FORMULA  | IF(C43="— Disabled","—",'Workload Planner'!C15)
+G44        | FORMULA  | IF(C44="— Disabled","—",'Workload Planner'!C24)
+G45        | FORMULA  | IF(C45="— Disabled","—",'Workload Planner'!C55)
+G46        | FORMULA  | IF(C46="— Disabled","—",'Workload Planner'!C71)
+G47        | FORMULA  | IF(C47="— Disabled","—",'Workload Planner'!C88)
+G48        | FORMULA  | IF(C48="— Disabled","—",'Workload Planner'!C103)
+G49        | FORMULA  | IF(C49="— Disabled","—",'Workload Planner'!C110)
+G50        | FORMULA  | IF(C50="— Disabled","—",'Workload Planner'!C123)
+G51        | FORMULA  | 'Workload Planner'!C124
+G66        | VALUE    | Copies
+G67        | FORMULA  | 'Volume Detail'!G6
+G68        | FORMULA  | 'Volume Detail'!G7
+G69        | FORMULA  | 'Volume Detail'!G8
+G70        | FORMULA  | 'Volume Detail'!G9
+G71        | FORMULA  | 'Volume Detail'!G10
+G72        | FORMULA  | 'Volume Detail'!G11
+G73        | FORMULA  | 'Volume Detail'!G12
+G74        | FORMULA  | 'Volume Detail'!G13
+G75        | FORMULA  | IF(B75<>"",'Volume Detail'!G14,"")
+G76        | FORMULA  | IF(B76<>"",'Volume Detail'!G15,"")
+G77        | FORMULA  | IF(B77<>"",'Volume Detail'!G16,"")
+H66        | VALUE    | Status
+H67        | FORMULA  | 'Volume Detail'!I6
+H68        | FORMULA  | 'Volume Detail'!I7
+H69        | FORMULA  | 'Volume Detail'!I8
+H70        | FORMULA  | 'Volume Detail'!I9
+H71        | FORMULA  | 'Volume Detail'!I10
+H72        | FORMULA  | 'Volume Detail'!I11
+H73        | FORMULA  | 'Volume Detail'!I12
+H74        | FORMULA  | 'Volume Detail'!I13
+H75        | FORMULA  | IF(B75<>"",'Volume Detail'!I14,"")
+H76        | FORMULA  | IF(B76<>"",'Volume Detail'!I15,"")
+H77        | FORMULA  | IF(B77<>"",'Volume Detail'!I16,"")
+H78        | FORMULA  | 'Volume Detail'!I23

@@ -1,0 +1,183 @@
+SHEET 13: Advanced Settings
+====================================================================================================
+
+Total cells with content: 178
+
+B2         | VALUE    | ADVANCED SETTINGS
+B4         | VALUE    | DRIVE CAPACITY EFFICIENCY FACTOR
+B5         | VALUE    | Manufacturers label drives in decimal TB (1 TB = 1,000,000,000,000 bytes). Windows reports in binary TiB (1 TiB = 1,099,
+B7         | VALUE    | Example: 7.68 TB at 92%:
+B8         | VALUE    | Capacity Efficiency Factor
+B10        | VALUE    | INFRASTRUCTURE VOLUME
+B11        | VALUE    | Azure Local creates an infrastructure volume during deployment (~250 GB) for system metadata. This uses the same resilie
+B13        | VALUE    | Infrastructure Volume Logical Size
+B14        | VALUE    | Infrastructure Volume Footprint
+B16        | VALUE    | TB vs TiB CONVERSION TABLE
+B17        | VALUE    | Windows Admin Center, PowerShell, and Disk Management show TiB (binary). This calculator uses TB (decimal). Use this tab
+B18        | VALUE    | 1 TB (decimal) =
+B19        | VALUE    | 5 TB (decimal) =
+B20        | VALUE    | 10 TB (decimal) =
+B21        | VALUE    | 25 TB (decimal) =
+B22        | VALUE    | 50 TB (decimal) =
+B23        | VALUE    | 100 TB (decimal) =
+B25        | VALUE    | CELL PROTECTION OVERRIDES
+B26        | VALUE    | ⚠️ All formula cells on input tabs are PERMANENTLY LOCKED. If you need to override a calculated value, enter it below. T
+B28        | VALUE    | HOW TO USE: Enter an override value in column D. Leave blank to use the normal formula. The "Active Value" column shows 
+B30        | VALUE    | HARDWARE INPUTS — Calculated Fields
+B31        | VALUE    | Total Capacity Drives
+B32        | VALUE    | Total Raw Capacity (TB)
+B33        | VALUE    | Total Usable Pool Before Reserve (TB)
+B34        | VALUE    | Reserve (TB)
+B35        | VALUE    | Available Capacity for Volumes (TB)
+B36        | VALUE    | Total Cluster vCPU (all nodes)
+B37        | VALUE    | Total Cluster Usable RAM (GB)
+B38        | VALUE    | N+1 Available vCPU
+B39        | VALUE    | N+1 Available RAM (GB)
+B41        | VALUE    | AVD PLANNING — Calculated Fields
+B42        | VALUE    | Session host volume logical (TB)
+B43        | VALUE    | Session host footprint in pool (TB)
+B44        | VALUE    | Profile volume logical (TB)
+B45        | VALUE    | Profile footprint in pool (TB)
+B46        | VALUE    | AVD total storage footprint (TB)
+B47        | VALUE    | Users per session host (max)
+B48        | VALUE    | Session hosts needed
+B49        | VALUE    | Total AVD vCPU demand
+B50        | VALUE    | Total AVD RAM demand (GB)
+B51        | VALUE    | Effective vCPU (with overcommit)
+B53        | VALUE    | WORKLOAD PLANNER — Scenario Footprints
+B54        | VALUE    | S1: AVD total footprint (TB)
+B55        | VALUE    | S2: AKS total footprint (TB)
+B56        | VALUE    | S3: Infra total footprint (TB)
+B57        | VALUE    | S4: Dev/Test total footprint (TB)
+B58        | VALUE    | S5: Backup/Archive total footprint (TB)
+B59        | VALUE    | S6: Custom total footprint (TB)
+B60        | VALUE    | SOFS VM volumes footprint (TB)
+B61        | VALUE    | Total physical footprint (TB)
+B62        | VALUE    | Remaining pool capacity (TB)
+B63        | VALUE    | Pool utilization (%)
+B65        | VALUE    | SOFS PLANNER — Calculated Fields
+B66        | VALUE    | Drive capacity auto-calc (TB)
+B67        | VALUE    | Total raw capacity (TB)
+B68        | VALUE    | Usable capacity (TB)
+B69        | VALUE    | Available for volumes (TB)
+B70        | VALUE    | Profile logical demand (TB)
+B71        | VALUE    | Profile footprint on SOFS (TB)
+B72        | VALUE    | Steady-state total IOPS
+B73        | VALUE    | Peak storm IOPS
+C7         | FORMULA  | 7.68*C8
+C8         | VALUE    | 0.92
+C13        | VALUE    | 0.25
+C14        | FORMULA  | ROUND(C13/IF('Hardware Inputs'!C8>=3,1/3,IF('Hardware Inputs'!C8=2,0.5,1)),2)
+C18        | FORMULA  | ROUND(1*(1000/1024)^3,2)
+C19        | FORMULA  | ROUND(5*(1000/1024)^3,2)
+C20        | FORMULA  | ROUND(10*(1000/1024)^3,2)
+C21        | FORMULA  | ROUND(25*(1000/1024)^3,2)
+C22        | FORMULA  | ROUND(50*(1000/1024)^3,2)
+C23        | FORMULA  | ROUND(100*(1000/1024)^3,2)
+C30        | VALUE    | Current Value
+C31        | FORMULA  | 'Hardware Inputs'!C16
+C32        | FORMULA  | 'Hardware Inputs'!C18
+C33        | FORMULA  | 'Hardware Inputs'!C20
+C34        | FORMULA  | 'Hardware Inputs'!C21
+C35        | FORMULA  | 'Hardware Inputs'!C24
+C36        | FORMULA  | 'Hardware Inputs'!C37
+C37        | FORMULA  | 'Hardware Inputs'!C38
+C38        | FORMULA  | 'Hardware Inputs'!C39
+C39        | FORMULA  | 'Hardware Inputs'!C40
+C41        | VALUE    | Current Value
+C42        | FORMULA  | 'AVD Planning'!C13
+C43        | FORMULA  | 'AVD Planning'!C14
+C44        | FORMULA  | 'AVD Planning'!C23
+C45        | FORMULA  | 'AVD Planning'!C24
+C46        | FORMULA  | 'AVD Planning'!C25
+C47        | FORMULA  | 'AVD Planning'!C33
+C48        | FORMULA  | 'AVD Planning'!C34
+C49        | FORMULA  | 'AVD Planning'!C36
+C50        | FORMULA  | 'AVD Planning'!C37
+C51        | FORMULA  | 'AVD Planning'!C38
+C53        | VALUE    | Current Value
+C54        | FORMULA  | 'Workload Planner'!C25
+C55        | FORMULA  | 'Workload Planner'!C55
+C56        | FORMULA  | 'Workload Planner'!C71
+C57        | FORMULA  | 'Workload Planner'!C88
+C58        | FORMULA  | 'Workload Planner'!C103
+C59        | FORMULA  | 'Workload Planner'!C110
+C60        | FORMULA  | 'Workload Planner'!C123
+C61        | FORMULA  | 'Workload Planner'!C124
+C62        | FORMULA  | 'Workload Planner'!C128
+C63        | FORMULA  | 'Workload Planner'!C129
+C65        | VALUE    | Current Value
+C66        | FORMULA  | 'SOFS Planner'!C11
+C67        | FORMULA  | 'SOFS Planner'!C18
+C68        | FORMULA  | 'SOFS Planner'!C20
+C69        | FORMULA  | 'SOFS Planner'!C22
+C70        | FORMULA  | 'SOFS Planner'!C29
+C71        | FORMULA  | 'SOFS Planner'!C30
+C72        | FORMULA  | 'SOFS Planner'!C39
+C73        | FORMULA  | 'SOFS Planner'!C40
+D7         | VALUE    | TB usable
+D8         | VALUE    | Default: 92%
+D13        | VALUE    | TB (~250 GB)
+D14        | VALUE    | TB in pool
+D18        | VALUE    | TiB (binary)
+D19        | VALUE    | TiB (binary)
+D20        | VALUE    | TiB (binary)
+D21        | VALUE    | TiB (binary)
+D22        | VALUE    | TiB (binary)
+D23        | VALUE    | TiB (binary)
+D30        | VALUE    | Override (leave blank = use formula)
+D41        | VALUE    | Override
+D53        | VALUE    | Override
+D65        | VALUE    | Override
+E7         | VALUE    | What S2D pool reports per drive.
+E8         | VALUE    | Only change if vendor provides specific formatted capacity.
+E13        | VALUE    | Size of the infrastructure volume.
+E14        | VALUE    | Three-way mirror (3+ nodes) or two-way mirror (2 nodes).
+E18        | VALUE    | What Windows will show.
+E19        | VALUE    | What Windows will show.
+E20        | VALUE    | What Windows will show.
+E21        | VALUE    | What Windows will show.
+E22        | VALUE    | What Windows will show.
+E23        | VALUE    | What Windows will show.
+E28        | VALUE    | ⚠️ You accept all risk when unlocking.
+E30        | VALUE    | Active Value
+E31        | FORMULA  | IF(D31<>"",D31,C31)
+E32        | FORMULA  | 
+E33        | FORMULA  | 
+E34        | FORMULA  | 
+E35        | FORMULA  | 
+E36        | FORMULA  | 
+E37        | FORMULA  | 
+E38        | FORMULA  | 
+E39        | FORMULA  | 
+E41        | VALUE    | Active Value
+E42        | FORMULA  | IF(D42<>"",D42,C42)
+E43        | FORMULA  | 
+E44        | FORMULA  | 
+E45        | FORMULA  | 
+E46        | FORMULA  | 
+E47        | FORMULA  | 
+E48        | FORMULA  | 
+E49        | FORMULA  | 
+E50        | FORMULA  | 
+E51        | FORMULA  | 
+E53        | VALUE    | Active Value
+E54        | FORMULA  | IF(D54<>"",D54,C54)
+E55        | FORMULA  | 
+E56        | FORMULA  | 
+E57        | FORMULA  | 
+E58        | FORMULA  | 
+E59        | FORMULA  | 
+E60        | FORMULA  | 
+E61        | FORMULA  | 
+E62        | FORMULA  | 
+E63        | FORMULA  | 
+E65        | VALUE    | Active Value
+E66        | FORMULA  | IF(D66<>"",D66,C66)
+E67        | FORMULA  | 
+E68        | FORMULA  | 
+E69        | FORMULA  | 
+E70        | FORMULA  | 
+E71        | FORMULA  | 
+E72        | FORMULA  | 
+E73        | FORMULA  | 

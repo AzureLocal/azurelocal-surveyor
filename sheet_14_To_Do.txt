@@ -1,0 +1,37 @@
+SHEET 14: To Do
+====================================================================================================
+
+Total cells with content: 32
+
+B2         | VALUE    | TO DO — REMAINING TASKS
+B4         | VALUE    | #
+B5         | VALUE    | 1
+B6         | VALUE    | 2
+B7         | VALUE    | 3
+B8         | VALUE    | 4
+B9         | VALUE    | 5
+B10        | VALUE    | 6
+B11        | VALUE    | 7
+B12        | VALUE    | 8
+B13        | VALUE    | 9
+B14        | VALUE    | 10
+B15        | VALUE    | 11
+B16        | VALUE    | 12
+B17        | VALUE    | 13
+B18        | VALUE    | 14
+B19        | VALUE    | 15
+B20        | VALUE    | 16
+B22        | VALUE    | QUESTIONS & ANSWERS LOG
+B24        | VALUE    | #
+B25        | VALUE    | 1
+B26        | VALUE    | 2
+B27        | VALUE    | 3
+B28        | VALUE    | 4
+B29        | VALUE    | 5
+B30        | VALUE    | 6
+C4         | VALUE    | Task Description
+C24        | VALUE    | Question
+D4         | VALUE    | Status
+D24        | VALUE    | Answer
+E4         | VALUE    | DONE
+F4         | VALUE    | Linked To / Dependencies

@@ -1,0 +1,86 @@
+SHEET 7: Capacity Report
+====================================================================================================
+
+Total cells with content: 81
+
+B2         | VALUE    | S2D CAPACITY REPORT
+B4         | VALUE    | EXECUTIVE SUMMARY
+B5         | VALUE    | Cluster Nodes
+B6         | VALUE    | Drive Config
+B7         | VALUE    | Capacity Drives
+B8         | VALUE    | Drive Size
+B9         | VALUE    | Raw Capacity
+B10        | VALUE    | After Overhead
+B11        | VALUE    | Pool Reserve
+B12        | VALUE    | Infra Volume
+B13        | VALUE    | AVAILABLE POOL
+B14        | VALUE    | WAC Display
+B15        | VALUE    | Workload Footprint
+B16        | VALUE    | Usable Volume Capacity
+B17        | VALUE    | Remaining Free
+B18        | VALUE    | Pool Utilization
+B20        | VALUE    | CAPACITY TERMS
+B21        | VALUE    | Raw Capacity
+B22        | VALUE    | Usable Capacity
+B23        | VALUE    | Pool Capacity
+B24        | VALUE    | Reserve
+B25        | VALUE    | Infra Volume
+B26        | VALUE    | Available Pool
+B27        | VALUE    | Volume Size
+B28        | VALUE    | Footprint
+B29        | VALUE    | Efficiency
+B30        | VALUE    | TB vs TiB
+B32        | VALUE    | WHY RESERVE IS CRITICAL
+B33        | VALUE    | Drive fails:
+B34        | VALUE    | No reserve:
+B35        | VALUE    | With reserve:
+B37        | VALUE    | DRIVE SIZING ADVISORY
+B38        | VALUE    | Cost
+B39        | VALUE    | Rebuild Speed
+B40        | VALUE    | Parallelism
+B41        | VALUE    | Reserve Cost
+B42        | VALUE    | Slots
+C5         | FORMULA  | 'Hardware Inputs'!C8
+C6         | FORMULA  | 'Hardware Inputs'!C9
+C7         | FORMULA  | 'Hardware Inputs'!C16
+C8         | FORMULA  | 'Hardware Inputs'!C11
+C9         | FORMULA  | 'Hardware Inputs'!C18
+C10        | FORMULA  | 'Hardware Inputs'!C20
+C11        | FORMULA  | 'Hardware Inputs'!C21
+C12        | FORMULA  | 'Hardware Inputs'!C22
+C13        | FORMULA  | 'Hardware Inputs'!C24
+C14        | FORMULA  | 'Hardware Inputs'!C26
+C15        | FORMULA  | 'Workload Planner'!C124
+C16        | FORMULA  | 'Workload Planner'!C125
+C17        | FORMULA  | 'Workload Planner'!C128
+C18        | FORMULA  | 'Workload Planner'!C129
+C21        | VALUE    | Drive label size. Manufacturer's decimal number.
+C22        | VALUE    | After ~8% overhead (TB-to-TiB + NVMe reserves).
+C23        | VALUE    | All usable capacity pooled. Excludes cache.
+C24        | VALUE    | 1 drive/node (max 4) for auto-repair.
+C25        | VALUE    | ~250 GB for Azure Local system metadata.
+C26        | VALUE    | Pool - reserve - infra. What you allocate.
+C27        | VALUE    | Logical size you request. What OS shows.
+C28        | VALUE    | Physical pool space. 1TB 3-way mirror = 3TB.
+C29        | VALUE    | Usable/footprint. 2-way=50%, 3-way=33%.
+C30        | VALUE    | Manufacturers=TB. Windows=TiB. 1TB=0.909TiB.
+C33        | VALUE    | S2D rebuilds lost data onto other drives. Needs FREE pool space.
+C34        | VALUE    | Must wait for replacement drive. Reduced redundancy = risk.
+C35        | VALUE    | Rebuild starts IMMEDIATELY. Full resiliency in minutes, not days.
+C38        | VALUE    | Smaller drives cheaper per TB.
+C39        | VALUE    | 3.84 TB rebuilds ~half the time of 7.68 TB.
+C40        | VALUE    | More drives = more IOPS. 8 drives/node > 4.
+C41        | VALUE    | Smaller drive = smaller reserve = more for volumes.
+C42        | VALUE    | Limited NVMe slots per server. Check hardware spec.
+D5         | VALUE    | servers
+D7         | VALUE    | drives
+D8         | VALUE    | TB each
+D9         | VALUE    | TB
+D10        | VALUE    | TB
+D11        | VALUE    | TB
+D12        | VALUE    | TB
+D13        | VALUE    | TB
+D14        | VALUE    | TiB
+D15        | VALUE    | TB
+D16        | VALUE    | TB
+D17        | VALUE    | TB

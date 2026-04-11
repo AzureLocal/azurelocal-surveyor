@@ -1,0 +1,277 @@
+SHEET 4: AVD Planning
+====================================================================================================
+
+Total cells with content: 272
+
+B2         | VALUE    | AVD PLANNING — SINGLE SOURCE FOR ALL AVD CONFIGURATION
+B3         | VALUE    | All AVD inputs are entered here. Workload Planner, Compute Report, Final Report, Volume Detail, and SOFS Planner all pul
+B5         | VALUE    | SECTION 1: AVD SCENARIO INPUTS
+B6         | VALUE    | Enable AVD scenario?
+B8         | VALUE    |   Session Hosts — Storage
+B9         | VALUE    | Number of AVD session host VMs
+B10        | VALUE    | OS disk per host (GB)
+B11        | VALUE    | Data/temp disk per host (GB)
+B12        | VALUE    | Host resiliency type
+B13        | VALUE    | Session host volume (logical)
+B14        | VALUE    | Session host footprint in pool
+B16        | VALUE    |   FSLogix Profiles — Storage
+B17        | VALUE    | Profile storage location
+B18        | VALUE    | Total AVD users
+B19        | VALUE    | Concurrent (connected) users
+B20        | VALUE    | Profile container size per user (GB)
+B21        | VALUE    | Growth buffer (%)
+B22        | VALUE    | Profile resiliency type
+B23        | VALUE    | Profile volume (logical)
+B24        | VALUE    | Profile footprint in pool
+B25        | VALUE    | AVD TOTAL STORAGE FOOTPRINT
+B27        | VALUE    |   AVD Compute Planning
+B28        | VALUE    | vCPU per session host VM
+B29        | VALUE    | RAM per session host VM (GB)
+B30        | VALUE    | vCPU overcommit ratio
+B31        | VALUE    | vCPU per user
+B32        | VALUE    | RAM per user (GB)
+B33        | VALUE    | Users per session host (max)
+B34        | VALUE    | Session hosts needed (for concurrent users)
+B35        | VALUE    | Session host VM check
+B36        | VALUE    | Total AVD vCPU demand
+B37        | VALUE    | Total AVD RAM demand (GB)
+B38        | VALUE    | Effective vCPU (with overcommit)
+B40        | VALUE    |   AVD Compute Fit Check
+B41        | VALUE    | vCPU fit (all nodes, with overcommit)
+B42        | VALUE    | RAM fit (all nodes)
+B43        | VALUE    | N+1 vCPU fit (with overcommit)
+B44        | VALUE    | N+1 RAM fit (1 node down)
+B46        | VALUE    | SECTION 2: SESSION HOST DENSITY MATRIX
+B47        | VALUE    | Shows maximum users per host at different vCPU/user ratios, using your inputs above.
+B49        | VALUE    | Effective vCPU per host (after overcommit)
+B51        | VALUE    | Max Users Per Host
+B52        | VALUE    | At your current settings
+B54        | VALUE    | Sensitivity: vCPU / User →
+B55        | VALUE    | Max users (CPU-limited)
+B56        | VALUE    | Max users (RAM-limited @ your RAM/user)
+B57        | VALUE    | Effective max (lower of CPU/RAM)
+B59        | VALUE    | SECTION 3: HOST POOL SCALE-OUT
+B60        | VALUE    | How many session hosts you need for your concurrent user target.
+B62        | VALUE    | Pool Planning
+B63        | VALUE    | Total registered users
+B64        | VALUE    | Concurrent users (peak)
+B65        | VALUE    | Concurrency ratio
+B66        | VALUE    | Users per host (at your settings)
+B68        | VALUE    | Session hosts needed (concurrent)
+B69        | VALUE    | +1 host for N+1 redundancy
+B70        | VALUE    | Matches configured VM count?
+B72        | VALUE    | SECTION 4: FSLOGIX PROFILE STORAGE ESTIMATOR
+B73        | VALUE    | Estimates total profile volume size based on user type mix. Adjust the mix to model your environment. Compare with your 
+B75        | VALUE    | User Type
+B76        | VALUE    | Task Worker (Office web apps, basic)
+B77        | VALUE    | Knowledge Worker (full Office, Teams)
+B78        | VALUE    | Power User (CAD, dev tools, large cache)
+B79        | VALUE    | Mix total
+B80        | VALUE    | Weighted avg profile size (GB)
+B82        | VALUE    | Profile volume comparison
+B83        | VALUE    | Total profile storage (TB)
+B85        | VALUE    | SECTION 5: NETWORK BANDWIDTH ESTIMATOR
+B86        | VALUE    | Estimates peak network bandwidth for AVD sessions. Microsoft recommends 1.5 Mbps per single-monitor session, 3+ Mbps for
+B88        | VALUE    | Bandwidth Planning
+B89        | VALUE    | Bandwidth per session (Mbps)
+B90        | VALUE    | Concurrent sessions
+B91        | VALUE    | Peak bandwidth needed (Mbps)
+B92        | VALUE    | Per-node bandwidth (Mbps)
+B94        | VALUE    | SECTION 6: GOLD IMAGE SIZING REFERENCE
+B95        | VALUE    | Typical OS disk sizes for session hosts. Your values are set in Section 1 above.
+B97        | VALUE    | Component
+B98        | VALUE    | OS disk (Windows + updates)
+B99        | VALUE    | Data disk (apps, temp, pagefile)
+B100       | VALUE    | Total per VM
+B102       | VALUE    | 💡 Tip: Use VHDX deduplication or shared image galleries to reduce per-host OS footprint when running identical gold imag
+B104       | VALUE    | SECTION 7: AVD READINESS CHECKLIST
+B105       | VALUE    | Automated checks against your inputs and Hardware Inputs settings.
+B107       | VALUE    | Check
+B108       | VALUE    | Enough VMs for concurrent users?
+B109       | VALUE    | User mix % totals 100%?
+B110       | VALUE    | Profile storage location set?
+B111       | VALUE    | Network bandwidth per node < 10 GbE?
+B112       | VALUE    | Weighted profile size ≈ input setting?
+B113       | VALUE    | vCPU fit (all nodes, with overcommit)?
+B114       | VALUE    | RAM fit (all nodes)?
+C6         | VALUE    | No
+C9         | VALUE    | 32
+C10        | VALUE    | 127
+C11        | VALUE    | 50
+C12        | VALUE    | Two-Way Mirror
+C13        | FORMULA  | IF($C$6="No",0,IF(C9=0,0,ROUND(C9*(C10+C11)/1024,2)))
+C14        | FORMULA  | IF(C13=0,0,ROUND(C13/IF(C12="Three-Way Mirror",1/3,IF(C12="Two-Way Mirror",0.5,IF(C12="Dual Parity",IF('Hardware Inputs'
+C17        | VALUE    | S2D Volume (local)
+C18        | VALUE    | 1300
+C19        | VALUE    | 300
+C20        | VALUE    | 5
+C21        | VALUE    | 0.3
+C22        | VALUE    | Three-Way Mirror
+C23        | FORMULA  | IF($C$6="No",0,IF(C18=0,0,ROUND((C18*C20*(1+C21))/1024,2)))
+C24        | FORMULA  | IF(OR($C$6="No",C17<>"S2D Volume (local)"),0,IF(C23=0,0,ROUND(C23/IF(C22="Three-Way Mirror",1/3,IF(C22="Two-Way Mirror",
+C25        | FORMULA  | C14+C24
+C28        | VALUE    | 8
+C29        | VALUE    | 32
+C30        | VALUE    | 4:1
+C31        | VALUE    | 2
+C32        | VALUE    | 4
+C33        | FORMULA  | IF($C$6="No",0,MIN(INT(C28/C31),INT(C29/C32)))
+C34        | FORMULA  | IF($C$6="No",0,IF(C33=0,0,ROUNDUP(C19/C33,0)))
+C35        | FORMULA  | IF($C$6="No","",IF(C9>=C34,"✓ PASS — "&C9&" VMs ≥ "&C34&" needed","✗ FAIL — Need "&C34&" VMs but only "&C9&" configured"
+C36        | FORMULA  | IF($C$6="No",0,C9*C28)
+C37        | FORMULA  | IF($C$6="No",0,C9*C29)
+C38        | FORMULA  | IF($C$6="No",0,ROUND(C36/IF(C30="1:1",1,IF(C30="2:1",2,IF(C30="3:1",3,IF(C30="4:1",4,1)))),0))
+C41        | FORMULA  | IF($C$6="No","",IF(C38<='Hardware Inputs'!C37,"✓ PASS — "&C38&" of "&'Hardware Inputs'!C37&" vCPU ("&ROUND(C38/'Hardware
+C42        | FORMULA  | IF($C$6="No","",IF(C37<='Hardware Inputs'!C38,"✓ PASS — "&C37&" of "&'Hardware Inputs'!C38&" GB ("&ROUND(C37/'Hardware I
+C43        | FORMULA  | IF($C$6="No","",IF(C38<='Hardware Inputs'!C39,"✓ PASS — "&C38&" of "&'Hardware Inputs'!C39&" vCPU ("&ROUND(C38/'Hardware
+C44        | FORMULA  | IF($C$6="No","",IF(C37<='Hardware Inputs'!C40,"✓ PASS — "&C37&" of "&'Hardware Inputs'!C40&" GB ("&ROUND(C37/'Hardware I
+C49        | FORMULA  | C28*VALUE(LEFT(C30,FIND(":",C30)-1))
+C51        | VALUE    | CPU-limited
+C52        | FORMULA  | INT(C49/C31)
+C54        | VALUE    | 2
+C55        | FORMULA  | INT($C$49/C54)
+C56        | FORMULA  | INT($C$29/$C$32)
+C57        | FORMULA  | MIN(C55,C56)
+C62        | VALUE    | Value
+C63        | FORMULA  | C18
+C64        | FORMULA  | C19
+C65        | FORMULA  | IF(C63>0,C64/C63,0)
+C66        | FORMULA  | C33
+C68        | FORMULA  | IF(C66>0,ROUNDUP(C64/C66,0),0)
+C69        | FORMULA  | C68+1
+C70        | FORMULA  | IF(C69<=C9,"✅ Yes (≤"&C9&" VMs)","❌ No — need "&C69&" but only "&C9&" planned")
+C75        | VALUE    | Profile Size (GB)
+C76        | VALUE    | 2
+C77        | VALUE    | 5
+C78        | VALUE    | 15
+C80        | FORMULA  | IF(E79>0,SUMPRODUCT(C76:C78,E76:E78)/E79,0)
+C82        | VALUE    | This estimator
+C83        | FORMULA  | F79
+C88        | VALUE    | Value
+C89        | VALUE    | 3
+C90        | FORMULA  | C19
+C91        | FORMULA  | C89*C90
+C92        | FORMULA  | IF('Hardware Inputs'!C8>0,ROUND(C91/'Hardware Inputs'!C8,0),0)
+C97        | VALUE    | Your Value (GB)
+C98        | FORMULA  | C10
+C99        | FORMULA  | C11
+C100       | FORMULA  | C98+C99
+C107       | VALUE    | Status
+C108       | FORMULA  | IF(C69<=C9,"✅ PASS","❌ FAIL")
+C109       | FORMULA  | IF(D79=1,"✅ PASS","❌ FAIL ("&TEXT(D79,"0%")&")")
+C110       | FORMULA  | IF(C17<>"","✅ "&C17,"❌ Not set")
+C111       | FORMULA  | IF(C92<=10000,"✅ PASS","❌ FAIL")
+C112       | FORMULA  | IF(ABS(C80-C20)<=2,"✅ PASS","⚠️ CHECK")
+C113       | FORMULA  | IF(C38<='Hardware Inputs'!C37,"✅ PASS","❌ FAIL")
+C114       | FORMULA  | IF(C37<='Hardware Inputs'!C38,"✅ PASS","❌ FAIL")
+D9         | VALUE    | VMs
+D10        | VALUE    | GB
+D11        | VALUE    | GB
+D12        | FORMULA  | CONCATENATE(TEXT(IF(C12="Three-Way Mirror",1/3,IF(C12="Two-Way Mirror",0.5,IF(C12="Dual Parity",IF('Hardware Inputs'!C8>
+D13        | VALUE    | TB
+D14        | VALUE    | TB
+D18        | VALUE    | users
+D19        | VALUE    | users
+D20        | VALUE    | GB
+D21        | VALUE    | overhead
+D22        | FORMULA  | IF(C17<>"S2D Volume (local)","n/a",CONCATENATE(TEXT(IF(C22="Three-Way Mirror",1/3,IF(C22="Two-Way Mirror",0.5,IF(C22="Du
+D23        | VALUE    | TB
+D24        | VALUE    | TB
+D25        | VALUE    | TB
+D28        | VALUE    | vCPU
+D29        | VALUE    | GB
+D30        | VALUE    | ratio
+D31        | VALUE    | vCPU
+D32        | VALUE    | GB
+D33        | VALUE    | users/host
+D34        | VALUE    | VMs
+D36        | VALUE    | vCPU
+D37        | VALUE    | GB
+D38        | VALUE    | vCPU
+D49        | VALUE    | vCPU
+D51        | VALUE    | RAM-limited
+D52        | FORMULA  | INT(C29/C32)
+D54        | VALUE    | 4
+D55        | FORMULA  | INT($C$49/D54)
+D56        | FORMULA  | $C$56
+D57        | FORMULA  | MIN(D55,D56)
+D62        | VALUE    | Notes
+D63        | VALUE    | From inputs above
+D64        | VALUE    | From inputs above
+D65        | VALUE    | = concurrent ÷ registered
+D66        | VALUE    | From Section 2 matrix
+D68        | VALUE    | = ⌈ concurrent ÷ users/host ⌉
+D69        | VALUE    | Best practice: N+1 per pool
+D70        | VALUE    | vs configured VMs (C9)
+D75        | VALUE    | % of Users
+D76        | VALUE    | 0.3
+D77        | VALUE    | 0.5
+D78        | VALUE    | 0.2
+D79        | FORMULA  | SUM(D76:D78)
+D80        | FORMULA  | IF(ABS(C80-C20)<1,"✅ Matches your input (±1 GB)","⚠️ Your input uses "&C20&" GB")
+D82        | VALUE    | Your input (C20)
+D83        | FORMULA  | C23
+D88        | VALUE    | Notes
+D89        | VALUE    | ← Adjust: 1.5 (single monitor) to 8+ (4K multi)
+D91        | FORMULA  | ROUND(C91/1000,1)&" Gbps"
+D92        | FORMULA  | IF(C92>10000,"⚠️ Exceeds 10 GbE per node",IF(C92>1000,"⚠️ Exceeds 1 GbE per node","✅ Within 1 GbE per node"))
+D97        | VALUE    | Typical Range
+D98        | VALUE    | 80 – 127 GB
+D99        | VALUE    | 0 – 100 GB
+D100       | VALUE    | 80 – 227 GB
+D107       | VALUE    | Detail
+D108       | FORMULA  | "Need "&C69&" hosts, have "&C9&" configured"
+D109       | FORMULA  | "Task "&TEXT(D76,"0%")&" + Knowledge "&TEXT(D77,"0%")&" + Power "&TEXT(D78,"0%")
+D110       | FORMULA  | IF(C17="S2D Volume (local)","Profiles on cluster storage","Profiles on external storage — no S2D capacity used")
+D111       | FORMULA  | ROUND(C92,0)&" Mbps per node ("&ROUND(C92/1000,1)&" Gbps)"
+D112       | FORMULA  | "Weighted avg: "&TEXT(C80,"0.0")&" GB vs input: "&C20&" GB"
+D113       | FORMULA  | C38&" of "&'Hardware Inputs'!C37&" vCPU ("&ROUND(C38/'Hardware Inputs'!C37*100,0)&"%)"
+D114       | FORMULA  | C37&" of "&'Hardware Inputs'!C38&" GB ("&ROUND(C37/'Hardware Inputs'!C38*100,0)&"%)"
+E51        | VALUE    | Binding Constraint
+E52        | FORMULA  | IF(C52<=D52,"CPU","RAM")
+E54        | VALUE    | 6
+E55        | FORMULA  | INT($C$49/E54)
+E56        | FORMULA  | $C$56
+E57        | FORMULA  | MIN(E55,E56)
+E75        | VALUE    | User Count
+E76        | FORMULA  | ROUND(D76*$C$18,0)
+E77        | FORMULA  | ROUND(D77*$C$18,0)
+E78        | FORMULA  | ROUND(D78*$C$18,0)
+E79        | FORMULA  | SUM(E76:E78)
+F6         | VALUE    | Set to No to skip AVD entirely. All downstream tabs respect this flag.
+F9         | VALUE    | Total session host VMs across all host pools.
+F10        | VALUE    | Typical: 127 GB (Windows 11 multi-session).
+F11        | VALUE    | Additional data disks. Set to 0 if none.
+F12        | FORMULA  | IF(C12=IF('Hardware Inputs'!C8>=3,"Three-Way Mirror","Two-Way Mirror"),"","Note: "&'Hardware Inputs'!C8&"-node cluster d
+F13        | FORMULA  | IF(C13>64,"WARNING: Exceeds 64 TB max volume size!","")
+F14        | VALUE    | Logical / efficiency = pool space consumed.
+F17        | VALUE    | S2D = local cluster volume. SOFS = dedicated file server (see SOFS Planner). External/Azure = 0 pool footprint.
+F18        | VALUE    | All users who have a profile container.
+F19        | VALUE    | Peak concurrent sessions.
+F20        | VALUE    | Start at 5 GB if unknown. Measure after 30 days. See Section 3 estimator below.
+F21        | VALUE    | Buffer for growth. 20-50% recommended.
+F23        | FORMULA  | IF(C23>64,"WARNING: Exceeds 64 TB max volume size!","")
+F24        | VALUE    | If profiles on external/cloud storage, footprint = 0 in pool.
+F28        | VALUE    | Typical: 4-8 vCPU per session host. Size per VM SKU.
+F29        | VALUE    | Typical: 16-32 GB per session host VM.
+F30        | VALUE    | vCPU overcommit. 1:1 = no overcommit. 4:1 = 4 vCPU share 1 physical core. Hyper-V supports vCPU overcommit; memory canno
+F31        | VALUE    | Allocation per concurrent user. Light=1, Medium=2, Power=4.
+F32        | VALUE    | Physical RAM per user. Light=2, Medium=4, Power=8 GB.
+F33        | VALUE    | Min of vCPU and RAM constraints per host.
+F34        | VALUE    | Concurrent users ÷ users per host (rounded up).
+F36        | VALUE    | Session host VMs × vCPU per host.
+F37        | VALUE    | Total physical RAM needed. Hyper-V reserves full RAM per VM (no overcommit).
+F38        | VALUE    | Physical cores needed after vCPU overcommit ratio applied.
+F41        | VALUE    | AVD effective vCPU (after overcommit) vs total cluster vCPU.
+F42        | VALUE    | AVD total RAM vs cluster RAM. Full reservation required (no overcommit).
+F43        | VALUE    | Effective vCPU with 1 node down (patching/failover).
+F44        | VALUE    | RAM with 1 node down. Full reservation (no overcommit).
+F54        | VALUE    | 8
+F55        | FORMULA  | INT($C$49/F54)
+F56        | FORMULA  | $C$56
+F57        | FORMULA  | MIN(F55,F56)
+F75        | VALUE    | Total (TB)
+F76        | FORMULA  | ROUND(E76*C76/1024,2)
+F77        | FORMULA  | ROUND(E77*C77/1024,2)
+F78        | FORMULA  | ROUND(E78*C78/1024,2)
+F79        | FORMULA  | SUM(F76:F78)

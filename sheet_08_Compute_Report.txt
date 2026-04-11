@@ -1,0 +1,191 @@
+SHEET 8: Compute Report
+====================================================================================================
+
+Total cells with content: 186
+
+B2         | VALUE    | COMPUTE CAPACITY REPORT
+B3         | FORMULA  | "All values linked to Hardware Inputs and Workload Planner tabs. Last updated: "&TEXT(NOW(),"mm/dd/yyyy hh:mm AM/PM")
+B4         | VALUE    | CLUSTER COMPUTE HARDWARE
+B5         | VALUE    | Cluster Nodes
+B6         | VALUE    | Physical CPU Cores per Node
+B7         | VALUE    | Logical vCPU per Node
+B8         | VALUE    | RAM per Node
+B9         | VALUE    | Usable RAM per Node
+B11        | VALUE    | Total Cluster vCPU
+B12        | VALUE    | Total Cluster Usable RAM
+B14        | VALUE    | N+1 Available vCPU (1 node down)
+B15        | VALUE    | N+1 Available RAM (1 node down)
+B17        | VALUE    | COMPUTE DEMAND BY SCENARIO
+B18        | VALUE    | Scenario
+B19        | VALUE    | S1: AVD
+B20        | VALUE    | S2: AKS on Azure Local
+B21        | VALUE    | S3: Infrastructure VMs
+B22        | VALUE    | S4: Dev/Test VMs
+B23        | VALUE    | SOFS VMs
+B24        | VALUE    | TOTALS
+B26        | VALUE    | CAPACITY RESULT
+B27        | VALUE    | REMAINING vCPU
+B28        | VALUE    | vCPU Utilization
+B30        | VALUE    | REMAINING RAM
+B31        | VALUE    | RAM Utilization
+B33        | VALUE    | N+1 FAILOVER ANALYSIS (1 node in maintenance)
+B34        | VALUE    | Check
+B35        | VALUE    | vCPU (all nodes)
+B36        | VALUE    | RAM (all nodes)
+B37        | VALUE    | N+1 vCPU (1 node down)
+B38        | VALUE    | N+1 RAM (1 node down)
+B40        | VALUE    | AVD SESSION HOST DETAIL
+B41        | VALUE    | VM spec: vCPU per host
+B42        | VALUE    | VM spec: RAM per host
+B43        | VALUE    | User allocation: vCPU per user
+B44        | VALUE    | User allocation: RAM per user
+B45        | VALUE    | Users per session host (max)
+B47        | VALUE    | Concurrent users to support
+B48        | VALUE    | Session hosts NEEDED
+B49        | VALUE    | Session hosts CONFIGURED
+B51        | VALUE    | vCPU OVERCOMMIT SENSITIVITY (ALL SCENARIOS)
+B52        | VALUE    | Overcommit Ratio
+B53        | VALUE    | 1:1 (no overcommit)
+B54        | VALUE    | 2:1
+B55        | VALUE    | 3:1
+B56        | VALUE    | 4:1
+B58        | VALUE    | Note: Hyper-V supports vCPU overcommit (standard for AVD). Memory is NOT overcommitted — full RAM reserved per VM.
+C5         | FORMULA  | 'Hardware Inputs'!C8
+C6         | FORMULA  | 'Hardware Inputs'!C29
+C7         | FORMULA  | 'Hardware Inputs'!C35
+C8         | FORMULA  | 'Hardware Inputs'!C31
+C9         | FORMULA  | 'Hardware Inputs'!C36
+C11        | FORMULA  | 'Hardware Inputs'!C37
+C12        | FORMULA  | 'Hardware Inputs'!C38
+C14        | FORMULA  | 'Hardware Inputs'!C39
+C15        | FORMULA  | 'Hardware Inputs'!C40
+C18        | VALUE    | Status
+C19        | FORMULA  | IF('Workload Planner'!C8="Yes","Enabled","— Disabled")
+C20        | FORMULA  | IF('Workload Planner'!C44="Yes","Enabled","— Disabled")
+C21        | FORMULA  | IF('Workload Planner'!C66="Yes","Enabled","— Disabled")
+C22        | FORMULA  | IF('Workload Planner'!C83="Yes","Enabled","— Disabled")
+C23        | VALUE    | Enabled
+C27        | FORMULA  | C11-G24
+C28        | FORMULA  | IF(C11=0,0,G24/C11)
+C30        | FORMULA  | C12-E24
+C31        | FORMULA  | IF(C12=0,0,E24/C12)
+C34        | VALUE    | Demand
+C35        | FORMULA  | G24
+C36        | FORMULA  | E24
+C37        | FORMULA  | G24
+C38        | FORMULA  | E24
+C41        | FORMULA  | 'Workload Planner'!C27
+C42        | FORMULA  | 'Workload Planner'!C28
+C43        | FORMULA  | 'Workload Planner'!C30
+C44        | FORMULA  | 'Workload Planner'!C31
+C45        | FORMULA  | 'Workload Planner'!C32
+C47        | FORMULA  | 'Workload Planner'!C19
+C48        | FORMULA  | 'Workload Planner'!C33
+C49        | FORMULA  | 'Workload Planner'!C10
+C52        | VALUE    | AVD Eff. vCPU
+C53        | FORMULA  | 'Workload Planner'!C156
+C54        | FORMULA  | 'Workload Planner'!C157
+C55        | FORMULA  | 'Workload Planner'!C158
+C56        | FORMULA  | 'Workload Planner'!C159
+D5         | VALUE    | servers
+D6         | VALUE    | cores
+D7         | VALUE    | vCPU
+D8         | VALUE    | GB total
+D9         | VALUE    | GB
+D11        | VALUE    | vCPU
+D12        | VALUE    | GB
+D14        | VALUE    | vCPU
+D15        | VALUE    | GB
+D18        | VALUE    | vCPU
+D19        | FORMULA  | 'Workload Planner'!C35
+D20        | FORMULA  | 'Workload Planner'!C62
+D21        | FORMULA  | 'Workload Planner'!C76
+D22        | FORMULA  | 'Workload Planner'!C93
+D23        | FORMULA  | 'SOFS Planner'!C46
+D24        | FORMULA  | SUM(D19:D23)
+D27        | VALUE    | vCPU
+D30        | VALUE    | GB
+D34        | VALUE    | Available
+D35        | FORMULA  | C11
+D36        | FORMULA  | C12
+D37        | FORMULA  | C14
+D38        | FORMULA  | C15
+D41        | VALUE    | vCPU
+D42        | VALUE    | GB
+D43        | VALUE    | vCPU
+D44        | VALUE    | GB
+D45        | VALUE    | users/host
+D47        | VALUE    | users
+D48        | VALUE    | VMs
+D49        | VALUE    | VMs
+D52        | VALUE    | Total Eff. vCPU
+D53        | FORMULA  | 'Workload Planner'!D156
+D54        | FORMULA  | 'Workload Planner'!D157
+D55        | FORMULA  | 'Workload Planner'!D158
+D56        | FORMULA  | 'Workload Planner'!D159
+E18        | VALUE    | RAM (GB)
+E19        | FORMULA  | 'Workload Planner'!C36
+E20        | FORMULA  | IF('Workload Planner'!C44="No",0,('Workload Planner'!C47*'Workload Planner'!C58)+('Workload Planner'!C48*'Workload Plann
+E21        | FORMULA  | IF('Workload Planner'!C66="No",0,'Workload Planner'!C67*'Workload Planner'!C74)
+E22        | FORMULA  | IF('Workload Planner'!C83="No",0,'Workload Planner'!C84*'Workload Planner'!C91)
+E23        | FORMULA  | 'SOFS Planner'!C47
+E24        | FORMULA  | SUM(E19:E23)
+E34        | VALUE    | Utilization
+E35        | FORMULA  | IF(D35=0,0,C35/D35)
+E36        | FORMULA  | IF(D36=0,0,C36/D36)
+E37        | FORMULA  | IF(D37=0,0,C37/D37)
+E38        | FORMULA  | IF(D38=0,0,C38/D38)
+E52        | VALUE    | Fit (All)
+E53        | FORMULA  | 'Workload Planner'!E156
+E54        | FORMULA  | 'Workload Planner'!E157
+E55        | FORMULA  | 'Workload Planner'!E158
+E56        | FORMULA  | 'Workload Planner'!E159
+F6         | FORMULA  | IF('Hardware Inputs'!C30="Yes","Hyperthreading: ON","Hyperthreading: OFF")
+F7         | FORMULA  | "Physical cores × "&IF('Hardware Inputs'!C30="Yes","2 (HT)","1 (no HT)")
+F8         | FORMULA  | 'Hardware Inputs'!C32&" GB reserved for host OS / S2D"
+F9         | VALUE    | After host OS reservation.
+F11        | FORMULA  | C5&" nodes × "&C7&" vCPU"
+F12        | FORMULA  | C5&" nodes × "&C9&" GB"
+F14        | FORMULA  | "With 1 of "&C5&" nodes in maintenance or failed."
+F15        | VALUE    | Plan workloads to survive this scenario.
+F18        | VALUE    | Overcommit
+F19        | FORMULA  | 'Workload Planner'!C29
+F20        | FORMULA  | 'Workload Planner'!C61
+F21        | FORMULA  | 'Workload Planner'!C75
+F22        | FORMULA  | 'Workload Planner'!C92
+F23        | VALUE    | 4.2361111111111113E-2
+F27        | FORMULA  | IF(C27<0,"OVER CAPACITY!",IF(G24/C11>0.7,"Caution: Above 70% utilization.","Healthy."))
+F28        | FORMULA  | G24&" of "&C11&" vCPU consumed (after overcommit)"
+F30        | FORMULA  | IF(C30<0,"OVER CAPACITY!",IF(E24/C12>0.7,"Caution: Above 70% utilization.","Healthy."))
+F31        | FORMULA  | E24&" of "&C12&" GB RAM consumed"
+F34        | VALUE    | Status
+F35        | FORMULA  | IF(C35<=D35,"✓ PASS","✗ FAIL")
+F36        | FORMULA  | IF(C36<=D36,"✓ PASS","✗ FAIL")
+F37        | FORMULA  | IF(C37<=D37,"✓ PASS","⚠ WARNING")
+F38        | FORMULA  | IF(C38<=D38,"✓ PASS","⚠ WARNING")
+F43        | FORMULA  | IF('Workload Planner'!C30<=1,"Light user",IF('Workload Planner'!C30<=2,"Medium user","Power user"))
+F45        | FORMULA  | IF('Workload Planner'!C8="No","","Bottleneck: "&IF(INT('Workload Planner'!C27/'Workload Planner'!C30)<INT('Workload Plan
+F48        | FORMULA  | "⌈ "&'Workload Planner'!C19&" users ÷ "&'Workload Planner'!C32&" users/host ⌉"
+F49        | FORMULA  | 'Workload Planner'!C34
+F52        | VALUE    | Fit (N+1)
+F53        | FORMULA  | 'Workload Planner'!F156
+F54        | FORMULA  | 'Workload Planner'!F157
+F55        | FORMULA  | 'Workload Planner'!F158
+F56        | FORMULA  | 'Workload Planner'!F159
+G18        | VALUE    | Eff. vCPU
+G19        | FORMULA  | 'Workload Planner'!C37
+G20        | FORMULA  | 'Workload Planner'!C63
+G21        | FORMULA  | 'Workload Planner'!C77
+G22        | FORMULA  | 'Workload Planner'!C94
+G23        | FORMULA  | D23
+G24        | FORMULA  | SUM(G19:G23)
+G34        | VALUE    | Headroom
+G35        | FORMULA  | D35-C35
+G36        | FORMULA  | D36-C36
+G37        | FORMULA  | D37-C37
+G38        | FORMULA  | D38-C38
+G52        | VALUE    | Guidance
+G53        | VALUE    | No overcommit. Full core per vCPU.
+G54        | VALUE    | Conservative. 2 vCPU per core.
+G55        | VALUE    | Moderate. Knowledge workers.
+G56        | VALUE    | Standard AVD. Task/office workers.

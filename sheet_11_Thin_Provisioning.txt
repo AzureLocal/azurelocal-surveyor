@@ -1,0 +1,60 @@
+SHEET 11: Thin Provisioning
+====================================================================================================
+
+Total cells with content: 55
+
+B2         | VALUE    | THIN PROVISIONING — RISKS & GUIDANCE
+B4         | VALUE    | DEFAULT: USE FIXED (THICK)
+B5         | VALUE    | Fixed allocates full footprint at creation. Guarantees capacity. STRONGLY recommended for production.
+B7         | VALUE    | WHEN THIN IS ACCEPTABLE
+B8         | VALUE    | Dev/Test
+B9         | VALUE    | FSLogix
+B10        | VALUE    | Archive
+B11        | VALUE    | Prototyping
+B13        | VALUE    | RISKS
+B14        | VALUE    | Pool Exhaustion
+B15        | VALUE    | Silent Overcommit
+B16        | VALUE    | Growth Spikes
+B17        | VALUE    | No Reclaim
+B18        | VALUE    | Double-Thin
+B19        | VALUE    | Rebuild Blocked
+B21        | VALUE    | MONITORING
+B22        | VALUE    | WAC Alerts
+B23        | VALUE    | PS: Pool
+B24        | VALUE    | PS: Volumes
+B25        | VALUE    | Azure Monitor
+B26        | VALUE    | Commit Ratio
+B28        | VALUE    | CHECKLIST
+B29        | VALUE    | 1.
+B30        | VALUE    | 2.
+B31        | VALUE    | 3.
+B32        | VALUE    | 4.
+B33        | VALUE    | 5.
+B34        | VALUE    | 6.
+B35        | VALUE    | 7.
+B36        | VALUE    | 8.
+B37        | VALUE    | 9.
+C8         | VALUE    | Outages tolerable.
+C9         | VALUE    | Slow growth. Monitor.
+C10        | VALUE    | Infrequent access.
+C11        | VALUE    | Right-size later.
+C14        | VALUE    | Pool full = volumes OFFLINE = VMs crash. HARD STOP.
+C15        | VALUE    | Logical can exceed physical. No hard block.
+C16        | VALUE    | Updates, snapshots consume GBs with no warning.
+C17        | VALUE    | Stretched clusters: TRIM disabled. Volumes only grow.
+C18        | VALUE    | Thin S2D + thin VHDX = two overcommit layers.
+C19        | VALUE    | No pool space = rebuild fails = data at risk.
+C22        | VALUE    | Set threshold to 60% for thin pools.
+C23        | VALUE    | Get-StoragePool S2D* | Select Size, AllocatedSize
+C24        | VALUE    | Get-VirtualDisk | Select Size, FootprintOnPool
+C25        | VALUE    | Log Analytics for pool free space trending.
+C26        | VALUE    | Logical/Physical. Alert 0.8, escalate 1.0.
+C29        | VALUE    | Never double-thin (S2D + VHDX).
+C30        | VALUE    | WAC alert at 60% for thin.
+C31        | VALUE    | Pool below 70% always.
+C32        | VALUE    | Weekly: Get-StoragePool reports.
+C33        | VALUE    | Azure Monitor for alerting.
+C34        | VALUE    | Capacity response plan documented.
+C35        | VALUE    | Quarterly: simulate drive failure.
+C36        | VALUE    | Production = FIXED. Thin = dev/test only.
+C37        | VALUE    | Commit ratio: alert 0.8, escalate 1.0.

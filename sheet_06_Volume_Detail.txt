@@ -1,0 +1,108 @@
+SHEET 6: Volume Detail
+====================================================================================================
+
+Total cells with content: 103
+
+B2         | VALUE    | VOLUME DETAIL — DEPLOYMENT REFERENCE
+B3         | VALUE    | Use this table when creating volumes in Windows Admin Center or PowerShell. Copy volume names and sizes directly.
+B5         | VALUE    | Volume Name
+B6         | VALUE    | AVD-SessionHosts
+B7         | VALUE    | AVD-Profiles
+B8         | VALUE    | AKS-Cluster
+B9         | VALUE    | Infra-VMs
+B10        | VALUE    | DevTest-VMs
+B11        | VALUE    | Backup-Archive
+B12        | VALUE    | Custom
+B13        | FORMULA  | IF('SOFS Planner'!$C$6="No","","SOFS-Node1-Vol")
+B14        | FORMULA  | IF('SOFS Planner'!$C$6="No","",IF('SOFS Planner'!C9>=2,"SOFS-Node2-Vol",""))
+B15        | FORMULA  | IF('SOFS Planner'!$C$6="No","",IF('SOFS Planner'!C9>=3,"SOFS-Node3-Vol",""))
+B16        | FORMULA  | IF('SOFS Planner'!$C$6="No","",IF('SOFS Planner'!C9>=4,"SOFS-Node4-Vol",""))
+B23        | VALUE    | TOTALS
+B25        | VALUE    | FIT CHECK
+B26        | FORMULA  | IF('Workload Planner'!C128<0,"FAIL: Exceeds pool by "&TEXT(ABS('Workload Planner'!C128),"0.00")&" TB. Remove workloads o
+B28        | VALUE    | * TiB column: What Windows/PowerShell will report. This calculator uses TB (decimal) everywhere else. 1 TB = ~0.909 TiB.
+B29        | FORMULA  | "Microsoft recommends volume count as a multiple of your node count ("&'Hardware Inputs'!C8&") for balanced data distrib
+C5         | VALUE    | Resiliency
+C6         | FORMULA  | 'Workload Planner'!C13
+C7         | FORMULA  | 'Workload Planner'!C22
+C8         | FORMULA  | 'Workload Planner'!C53
+C9         | FORMULA  | 'Workload Planner'!C69
+C10        | FORMULA  | 'Workload Planner'!C86
+C11        | FORMULA  | 'Workload Planner'!C101
+C12        | FORMULA  | 'Workload Planner'!C108
+C13        | FORMULA  | 'SOFS Planner'!C16
+C14        | FORMULA  | IF(B14<>"",C13,"")
+C15        | FORMULA  | IF(B15<>"",C13,"")
+C16        | FORMULA  | IF(B16<>"",C13,"")
+D5         | VALUE    | Create Size (TB)
+D6         | FORMULA  | 'Workload Planner'!C14
+D7         | FORMULA  | 'Workload Planner'!C23
+D8         | FORMULA  | 'Workload Planner'!C54
+D9         | FORMULA  | 'Workload Planner'!C70
+D10        | FORMULA  | 'Workload Planner'!C87
+D11        | FORMULA  | 'Workload Planner'!C102
+D12        | FORMULA  | 'Workload Planner'!C109
+D13        | FORMULA  | IF('SOFS Planner'!$C$6="No",0,IF('SOFS Planner'!C9>=1,ROUND('SOFS Planner'!C30/'SOFS Planner'!C9,2),0))
+D14        | FORMULA  | IF(B14<>"",D13,0)
+D15        | FORMULA  | IF(B15<>"",D13,0)
+D16        | FORMULA  | IF(B16<>"",D13,0)
+D23        | FORMULA  | SUM(D6:D16)
+E5         | VALUE    | Create Size (TiB)*
+E6         | FORMULA  | IF(D6=0,0,ROUND(D6*(1000/1024)^3,2))
+E7         | FORMULA  | 
+E8         | FORMULA  | 
+E9         | FORMULA  | 
+E10        | FORMULA  | 
+E11        | FORMULA  | 
+E12        | FORMULA  | 
+E13        | FORMULA  | IF(D13=0,0,ROUND(D13*(1000/1024)^3,2))
+E14        | FORMULA  | IF(D14=0,0,ROUND(D14*(1000/1024)^3,2))
+E15        | FORMULA  | IF(D15=0,0,ROUND(D15*(1000/1024)^3,2))
+E16        | FORMULA  | IF(D16=0,0,ROUND(D16*(1000/1024)^3,2))
+E23        | FORMULA  | SUM(E6:E16)
+F5         | VALUE    | Pool Footprint (TB)
+F6         | FORMULA  | 'Workload Planner'!C15
+F7         | FORMULA  | 'Workload Planner'!C24
+F8         | FORMULA  | 'Workload Planner'!C55
+F9         | FORMULA  | 'Workload Planner'!C71
+F10        | FORMULA  | 'Workload Planner'!C88
+F11        | FORMULA  | 'Workload Planner'!C103
+F12        | FORMULA  | 'Workload Planner'!C110
+F13        | FORMULA  | IF(D13=0,0,ROUND(D13/IF(C13="Three-Way Mirror",1/3,IF(C13="Two-Way Mirror",0.5,IF(C13="Dual Parity",IF('Hardware Inputs'
+F14        | FORMULA  | IF(D14=0,0,F13)
+F15        | FORMULA  | IF(D15=0,0,F13)
+F16        | FORMULA  | IF(D16=0,0,F13)
+F23        | FORMULA  | SUM(F6:F16)
+G5         | VALUE    | Copies
+G6         | FORMULA  | IF(C6="Two-Way Mirror","2x",IF(C6="Three-Way Mirror","3x","parity"))
+G7         | FORMULA  | 
+G8         | FORMULA  | 
+G9         | FORMULA  | 
+G10        | FORMULA  | 
+G11        | FORMULA  | 
+G12        | FORMULA  | 
+G13        | FORMULA  | IF(D13=0,"",IF(C13="Two-Way Mirror","2x",IF(C13="Three-Way Mirror","3x","parity")))
+G14        | FORMULA  | IF(D14=0,"",G13)
+G15        | FORMULA  | IF(D15=0,"",G13)
+G16        | FORMULA  | IF(D16=0,"",G13)
+H5         | VALUE    | Efficiency
+H6         | FORMULA  | IF(C6="Three-Way Mirror",1/3,IF(C6="Two-Way Mirror",0.5,IF(C6="Dual Parity",IF('Hardware Inputs'!C8>=16,0.8,IF('Hardware
+H7         | FORMULA  | IF(C7="Three-Way Mirror",1/3,IF(C7="Two-Way Mirror",0.5,IF(C7="Dual Parity",IF('Hardware Inputs'!C8>=16,0.8,IF('Hardware
+H8         | FORMULA  | IF(C8="Three-Way Mirror",1/3,IF(C8="Two-Way Mirror",0.5,IF(C8="Dual Parity",IF('Hardware Inputs'!C8>=16,0.8,IF('Hardware
+H9         | FORMULA  | IF(C9="Three-Way Mirror",1/3,IF(C9="Two-Way Mirror",0.5,IF(C9="Dual Parity",IF('Hardware Inputs'!C8>=16,0.8,IF('Hardware
+H10        | FORMULA  | IF(C10="Three-Way Mirror",1/3,IF(C10="Two-Way Mirror",0.5,IF(C10="Dual Parity",IF('Hardware Inputs'!C8>=16,0.8,IF('Hardw
+H11        | FORMULA  | IF(C11="Three-Way Mirror",1/3,IF(C11="Two-Way Mirror",0.5,IF(C11="Dual Parity",IF('Hardware Inputs'!C8>=16,0.8,IF('Hardw
+H12        | FORMULA  | IF(C12="Three-Way Mirror",1/3,IF(C12="Two-Way Mirror",0.5,IF(C12="Dual Parity",IF('Hardware Inputs'!C8>=16,0.8,IF('Hardw
+I5         | VALUE    | Status
+I6         | FORMULA  | IF(D6=0,"— Disabled",IF(D6>64,"FAIL: >64 TB","PASS"))
+I7         | FORMULA  | 
+I8         | FORMULA  | 
+I9         | FORMULA  | 
+I10        | FORMULA  | 
+I11        | FORMULA  | 
+I12        | FORMULA  | 
+I13        | FORMULA  | IF(D13=0,"— Disabled",IF(D13>64,"FAIL: >64 TB","PASS"))
+I14        | FORMULA  | IF(D14=0,"— Disabled",IF(D14>64,"FAIL: >64 TB","PASS"))
+I15        | FORMULA  | IF(D15=0,"— Disabled",IF(D15>64,"FAIL: >64 TB","PASS"))
+I16        | FORMULA  | IF(D16=0,"— Disabled",IF(D16>64,"FAIL: >64 TB","PASS"))
+I23        | FORMULA  | COUNTIF(I6:I16,"PASS")&" of "&COUNTIF(I6:I16,"<>"&"— Disabled")&" PASS"

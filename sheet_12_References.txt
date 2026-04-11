@@ -1,0 +1,42 @@
+SHEET 12: References
+====================================================================================================
+
+Total cells with content: 37
+
+B2         | VALUE    | MICROSOFT REFERENCES
+B3         | VALUE    | Topic
+B4         | VALUE    | Plan Volumes
+B5         | VALUE    | Fault Tolerance
+B6         | VALUE    | S2D Overview
+B7         | VALUE    | Hardware Reqs
+B8         | VALUE    | Cache
+B9         | VALUE    | Nested Resiliency
+B10        | VALUE    | Thin Provisioning
+B11        | VALUE    | Azure Local Baseline
+B12        | VALUE    | Azure Local Deploy
+B13        | VALUE    | Well-Architected
+B14        | VALUE    | AVD Sizing
+B15        | VALUE    | AKS on Azure Local
+B16        | VALUE    | Compute Sizing
+B17        | VALUE    | Hyper-V Best Practices
+B18        | VALUE    | Volume Planning
+B19        | VALUE    | Scale-Out File Server (SOFS)
+B20        | VALUE    | FSLogix Configuration
+C3         | VALUE    | URL
+C4         | VALUE    | https://learn.microsoft.com/en-us/windows-server/storage/storage-spaces/plan-volumes
+C5         | VALUE    | https://learn.microsoft.com/en-us/windows-server/storage/storage-spaces/fault-tolerance
+C6         | VALUE    | https://learn.microsoft.com/en-us/windows-server/storage/storage-spaces/storage-spaces-direct-overview
+C7         | VALUE    | https://learn.microsoft.com/en-us/windows-server/storage/storage-spaces/storage-spaces-direct-hardware-requirements
+C8         | VALUE    | https://learn.microsoft.com/en-us/windows-server/storage/storage-spaces/cache
+C9         | VALUE    | https://learn.microsoft.com/en-us/windows-server/storage/storage-spaces/nested-resiliency
+C10        | VALUE    | https://learn.microsoft.com/en-us/azure-stack/hci/manage/thin-provisioning
+C11        | VALUE    | https://learn.microsoft.com/en-us/azure/architecture/hybrid/azure-local-baseline
+C12        | VALUE    | https://learn.microsoft.com/en-us/azure/azure-local/deploy/deploy-via-portal
+C13        | VALUE    | https://learn.microsoft.com/en-us/azure/well-architected/service-guides/azure-local
+C14        | VALUE    | https://learn.microsoft.com/en-us/azure/virtual-desktop/prerequisites
+C15        | VALUE    | https://learn.microsoft.com/en-us/azure/aks/hybrid/aks-hci-network-requirements
+C16        | VALUE    | https://learn.microsoft.com/en-us/azure/azure-local/plan/choose-server-hardware
+C17        | VALUE    | https://learn.microsoft.com/en-us/windows-server/virtualization/hyper-v/best-practices-for-running-hyper-v
+C18        | VALUE    | https://learn.microsoft.com/en-us/azure-stack/hci/manage/create-volumes
+C19        | VALUE    | https://learn.microsoft.com/en-us/windows-server/failover-clustering/sofs-overview
+C20        | VALUE    | https://learn.microsoft.com/en-us/fslogix/concepts-configuration-examples

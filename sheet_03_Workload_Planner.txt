@@ -1,0 +1,425 @@
+SHEET 3: Workload Planner
+====================================================================================================
+
+Total cells with content: 420
+
+B2         | VALUE    | SCENARIO-BASED WORKLOAD PLANNER
+B3         | VALUE    | Plan storage by workload type — AVD, AKS, Infrastructure, Dev/Test, and more
+B5         | VALUE    | AVAILABLE POOL CAPACITY:
+B7         | VALUE    | SCENARIO 1: AVD DEPLOYMENT
+B8         | VALUE    | Enable AVD scenario?
+B9         | VALUE    | ➡ All AVD inputs have moved to the AVD Planning tab.
+B10        | VALUE    | Number of AVD session host VMs
+B11        | VALUE    | OS disk per host (GB)
+B12        | VALUE    | Data/temp disk per host (GB)
+B13        | VALUE    | Host resiliency type
+B14        | VALUE    | Session host volume (logical)
+B15        | VALUE    | Session host footprint in pool
+B16        | VALUE    |   FSLogix Profiles — Summary
+B17        | VALUE    | Profile storage location
+B18        | VALUE    | Total AVD users
+B19        | VALUE    | Concurrent users
+B20        | VALUE    | Profile size per user (GB)
+B21        | VALUE    | Growth buffer
+B22        | VALUE    | Profile resiliency type
+B23        | VALUE    | Profile volume (logical)
+B24        | VALUE    | Profile footprint in pool
+B25        | VALUE    | AVD TOTAL FOOTPRINT
+B26        | VALUE    |   AVD Compute Summary
+B27        | VALUE    | vCPU per session host
+B28        | VALUE    | RAM per session host (GB)
+B29        | VALUE    | vCPU overcommit ratio
+B30        | VALUE    | vCPU per user
+B31        | VALUE    | RAM per user (GB)
+B32        | VALUE    | Users per session host (max)
+B33        | VALUE    | Session hosts needed
+B34        | VALUE    | Session host VM check
+B35        | VALUE    | Total AVD vCPU demand
+B36        | VALUE    | Total AVD RAM demand (GB)
+B37        | VALUE    | Effective vCPU (with overcommit)
+B43        | VALUE    | SCENARIO 2: AKS ON AZURE LOCAL
+B44        | VALUE    | Enable AKS scenario?
+B45        | VALUE    |   AKS Cluster VMs
+B46        | VALUE    | Number of AKS clusters
+B47        | VALUE    | Control plane nodes (total across clusters)
+B48        | VALUE    | Worker nodes (total across clusters)
+B49        | VALUE    | OS disk per node (GB)
+B50        | VALUE    |   Persistent Volumes & Data Services
+B51        | VALUE    | Persistent volume storage estimate (TB)
+B52        | VALUE    | Data services storage estimate (TB)
+B53        | VALUE    | AKS resiliency type
+B54        | VALUE    | AKS volume (logical)
+B55        | VALUE    | AKS TOTAL FOOTPRINT
+B56        | VALUE    |   AKS Compute Planning
+B57        | VALUE    | vCPU per control plane node
+B58        | VALUE    | RAM per control plane node (GB)
+B59        | VALUE    | vCPU per worker node
+B60        | VALUE    | RAM per worker node (GB)
+B61        | VALUE    | vCPU overcommit ratio
+B62        | VALUE    | Total AKS vCPU demand
+B63        | VALUE    | Effective AKS vCPU (with overcommit)
+B65        | VALUE    | SCENARIO 3: INFRASTRUCTURE VMs
+B66        | VALUE    | Enable Infrastructure VMs?
+B67        | VALUE    | Number of infrastructure VMs
+B68        | VALUE    | Average total disk per VM (GB)
+B69        | VALUE    | Infrastructure resiliency type
+B70        | VALUE    | Infra volume (logical)
+B71        | VALUE    | INFRA TOTAL FOOTPRINT
+B72        | VALUE    |   Infrastructure Compute Planning
+B73        | VALUE    | Average vCPU per VM
+B74        | VALUE    | Average RAM per VM (GB)
+B75        | VALUE    | vCPU overcommit ratio
+B76        | VALUE    | Total Infra vCPU demand
+B77        | VALUE    | Effective Infra vCPU (with overcommit)
+B82        | VALUE    | SCENARIO 4: DEV/TEST VMs
+B83        | VALUE    | Enable Dev/Test?
+B84        | VALUE    | Number of dev/test VMs
+B85        | VALUE    | Average total disk per VM (GB)
+B86        | VALUE    | Dev/Test resiliency type
+B87        | VALUE    | Dev/Test volume (logical)
+B88        | VALUE    | DEV/TEST TOTAL FOOTPRINT
+B89        | VALUE    |   Dev/Test Compute Planning
+B90        | VALUE    | Average vCPU per VM
+B91        | VALUE    | Average RAM per VM (GB)
+B92        | VALUE    | vCPU overcommit ratio
+B93        | VALUE    | Total Dev/Test vCPU demand
+B94        | VALUE    | Effective Dev/Test vCPU (with overcommit)
+B98        | VALUE    | SCENARIO 5: BACKUP / ARCHIVE
+B99        | VALUE    | Enable Backup/Archive?
+B100       | VALUE    | Backup volume size (TB)
+B101       | VALUE    | Backup resiliency type
+B102       | VALUE    | Backup volume (logical)
+B103       | VALUE    | BACKUP TOTAL FOOTPRINT
+B105       | VALUE    | SCENARIO 6: CUSTOM (Optional)
+B106       | VALUE    | Enable Custom?
+B107       | VALUE    | Exact volume size (TB)
+B108       | VALUE    | Custom resiliency type
+B109       | VALUE    | Custom volume (logical)
+B110       | VALUE    | CUSTOM TOTAL FOOTPRINT
+B113       | VALUE    | CAPACITY SUMMARY
+B114       | VALUE    | Available Pool Capacity
+B116       | VALUE    | S1: AVD Session Hosts — Footprint
+B117       | VALUE    | S1: AVD FSLogix Profiles — Footprint
+B118       | VALUE    | S2: AKS on Azure Local — Footprint
+B119       | VALUE    | S3: Infrastructure VMs — Footprint
+B120       | VALUE    | S4: Dev/Test VMs — Footprint
+B121       | VALUE    | S5: Backup/Archive — Footprint
+B122       | VALUE    | S6: Custom — Footprint
+B123       | VALUE    | SOFS VM Volumes — Footprint
+B124       | VALUE    | TOTAL PHYSICAL FOOTPRINT
+B125       | VALUE    | TOTAL USABLE VOLUME CAPACITY
+B126       | VALUE    | Volume Count
+B128       | VALUE    | REMAINING POOL CAPACITY
+B129       | VALUE    | Pool Utilization
+B131       | VALUE    | COMPUTE SUMMARY
+B132       | VALUE    | Cluster Total vCPU
+B133       | VALUE    | Cluster Total Usable RAM
+B135       | VALUE    | S1: AVD — vCPU demand
+B136       | VALUE    | S2: AKS — vCPU demand
+B137       | VALUE    | S3: Infrastructure — vCPU demand
+B138       | VALUE    | S4: Dev/Test — vCPU demand
+B139       | VALUE    | SOFS VMs — vCPU demand
+B141       | VALUE    | TOTAL vCPU DEMAND
+B142       | VALUE    | TOTAL EFFECTIVE vCPU (with overcommit)
+B143       | VALUE    | TOTAL RAM DEMAND
+B145       | VALUE    | REMAINING vCPU
+B146       | VALUE    | REMAINING RAM
+B148       | VALUE    | N+1 FAILOVER CHECK (1 node in maintenance)
+B149       | VALUE    | N+1 vCPU available
+B150       | VALUE    | N+1 RAM available
+B151       | VALUE    | N+1 vCPU fit
+B152       | VALUE    | N+1 RAM fit
+B154       | VALUE    | vCPU OVERCOMMIT SENSITIVITY (ALL SCENARIOS)
+B155       | VALUE    | Overcommit Ratio
+B156       | VALUE    | 1:1 (no overcommit)
+B157       | VALUE    | 2:1
+B158       | VALUE    | 3:1
+B159       | VALUE    | 4:1
+B161       | VALUE    | Note: Hyper-V supports vCPU overcommit (standard for AVD). Memory is NOT overcommitted — Hyper-V physically reserves ful
+C5         | FORMULA  | 'Hardware Inputs'!C24
+C8         | FORMULA  | 'AVD Planning'!C6
+C10        | FORMULA  | 'AVD Planning'!C9
+C11        | FORMULA  | 'AVD Planning'!C10
+C12        | FORMULA  | 'AVD Planning'!C11
+C13        | FORMULA  | 'AVD Planning'!C12
+C14        | FORMULA  | 'AVD Planning'!C13
+C15        | FORMULA  | 'AVD Planning'!C14
+C17        | FORMULA  | 'AVD Planning'!C17
+C18        | FORMULA  | 'AVD Planning'!C18
+C19        | FORMULA  | 'AVD Planning'!C19
+C20        | FORMULA  | 'AVD Planning'!C20
+C21        | FORMULA  | 'AVD Planning'!C21
+C22        | FORMULA  | 'AVD Planning'!C22
+C23        | FORMULA  | 'AVD Planning'!C23
+C24        | FORMULA  | 'AVD Planning'!C24
+C25        | FORMULA  | 'AVD Planning'!C25
+C27        | FORMULA  | 'AVD Planning'!C28
+C28        | FORMULA  | 'AVD Planning'!C29
+C29        | FORMULA  | 'AVD Planning'!C30
+C30        | FORMULA  | 'AVD Planning'!C31
+C31        | FORMULA  | 'AVD Planning'!C32
+C32        | FORMULA  | 'AVD Planning'!C33
+C33        | FORMULA  | 'AVD Planning'!C34
+C34        | FORMULA  | 'AVD Planning'!C35
+C35        | FORMULA  | 'AVD Planning'!C36
+C36        | FORMULA  | 'AVD Planning'!C37
+C37        | FORMULA  | 'AVD Planning'!C38
+C44        | VALUE    | No
+C46        | VALUE    | 1
+C47        | VALUE    | 1
+C48        | VALUE    | 3
+C49        | VALUE    | 200
+C51        | VALUE    | 0
+C52        | VALUE    | 0
+C53        | VALUE    | Three-Way Mirror
+C54        | FORMULA  | IF($C$44="No",0,ROUND(((C47+C48)*C49/1024)+C51+C52,2))
+C55        | FORMULA  | IF(C54=0,0,ROUND(C54/IF(C53="Three-Way Mirror",1/3,IF(C53="Two-Way Mirror",0.5,IF(C53="Dual Parity",IF('Hardware Inputs'
+C57        | VALUE    | 4
+C58        | VALUE    | 16
+C59        | VALUE    | 8
+C60        | VALUE    | 32
+C61        | VALUE    | 4:1
+C62        | FORMULA  | IF(C44="No",0,(C47*C57)+(C48*C59))
+C63        | FORMULA  | IF(C44="No",0,ROUND(((C47*C57)+(C48*C59))/IF(C61="1:1",1,IF(C61="2:1",2,IF(C61="3:1",3,IF(C61="4:1",4,1)))),0))
+C66        | VALUE    | No
+C67        | VALUE    | 0
+C68        | VALUE    | 200
+C69        | VALUE    | Three-Way Mirror
+C70        | FORMULA  | IF($C$66="No",0,IF(C67=0,0,ROUND(C67*C68/1024,2)))
+C71        | FORMULA  | IF(C70=0,0,ROUND(C70/IF(C69="Three-Way Mirror",1/3,IF(C69="Two-Way Mirror",0.5,IF(C69="Dual Parity",IF('Hardware Inputs'
+C73        | VALUE    | 4
+C74        | VALUE    | 16
+C75        | VALUE    | 4:1
+C76        | FORMULA  | IF(C66="No",0,C67*C73)
+C77        | FORMULA  | IF(C66="No",0,ROUND((C67*C73)/IF(C75="1:1",1,IF(C75="2:1",2,IF(C75="3:1",3,IF(C75="4:1",4,1)))),0))
+C83        | VALUE    | No
+C84        | VALUE    | 0
+C85        | VALUE    | 120
+C86        | VALUE    | Two-Way Mirror
+C87        | FORMULA  | IF($C$83="No",0,IF(C84=0,0,ROUND(C84*C85/1024,2)))
+C88        | FORMULA  | IF(C87=0,0,ROUND(C87/IF(C86="Three-Way Mirror",1/3,IF(C86="Two-Way Mirror",0.5,IF(C86="Dual Parity",IF('Hardware Inputs'
+C90        | VALUE    | 2
+C91        | VALUE    | 8
+C92        | VALUE    | 4:1
+C93        | FORMULA  | IF(C83="No",0,C84*C90)
+C94        | FORMULA  | IF(C83="No",0,ROUND((C84*C90)/IF(C92="1:1",1,IF(C92="2:1",2,IF(C92="3:1",3,IF(C92="4:1",4,1)))),0))
+C99        | VALUE    | No
+C100       | VALUE    | 3
+C101       | VALUE    | Dual Parity
+C102       | FORMULA  | IF($C$99="No",0,C100)
+C103       | FORMULA  | IF(C102=0,0,ROUND(C102/IF(C101="Three-Way Mirror",1/3,IF(C101="Two-Way Mirror",0.5,IF(C101="Dual Parity",IF('Hardware In
+C106       | VALUE    | No
+C107       | VALUE    | 0
+C108       | VALUE    | Three-Way Mirror
+C109       | FORMULA  | IF($C$106="No",0,C107)
+C110       | FORMULA  | IF(C109=0,0,ROUND(C109/IF(C108="Three-Way Mirror",1/3,IF(C108="Two-Way Mirror",0.5,IF(C108="Dual Parity",IF('Hardware In
+C114       | FORMULA  | 'Hardware Inputs'!C24
+C116       | FORMULA  | C15
+C117       | FORMULA  | C24
+C118       | FORMULA  | C55
+C119       | FORMULA  | C71
+C120       | FORMULA  | C88
+C121       | FORMULA  | C103
+C122       | FORMULA  | C110
+C123       | FORMULA  | SUM('Volume Detail'!F13:'Volume Detail'!F16)
+C124       | FORMULA  | SUM(C116:C123)
+C125       | FORMULA  | C14+C23+C54+C70+C87+C102+C109+SUM('Volume Detail'!D13:'Volume Detail'!D16)
+C126       | FORMULA  | (C14>0)+(C23>0)+(C54>0)+(C70>0)+(C87>0)+(C102>0)+(C109>0)+SUMPRODUCT(('Volume Detail'!D13:'Volume Detail'!D16>0)*1)
+C128       | FORMULA  | C114-C124
+C129       | FORMULA  | IF(C114=0,0,C124/C114)
+C132       | FORMULA  | 'Hardware Inputs'!C37
+C133       | FORMULA  | 'Hardware Inputs'!C38
+C134       | VALUE    | Raw vCPU
+C135       | FORMULA  | C35
+C136       | FORMULA  | C62
+C137       | FORMULA  | C76
+C138       | FORMULA  | C93
+C139       | FORMULA  | 'SOFS Planner'!C46
+C141       | FORMULA  | SUM(C135:C139)
+C142       | FORMULA  | SUM(E135:E138)+C139
+C143       | FORMULA  | SUM(D135:D139)
+C145       | FORMULA  | C132-C141
+C146       | FORMULA  | C133-C143
+C149       | FORMULA  | 'Hardware Inputs'!C39
+C150       | FORMULA  | 'Hardware Inputs'!C40
+C151       | FORMULA  | IF(C141<=C149,"✓ PASS — "&C141&" of "&C149&" vCPU ("&ROUND(C141/C149*100,0)&"%)","✗ FAIL — Need "&C141&" but N+1 only ha
+C152       | FORMULA  | IF(C143<=C150,"✓ PASS — "&C143&" of "&C150&" GB ("&ROUND(C143/C150*100,0)&"%)","✗ FAIL — Need "&C143&" GB but N+1 only h
+C155       | VALUE    | AVD Eff. vCPU
+C156       | FORMULA  | IF(C8="No",0,ROUND(C35/1,0))
+C157       | FORMULA  | IF(C8="No",0,ROUND(C35/2,0))
+C158       | FORMULA  | IF(C8="No",0,ROUND(C35/3,0))
+C159       | FORMULA  | IF(C8="No",0,ROUND(C35/4,0))
+D5         | VALUE    | TB
+D10        | VALUE    | VMs
+D11        | VALUE    | GB
+D12        | VALUE    | GB
+D13        | FORMULA  | 'AVD Planning'!D12
+D14        | VALUE    | TB
+D15        | VALUE    | TB
+D18        | VALUE    | users
+D19        | VALUE    | users
+D20        | VALUE    | GB
+D21        | VALUE    | overhead
+D22        | FORMULA  | 'AVD Planning'!D22
+D23        | VALUE    | TB
+D24        | VALUE    | TB
+D25        | VALUE    | TB
+D27        | VALUE    | vCPU
+D28        | VALUE    | GB
+D29        | VALUE    | ratio
+D30        | VALUE    | vCPU
+D31        | VALUE    | GB
+D32        | VALUE    | users/host
+D33        | VALUE    | VMs
+D35        | VALUE    | vCPU
+D36        | VALUE    | GB
+D37        | VALUE    | vCPU
+D46        | VALUE    | clusters
+D47        | VALUE    | nodes
+D48        | VALUE    | nodes
+D49        | VALUE    | GB
+D51        | VALUE    | TB
+D52        | VALUE    | TB
+D53        | FORMULA  | CONCATENATE(TEXT(IF(C53="Three-Way Mirror",1/3,IF(C53="Two-Way Mirror",0.5,IF(C53="Dual Parity",IF('Hardware Inputs'!C8>
+D54        | VALUE    | TB
+D55        | VALUE    | TB
+D57        | VALUE    | vCPU
+D58        | VALUE    | GB
+D59        | VALUE    | vCPU
+D60        | VALUE    | GB
+D61        | VALUE    | ratio
+D62        | VALUE    | vCPU
+D63        | VALUE    | vCPU
+D67        | VALUE    | VMs
+D68        | VALUE    | GB
+D69        | FORMULA  | CONCATENATE(TEXT(IF(C69="Three-Way Mirror",1/3,IF(C69="Two-Way Mirror",0.5,IF(C69="Dual Parity",IF('Hardware Inputs'!C8>
+D70        | VALUE    | TB
+D71        | VALUE    | TB
+D73        | VALUE    | vCPU
+D74        | VALUE    | GB
+D75        | VALUE    | ratio
+D76        | VALUE    | vCPU
+D77        | VALUE    | vCPU
+D84        | VALUE    | VMs
+D85        | VALUE    | GB
+D86        | FORMULA  | CONCATENATE(TEXT(IF(C86="Three-Way Mirror",1/3,IF(C86="Two-Way Mirror",0.5,IF(C86="Dual Parity",IF('Hardware Inputs'!C8>
+D87        | VALUE    | TB
+D88        | VALUE    | TB
+D90        | VALUE    | vCPU
+D91        | VALUE    | GB
+D92        | VALUE    | ratio
+D93        | VALUE    | vCPU
+D94        | VALUE    | vCPU
+D100       | VALUE    | TB
+D101       | FORMULA  | CONCATENATE(TEXT(IF(C101="Three-Way Mirror",1/3,IF(C101="Two-Way Mirror",0.5,IF(C101="Dual Parity",IF('Hardware Inputs'!
+D102       | VALUE    | TB
+D103       | VALUE    | TB
+D107       | VALUE    | TB
+D108       | FORMULA  | CONCATENATE(TEXT(IF(C108="Three-Way Mirror",1/3,IF(C108="Two-Way Mirror",0.5,IF(C108="Dual Parity",IF('Hardware Inputs'!
+D109       | VALUE    | TB
+D110       | VALUE    | TB
+D114       | VALUE    | TB
+D116       | VALUE    | TB
+D117       | VALUE    | TB
+D118       | VALUE    | TB
+D119       | VALUE    | TB
+D120       | VALUE    | TB
+D121       | VALUE    | TB
+D122       | VALUE    | TB
+D123       | VALUE    | TB
+D124       | VALUE    | TB
+D125       | VALUE    | TB
+D126       | VALUE    | volumes
+D128       | VALUE    | TB
+D132       | VALUE    | vCPU
+D133       | VALUE    | GB
+D134       | VALUE    | RAM (GB)
+D135       | FORMULA  | C36
+D136       | FORMULA  | IF(C44="No",0,(C47*C58)+(C48*C60))
+D137       | FORMULA  | IF(C66="No",0,C67*C74)
+D138       | FORMULA  | IF(C83="No",0,C84*C91)
+D139       | FORMULA  | 'SOFS Planner'!C47
+D141       | VALUE    | vCPU
+D142       | VALUE    | vCPU
+D143       | VALUE    | GB
+D145       | VALUE    | vCPU
+D146       | VALUE    | GB
+D149       | VALUE    | vCPU
+D150       | VALUE    | GB
+D155       | VALUE    | Total Eff. vCPU
+D156       | FORMULA  | C156+E136+E137+E138+E139
+D157       | FORMULA  | C157+E136+E137+E138+E139
+D158       | FORMULA  | C158+E136+E137+E138+E139
+D159       | FORMULA  | C159+E136+E137+E138+E139
+E5         | FORMULA  | 'Hardware Inputs'!C24
+E134       | VALUE    | Eff. vCPU
+E135       | FORMULA  | C37
+E136       | FORMULA  | C63
+E137       | FORMULA  | C77
+E138       | FORMULA  | C94
+E139       | FORMULA  | C139
+E155       | VALUE    | Fit (All)
+E156       | FORMULA  | IF(D156<='Hardware Inputs'!C37,"✓ PASS","✗ FAIL")
+E157       | FORMULA  | IF(D157<='Hardware Inputs'!C37,"✓ PASS","✗ FAIL")
+E158       | FORMULA  | IF(D158<='Hardware Inputs'!C37,"✓ PASS","✗ FAIL")
+E159       | FORMULA  | IF(D159<='Hardware Inputs'!C37,"✓ PASS","✗ FAIL")
+F8         | VALUE    | Linked from AVD Planning tab.
+F9         | VALUE    | Click AVD Planning tab for all session host, profile, and compute inputs.
+F44        | VALUE    | Set to No to skip this scenario.
+F46        | VALUE    | AKS Arc clusters on this Azure Local instance.
+F47        | VALUE    | Typically 1 or 3 per cluster (HA = 3).
+F48        | VALUE    | All worker nodes across all node pools.
+F49        | VALUE    | Default: 200 GB (Azure Local 2509+).
+F51        | VALUE    | Total PVC storage for apps. Varies by workload.
+F52        | VALUE    | SQL MI, PostgreSQL, etc. via Arc Data Services.
+F54        | FORMULA  | IF(C54>64,"WARNING: Exceeds 64 TB max volume size!","")
+F55        | VALUE    | Node VMs + PVs + Data Services combined.
+F57        | VALUE    | Default AKS control plane: 4 vCPU.
+F58        | VALUE    | Default AKS control plane: 16 GB.
+F59        | VALUE    | Size based on workload. Typical: 4-16 vCPU.
+F60        | VALUE    | Size based on workload. Typical: 16-64 GB.
+F61        | VALUE    | vCPU overcommit. 1:1 = no overcommit. 4:1 = standard.
+F62        | VALUE    | Control plane + worker node vCPU.
+F63        | VALUE    | Physical cores needed after vCPU overcommit.
+F66        | VALUE    | DCs, SQL, file servers, management VMs, etc.
+F67        | VALUE    | Total infra VMs (all roles combined).
+F68        | VALUE    | OS + data disks combined. Typical: 150-300 GB.
+F70        | FORMULA  | IF(C70>64,"WARNING: Exceeds 64 TB max volume size!","")
+F71        | VALUE    | Logical / efficiency = pool space consumed.
+F73        | VALUE    | Average across all infrastructure VMs.
+F74        | VALUE    | Average RAM per infra VM.
+F75        | VALUE    | vCPU overcommit. 1:1 = no overcommit. 4:1 = standard.
+F76        | VALUE    | VMs × vCPU per VM.
+F77        | VALUE    | Physical cores needed after vCPU overcommit.
+F83        | VALUE    | Set to No to skip this scenario.
+F87        | FORMULA  | IF(C87>64,"WARNING: Exceeds 64 TB max volume size!","")
+F90        | VALUE    | Average across all dev/test VMs.
+F91        | VALUE    | Average RAM per dev/test VM.
+F92        | VALUE    | vCPU overcommit. 1:1 = no overcommit. 4:1 = standard.
+F93        | VALUE    | VMs × vCPU per VM.
+F94        | VALUE    | Physical cores needed after vCPU overcommit.
+F99        | VALUE    | Set to No to skip this scenario.
+F106       | VALUE    | Set to No to skip this scenario.
+F107       | VALUE    | Any other volume not covered above.
+F114       | VALUE    | Total pool capacity for volumes.
+F124       | VALUE    | Must be LESS than available pool.
+F125       | VALUE    | Logical capacity you get to use.
+F126       | FORMULA  | IF(MOD(C126,'Hardware Inputs'!C8)=0,"Volume count is multiple of node count.","Tip: Microsoft recommends multiple of nod
+F128       | FORMULA  | IF(C128<0,"OVER CAPACITY!",IF(C124/C114>0.7,"Caution: Above 70%.","Healthy."))
+F132       | VALUE    | Total logical vCPU across all nodes.
+F133       | VALUE    | Total usable RAM (after host OS reserve).
+F135       | VALUE    | Eff. vCPU (with overcommit) | RAM (GB)
+F136       | VALUE    | Eff. vCPU (with overcommit) | RAM (GB)
+F137       | VALUE    | Eff. vCPU (with overcommit) | RAM (GB)
+F138       | VALUE    | Eff. vCPU (with overcommit) | RAM (GB)
+F139       | VALUE    | 1:1 overcommit — SOFS VMs are not overcommitted
+F141       | VALUE    | Must be LESS than cluster vCPU.
+F142       | VALUE    | Must be LESS than cluster vCPU (with overcommit applied).
+F143       | VALUE    | Must be LESS than cluster RAM.
+F145       | FORMULA  | IF(C145<0,"OVER CAPACITY!",IF(C141/C132>0.7,"Caution: Above 70%.","Healthy."))
+F146       | FORMULA  | IF(C146<0,"OVER CAPACITY!",IF(C143/C133>0.7,"Caution: Above 70%.","Healthy."))
+F155       | VALUE    | Fit (N+1)
+F156       | FORMULA  | IF(D156<='Hardware Inputs'!C39,"✓ PASS","✗ FAIL")
+F157       | FORMULA  | IF(D157<='Hardware Inputs'!C39,"✓ PASS","✗ FAIL")
+F158       | FORMULA  | IF(D158<='Hardware Inputs'!C39,"✓ PASS","✗ FAIL")
+F159       | FORMULA  | IF(D159<='Hardware Inputs'!C39,"✓ PASS","✗ FAIL")

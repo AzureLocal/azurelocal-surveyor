@@ -1,0 +1,145 @@
+SHEET 2: Hardware Inputs
+====================================================================================================
+
+Total cells with content: 140
+
+B2         | VALUE    | WORKLOAD AND STORAGE CALCULATOR — Azure Local
+B3         | VALUE    | Cluster Hardware Configuration
+B5         | VALUE    | INSTRUCTIONS: Enter values in BLUE cells (dropdowns provided). Everything else auto-calculates.
+B7         | VALUE    | STEP 1: ENTER YOUR CLUSTER HARDWARE
+B8         | VALUE    | Number of Cluster Nodes (Servers)
+B9         | VALUE    | Drive Media Configuration
+B10        | VALUE    | Capacity Drives per Node
+B11        | VALUE    | Size of Each Capacity Drive (TB)
+B12        | VALUE    | Cache Drives per Node (NVMe+SSD only)
+B13        | VALUE    | Default Volume Provisioning
+B15        | VALUE    | STEP 2: YOUR AVAILABLE STORAGE (Auto-Calculated)
+B16        | VALUE    | Total Capacity Drives
+B17        | VALUE    | Cache Drives (if applicable)
+B18        | VALUE    | Total Raw Capacity (Advertised)
+B19        | VALUE    | Usable Capacity per Drive
+B20        | VALUE    | Total Usable Pool (Before Reserve)
+B21        | VALUE    | Reserve (drive failure repair)
+B22        | VALUE    | Infrastructure Volume (Azure Local)
+B24        | VALUE    | YOUR AVAILABLE CAPACITY FOR VOLUMES
+B26        | VALUE    | What Windows Admin Center shows (TiB):
+B28        | VALUE    | STEP 3: CLUSTER COMPUTE HARDWARE
+B29        | VALUE    | Physical CPU Cores per Node
+B30        | VALUE    | Hyperthreading (SMT) Enabled?
+B31        | VALUE    | RAM per Node (GB)
+B32        | VALUE    | Host OS / Management Reserved RAM (GB)
+B34        | VALUE    | COMPUTE CAPACITY (Auto-Calculated)
+B35        | VALUE    | Logical vCPU per Node
+B36        | VALUE    | Usable RAM per Node (GB)
+B37        | VALUE    | Total Cluster vCPU (all nodes)
+B38        | VALUE    | Total Cluster Usable RAM (all nodes)
+B39        | VALUE    | N+1 Available vCPU (1 node down)
+B40        | VALUE    | N+1 Available RAM (1 node down)
+B42        | VALUE    | RESILIENCY REFERENCE
+B43        | VALUE    | Type
+B44        | VALUE    | Two-Way Mirror
+B45        | VALUE    | Three-Way Mirror
+B46        | VALUE    | Dual Parity (4-6)
+B47        | VALUE    | Dual Parity (7-8)
+B48        | VALUE    | Dual Parity (9-15 flash)
+B49        | VALUE    | Dual Parity (16 flash)
+B50        | VALUE    | Nested Two-Way
+C8         | VALUE    | 3
+C9         | VALUE    | All-NVMe (No Cache)
+C10        | VALUE    | 4
+C11        | VALUE    | 3.84
+C12        | VALUE    | 0
+C13        | VALUE    | Fixed (Thick)
+C16        | FORMULA  | C8*C10
+C17        | FORMULA  | IF(C9="NVMe + SSD (NVMe is Cache)",C8*C12,0)
+C18        | FORMULA  | C16*C11
+C19        | FORMULA  | C11*'Advanced Settings'!C8
+C20        | FORMULA  | C16*C19
+C21        | FORMULA  | MIN(C8,4)*C19
+C22        | FORMULA  | 'Advanced Settings'!C14
+C24        | FORMULA  | C20-C21-C22
+C26        | FORMULA  | ROUND(C24*1000/1024,2)
+C29        | VALUE    | 32
+C30        | VALUE    | Yes
+C31        | VALUE    | 256
+C32        | VALUE    | 32
+C35        | FORMULA  | IF(C30="Yes",C29*2,C29)
+C36        | FORMULA  | C31-C32
+C37        | FORMULA  | C35*C8
+C38        | FORMULA  | C36*C8
+C39        | FORMULA  | C35*(C8-1)
+C40        | FORMULA  | C36*(C8-1)
+C43        | VALUE    | Efficiency
+C44        | VALUE    | 50.0%
+C45        | VALUE    | 33.3%
+C46        | VALUE    | 50.0%
+C47        | VALUE    | 66.7%
+C48        | VALUE    | 75.0%
+C49        | VALUE    | 80.0%
+C50        | VALUE    | 25.0%
+D8         | VALUE    | Select 1-16
+D9         | VALUE    | Select type
+D10        | VALUE    | Minimum: 2
+D11        | VALUE    | e.g. 1.6, 3.2, 7.68
+D12        | VALUE    | Only if NVMe+SSD
+D13        | VALUE    | Select type
+D16        | VALUE    | drives
+D17        | VALUE    | drives
+D18        | VALUE    | TB
+D19        | VALUE    | TB
+D20        | VALUE    | TB
+D21        | VALUE    | TB
+D22        | VALUE    | TB footprint
+D24        | VALUE    | TB
+D26        | VALUE    | TiB (approx)
+D29        | VALUE    | cores
+D30        | VALUE    | Yes/No
+D31        | VALUE    | GB
+D32        | VALUE    | GB
+D35        | VALUE    | vCPU
+D36        | VALUE    | GB
+D37        | VALUE    | vCPU
+D38        | VALUE    | GB
+D39        | VALUE    | vCPU
+D40        | VALUE    | GB
+D43        | VALUE    | Min Nodes
+D44        | VALUE    | 2
+D45        | VALUE    | 3
+D46        | VALUE    | 4
+D47        | VALUE    | 7
+D48        | VALUE    | 9
+D49        | VALUE    | 16
+D50        | VALUE    | 2
+E8         | VALUE    | Physical servers in the Azure Local cluster.
+E9         | VALUE    | All-NVMe: all drives are capacity. NVMe+SSD: NVMe is CACHE only.
+E10        | VALUE    | Drives per node used for CAPACITY. Min 4 drives or more recommended
+E11        | VALUE    | Vendor-advertised drive size in TB.
+E12        | VALUE    | NVMe cache drives per node. These do NOT add capacity.
+E13        | VALUE    | RECOMMENDED: Fixed. See Thin Provisioning tab for risks.
+E16        | VALUE    | Nodes x Capacity Drives (excludes cache)
+E17        | VALUE    | Cache drives do NOT count toward capacity.
+E18        | VALUE    | Capacity Drives x Drive Size.
+E19        | VALUE    | After NVMe overhead (~8%). See Advanced Settings tab.
+E20        | VALUE    | All capacity drives pooled after overhead.
+E21        | VALUE    | 1 drive per node (max 4) for auto-repair.
+E22        | VALUE    | System volume created during deployment (~250 GB).
+E24        | VALUE    | Pool minus reserve minus infra = what you can use.
+E26        | VALUE    | Windows uses TiB (binary). 1 TB = ~0.909 TiB. Numbers WILL differ.
+E29        | VALUE    | Physical cores per server (check CPU spec).
+E30        | VALUE    | If Yes, logical cores = physical × 2.
+E31        | VALUE    | Total physical RAM per node.
+E32        | VALUE    | Reserved for Hyper-V host OS, agents, S2D. Typical: 16-32 GB.
+E35        | VALUE    | Logical cores available per node for VMs.
+E36        | VALUE    | RAM minus host OS reservation.
+E37        | VALUE    | All nodes combined.
+E38        | VALUE    | All usable RAM across cluster.
+E39        | VALUE    | With 1 node down for maintenance/failover.
+E40        | VALUE    | RAM capacity with 1 node down.
+E43        | VALUE    | Fault Tolerance
+E44        | VALUE    | 1 failure
+E45        | VALUE    | 2 failures
+E46        | VALUE    | 2 failures
+E47        | VALUE    | 2 failures
+E48        | VALUE    | 2 failures
+E49        | VALUE    | 2 failures
+E50        | VALUE    | 1 server+1 drive

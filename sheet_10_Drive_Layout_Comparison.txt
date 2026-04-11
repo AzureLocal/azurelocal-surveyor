@@ -1,0 +1,91 @@
+SHEET 10: Drive Layout Comparison
+====================================================================================================
+
+Total cells with content: 86
+
+B2         | VALUE    | DRIVE LAYOUT COMPARISON
+B3         | VALUE    | Same total raw capacity — different drive counts. See how reserve and available capacity change.
+B5         | VALUE    | YOUR CURRENT CONFIGURATION
+B6         | VALUE    | Cluster Nodes
+B7         | VALUE    | Capacity Drives per Node
+B8         | VALUE    | Drive Size (Advertised)
+B9         | VALUE    | Total Raw Capacity
+B10        | VALUE    | Capacity Efficiency Factor
+B12        | VALUE    | ALTERNATIVE DRIVE LAYOUTS
+B13        | VALUE    | Drives per Node
+B14        | FORMULA  | C7
+B15        | VALUE    | 4
+B16        | VALUE    | 5
+B17        | VALUE    | 6
+B18        | VALUE    | 7
+B19        | VALUE    | 8
+B20        | VALUE    | 9
+B21        | VALUE    | 10
+B23        | VALUE    | KEY INSIGHT
+B24        | VALUE    | More drives per node = smaller drive size = smaller reserve. The reserve is always 1 drive per node (max 4), so smaller 
+B25        | VALUE    | Note: All alternatives maintain the same total raw capacity. Drive sizes shown are calculated (raw ÷ total drives) — act
+C6         | FORMULA  | 'Hardware Inputs'!C8
+C7         | FORMULA  | 'Hardware Inputs'!C10
+C8         | FORMULA  | 'Hardware Inputs'!C11
+C9         | FORMULA  | 'Hardware Inputs'!C18
+C10        | FORMULA  | 'Advanced Settings'!C8
+C13        | VALUE    | Drive Size (TB)
+C14        | FORMULA  | C8
+C15        | FORMULA  | ROUND($C$9/(B15*$C$6),2)
+C16        | FORMULA  | 
+C17        | FORMULA  | 
+C18        | FORMULA  | 
+C19        | FORMULA  | 
+C20        | FORMULA  | 
+C21        | FORMULA  | 
+D6         | VALUE    | nodes
+D7         | VALUE    | drives
+D8         | VALUE    | TB
+D9         | VALUE    | TB
+D13        | VALUE    | Total Drives
+D14        | FORMULA  | B14*C6
+D15        | FORMULA  | B15*$C$6
+D16        | FORMULA  | 
+D17        | FORMULA  | 
+D18        | FORMULA  | 
+D19        | FORMULA  | 
+D20        | FORMULA  | 
+D21        | FORMULA  | 
+E9         | VALUE    | This stays constant across all alternatives.
+E10        | VALUE    | From Advanced Settings tab.
+E13        | VALUE    | Usable per Drive (TB)
+E14        | FORMULA  | C14*C10
+E15        | FORMULA  | C15*$C$10
+E16        | FORMULA  | 
+E17        | FORMULA  | 
+E18        | FORMULA  | 
+E19        | FORMULA  | 
+E20        | FORMULA  | 
+E21        | FORMULA  | 
+F13        | VALUE    | Reserve (TB)
+F14        | FORMULA  | MIN(C6,4)*E14
+F15        | FORMULA  | MIN($C$6,4)*E15
+F16        | FORMULA  | 
+F17        | FORMULA  | 
+F18        | FORMULA  | 
+F19        | FORMULA  | 
+F20        | FORMULA  | 
+F21        | FORMULA  | 
+G13        | VALUE    | Available Capacity (TB)
+G14        | FORMULA  | (D14*E14)-(F14)-'Advanced Settings'!C14
+G15        | FORMULA  | (D15*E15)-(F15)-'Advanced Settings'!$C$14
+G16        | FORMULA  | (D16*E16)-(F16)-'Advanced Settings'!$C$14
+G17        | FORMULA  | (D17*E17)-(F17)-'Advanced Settings'!$C$14
+G18        | FORMULA  | (D18*E18)-(F18)-'Advanced Settings'!$C$14
+G19        | FORMULA  | (D19*E19)-(F19)-'Advanced Settings'!$C$14
+G20        | FORMULA  | (D20*E20)-(F20)-'Advanced Settings'!$C$14
+G21        | FORMULA  | (D21*E21)-(F21)-'Advanced Settings'!$C$14
+H13        | VALUE    | vs Current
+H14        | VALUE    | ← Current
+H15        | FORMULA  | G15-$G$14
+H16        | FORMULA  | 
+H17        | FORMULA  | 
+H18        | FORMULA  | 
+H19        | FORMULA  | 
+H20        | FORMULA  | 
+H21        | FORMULA  | 

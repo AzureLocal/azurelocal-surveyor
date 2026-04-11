@@ -1,0 +1,87 @@
+SHEET 1: How to Use
+====================================================================================================
+
+Total cells with content: 82
+
+B2         | VALUE    | WORKLOAD AND STORAGE CALCULATOR — HOW TO USE
+B3         | VALUE    | Azure Local / Storage Spaces Direct — Capacity Planning Tool
+B5         | VALUE    | This workbook helps you plan storage for an Azure Local cluster using Storage Spaces Direct (S2D). Enter your hardware s
+B7         | VALUE    | QUICK START — 3 STEPS
+B12        | VALUE    | COLOR GUIDE
+B20        | VALUE    | TABS IN THIS WORKBOOK
+B33        | VALUE    | COMMON QUESTIONS
+B43        | VALUE    | TIPS
+B44        | VALUE    | 1.
+B45        | VALUE    | 2.
+B46        | VALUE    | 3.
+B47        | VALUE    | 4.
+B48        | VALUE    | 5.
+B49        | VALUE    | 6.
+B50        | VALUE    | 7.
+B51        | VALUE    | 8.
+C8         | VALUE    | STEP 1
+C9         | VALUE    | STEP 2
+C10        | VALUE    | STEP 3
+C13        | VALUE    | Blue on Yellow
+C14        | VALUE    | Green
+C15        | VALUE    | Blue on Light Blue
+C16        | VALUE    | Red / Pink
+C17        | VALUE    | Orange
+C18        | VALUE    | Gray
+C21        | VALUE    | 1. Hardware Inputs
+C22        | VALUE    | 2. Workload Planner
+C23        | VALUE    | 3. AVD Planning
+C24        | VALUE    | 4. SOFS Planner
+C25        | VALUE    | 5. Volume Detail
+C26        | VALUE    | 6. Capacity Report
+C27        | VALUE    | 7. Compute Report
+C28        | VALUE    | 8. Final Report
+C29        | VALUE    | 9. Drive Layout Comparison
+C30        | VALUE    | 10. Thin Provisioning
+C31        | VALUE    | 11. References
+C32        | VALUE    | 12. Advanced Settings
+C34        | VALUE    | Why does Windows show different numbers?
+C35        | VALUE    | Why is so much capacity 'lost'?
+C36        | VALUE    | Why can't I use all my pool?
+C37        | VALUE    | What if workloads don't fit?
+C38        | VALUE    | Should I use thin provisioning?
+C39        | VALUE    | NVMe+SSD vs All-NVMe?
+C40        | VALUE    | Can I add drives/nodes later?
+C41        | VALUE    | What does N+1 compute mean?
+C44        | VALUE    | Start with Hardware Inputs before planning workloads. Know what you have before planning what to put on it.
+C45        | VALUE    | Use dropdown menus — don't type resiliency types manually. Typos break formulas.
+C46        | VALUE    | Include ALL disks when estimating VM sizes (OS + data disks). Typical Windows Server = 80 GB OS + 100 GB data = 180 GB.
+C47        | VALUE    | For FSLogix, start at 5 GB/user if no data. Measure after 30 days and adjust.
+C48        | VALUE    | Keep pool utilization below 70%. Above 70% = limited rebuild headroom. Above 90% = danger zone.
+C49        | VALUE    | Consider Dual Parity for backup/archive on 4+ node clusters: 50-80% efficiency vs 33% for three-way mirror.
+C50        | VALUE    | Print the Capacity Report tab for project documentation.
+C51        | VALUE    | This calculator uses TB. Windows uses TiB. Numbers WILL look different. Both are correct.
+D8         | VALUE    | Go to 'Hardware Inputs'. Use the DROPDOWN MENUS to enter: node count, drive type, drives per node, and drive size. The c
+D9         | VALUE    | Go to 'Workload Planner'. Choose your scenarios: AKS, Infrastructure VMs, Dev/Test, Backup, or Custom. For AVD, go to th
+D10        | VALUE    | Review 'Capacity Report' and 'Volume Detail'. Print or share these with your team or customer. The report explains all t
+D13        | VALUE    | YOUR INPUT — only cells you edit. All have dropdowns or accept numbers.
+D14        | VALUE    | GOOD NEWS — available capacity, passing checks. Bigger green number = better.
+D15        | VALUE    | CALCULATED — auto-calculated values. Do not edit.
+D16        | VALUE    | WARNING — footprint numbers, overcommit alerts, capacity exceeded.
+D17        | VALUE    | CAUTION — reserve capacity, infrastructure overhead.
+D18        | VALUE    | LABELS — descriptions explaining what each row means.
+D21        | VALUE    | WHERE YOU START. Enter cluster hardware with dropdowns. See your available capacity instantly. Shows TB vs TiB conversio
+D22        | VALUE    | WHERE YOU PLAN VOLUMES. Scenario-based: AVD summary (linked from AVD Planning), AKS (clusters + worker nodes + PVs + dat
+D23        | VALUE    | SINGLE SOURCE FOR ALL AVD. Enter ALL session host, profile, and compute settings here. Density matrix, host pool scale-o
+D24        | VALUE    | SEPARATE SOFS CLUSTER SIZING. Hardware inputs, S2D pool calculation, FSLogix demand linked from Workload Planner (which 
+D25        | VALUE    | PER-VOLUME TABLE. Name, resiliency, efficiency, logical size, footprint, usable capacity. PASS/FAIL check. Includes SOFS
+D26        | VALUE    | WHAT YOU SHARE. Executive summary, capacity term glossary, reserve explanation, drive sizing advisory, N+1 compute remin
+D27        | VALUE    | COMPUTE ANALYSIS. CPU and RAM capacity vs demand by scenario (including SOFS VMs). N+1 failover analysis, session host s
+D28        | VALUE    | ONE-PAGE SUMMARY. Hardware config, capacity allocation, scenario breakdown, volume creation table (TB + TiB), PowerShell
+D29        | VALUE    | WHAT-IF TOOL. Same total raw capacity, different drive counts per node. Shows how using more, smaller drives reduces res
+D30        | VALUE    | READ IF CONSIDERING THIN. Risks, when acceptable, monitoring commands, best practices checklist.
+D31        | VALUE    | DOCUMENTATION LINKS. Microsoft Learn pages covering S2D, Azure Local, compute sizing, AVD, AKS, SOFS, and FSLogix topics
+D32        | VALUE    | ADMIN ONLY. Capacity efficiency factor, infrastructure volume size, TB-to-TiB reference table. Override section for Work
+D34        | VALUE    | Calculator uses TB (decimal). Windows uses TiB (binary). 1 TB = 0.909 TiB. Both are correct. Row 26 on Hardware Inputs s
+D35        | VALUE    | Three-way mirror = 3 copies = 33% efficiency. This is WHY data survives 2 failures. Two-way = 50%. Dual Parity = 50-80% 
+D36        | VALUE    | Three deductions: Drive overhead (~8%), Reserve (~1 drive/node for auto-repair), Infrastructure volume (~250 GB for Azur
+D37        | VALUE    | Options: fewer VMs, Two-Way instead of Three-Way where OK, more/smaller drives (see Drive Layout Comparison tab), more n
+D38        | VALUE    | Production: NO, use Fixed. Thin risks pool exhaustion = VMs crash. OK for dev/test and FSLogix with monitoring. See Thin
+D39        | VALUE    | NVMe+SSD: NVMe becomes CACHE (not capacity). Only SSD counts. All-NVMe: all drives are capacity. Most common for new Azu
+D40        | VALUE    | Yes. New drives auto-join pool. Adding 3rd node unlocks three-way mirror. But sizing correctly upfront is simpler than e
+D41        | VALUE    | Size VMs to fit on N-1 nodes. If 1 node goes down, all VMs must failover to remaining nodes. This is CPU/RAM, separate f
