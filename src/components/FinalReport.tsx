@@ -125,7 +125,7 @@ export default function FinalReport() {
 
       <section>
         <h2 className="text-lg font-semibold mb-3">Compute</h2>
-        <ComputeReport result={compute} />
+        <ComputeReport result={compute} totalVCpus={workloadSummary.totalVCpus} totalMemoryGB={workloadSummary.totalMemoryGB} />
       </section>
 
       {state.volumes.length > 0 && (

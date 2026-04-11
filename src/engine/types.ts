@@ -213,11 +213,16 @@ export interface SofsResult {
 // ─── Compute (Sheet: "Compute Report") ───────────────────────────────────────
 
 export interface ComputeResult {
+  nodeCount: number                  // passed through for N+1 and per-node calculations
   physicalCores: number
   logicalCores: number               // physicalCores × 2 if hyperthreading enabled
+  logicalCoresPerNode: number        // logicalCores / nodeCount
   hyperthreadingEnabled: boolean
   systemReservedVCpus: number
   usableVCpus: number
+  // N+1 failover: capacity with one node down
+  usableVCpusN1: number              // usableVCpus minus one node's contribution
+  usableMemoryGBN1: number           // usableMemoryGB minus one node's contribution
   physicalMemoryGB: number
   systemReservedMemoryGB: number
   usableMemoryGB: number

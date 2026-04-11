@@ -44,7 +44,7 @@ export default function WorkloadsPage() {
       </div>
 
       <WorkloadPlanner />
-      <ComputeReport result={compute} />
+      <ComputeReport result={compute} totalVCpus={Math.round(totalVCpus)} totalMemoryGB={Math.round(totalMemoryGB)} />
     </div>
   )
 }
