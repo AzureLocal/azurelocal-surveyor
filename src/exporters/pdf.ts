@@ -304,7 +304,33 @@ export function exportPdf(state: Pick<SurveyorState, 'hardware' | 'advanced' | '
 
   // ── Health Check — always last page ──────────────────────────────────────
   if (y > pageH - 70) { doc.addPage(); y = 20 }
-  y = section(doc, `Health Check — ${health.passed ? '✓ PASSED' : '✗ FAILED'}`, y)
+  y = section(doc, `Health Check — ${health.passed ? '✓ PASSED' : '✗ FAILED'} (${health.errorCount}E/${health.warningCount}W/${health.infoCount}I)`, y)
+
+  // Per-volume health detail
+  if (health.volumeDetails.length > 0) {
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [['Volume', 'Resiliency', 'Size (TiB)', 'Pool Footprint (TB)', 'Status']],
+      body: health.volumeDetails.map((vd) => [
+        vd.name,
+        vd.resiliency,
+        String(vd.plannedSizeTiB),
+        String(vd.poolFootprintTB),
+        vd.status === 'pass' ? 'PASS' : `FAIL: ${vd.failReason}`,
+      ]),
+      theme: 'striped',
+      headStyles: { fillColor: BRAND_BLUE, textColor: [255, 255, 255], fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 2 },
+    })
+    y = doc.lastAutoTable.finalY + 4
+
+    // Pool utilization
+    if (health.availablePoolTB > 0) {
+      y = utilizationBar(doc, 'Pool utilization:', health.totalPoolFootprintTB, health.availablePoolTB, 'TB', margin, y + 3, pageW - margin * 2)
+      y += 4
+    }
+  }
 
   if (health.issues.length === 0) {
     doc.setFontSize(9)
@@ -312,6 +338,7 @@ export function exportPdf(state: Pick<SurveyorState, 'hardware' | 'advanced' | '
     doc.text('All health checks passed. No issues found.', margin, y + 5)
     doc.setTextColor(0, 0, 0)
   } else {
+    if (y > pageH - 50) { doc.addPage(); y = 20 }
     autoTable(doc, {
       startY: y,
       margin: { left: margin, right: margin },

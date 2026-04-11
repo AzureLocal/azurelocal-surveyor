@@ -13,12 +13,15 @@ import type {
 } from '../engine/types'
 import { DEFAULT_ADVANCED_SETTINGS } from '../engine/types'
 
+export type VolumeMode = 'workload' | 'generic'
+
 export interface SurveyorState {
   // Inputs
   hardware: HardwareInputs
   advanced: AdvancedSettings
   volumes: VolumeSpec[]
   workloads: WorkloadSpec[]  // legacy / custom scenario rows
+  volumeMode: VolumeMode    // #76: workload-based vs generic hardware-based suggestions
   avd: AvdInputs
   avdEnabled: boolean
   sofs: SofsInputs
@@ -46,6 +49,7 @@ export interface SurveyorState {
   setMabsEnabled: (enabled: boolean) => void
   setAks: (a: Partial<AksInputs>) => void
   setVirtualMachines: (s: Partial<VmScenario>) => void
+  setVolumeMode: (mode: VolumeMode) => void
   resetAll: () => void
 }
 
@@ -141,6 +145,7 @@ export const useSurveyorStore = create<SurveyorState>()(
       advanced: DEFAULT_ADVANCED_SETTINGS,
       volumes: [],
       workloads: [],
+      volumeMode: 'generic' as VolumeMode,
       avd: DEFAULT_AVD,
       avdEnabled: false,
       sofs: DEFAULT_SOFS,
@@ -202,12 +207,16 @@ export const useSurveyorStore = create<SurveyorState>()(
       setVirtualMachines: (v) =>
         set((s) => ({ virtualMachines: { ...s.virtualMachines, ...v } })),
 
+      setVolumeMode: (mode) =>
+        set(() => ({ volumeMode: mode })),
+
       resetAll: () =>
         set({
           hardware: DEFAULT_HARDWARE,
           advanced: DEFAULT_ADVANCED_SETTINGS,
           volumes: [],
           workloads: [],
+          volumeMode: 'generic' as VolumeMode,
           avd: DEFAULT_AVD,
           avdEnabled: false,
           sofs: DEFAULT_SOFS,
@@ -220,9 +229,13 @@ export const useSurveyorStore = create<SurveyorState>()(
     }),
     {
       name: 'surveyor-state',
-      version: 2,  // bump when store shape changes
+      version: 3,  // bump when store shape changes
       migrate: (persisted: unknown, version: number) => {
         const state = persisted as Record<string, unknown>
+        if (version < 3) {
+          // v3: add volumeMode
+          if (state.volumeMode === undefined) state.volumeMode = 'generic'
+        }
         if (version < 2) {
           // v2: consolidated infraVms/devTestVms/customVms → virtualMachines,
           //     removed backupArchive, added mabs/mabsEnabled

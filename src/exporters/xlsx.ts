@@ -2,17 +2,17 @@
  * XLSX exporter — SheetJS (#18: richer multi-sheet export).
  * Exports the full plan to a workbook matching the Excel sheet structure.
  * Sheets: Hardware Inputs, Capacity Report, Compute Report, Volume Detail,
- *         Workload Planner, AVD Planning, SOFS Planner, Health Check, Advanced Settings
+ *         Workload Planner, AVD Planning, SOFS Planner, AKS, VMs, MABS,
+ *         Health Check, Advanced Settings
  */
 
 import * as XLSX from 'xlsx'
 import type { SurveyorState } from '../state/store'
 import { computeCapacity, round2 } from '../engine/capacity'
-import { computeVolumeSummary } from '../engine/volumes'
+import { computeVolumeSummary, computeQuickStart } from '../engine/volumes'
 import { computeCompute } from '../engine/compute'
 import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
-import { computeWorkloadSummary } from '../engine/workloads'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
 import { runHealthCheck } from '../engine/healthcheck'
@@ -53,7 +53,27 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   const sofs = computeSofs(state.sofs, state.advanced.overrides)
   const aks = computeAks(state.aks)
   const mabsResult = computeMabs(state.mabs)
-  const workloadSummary = computeWorkloadSummary(state.workloads)
+  const quickStart = computeQuickStart(capacity)
+
+  // Aggregate workload totals
+  let totalVCpus = 0, totalMemoryGB = 0, totalStorageTB = 0
+  if (state.avdEnabled) { totalVCpus += avd.totalVCpus; totalMemoryGB += avd.totalMemoryGB; totalStorageTB += avd.totalStorageTB }
+  if (state.aks.enabled) { totalVCpus += aks.totalVCpus; totalMemoryGB += aks.totalMemoryGB; totalStorageTB += aks.totalStorageTB }
+  if (state.virtualMachines?.enabled) {
+    const vm = state.virtualMachines
+    totalVCpus += (vm.vmCount * vm.vCpusPerVm) / vm.vCpuOvercommitRatio
+    totalMemoryGB += vm.vmCount * vm.memoryPerVmGB
+    totalStorageTB += (vm.vmCount * vm.storagePerVmGB) / 1024
+  }
+  if (state.sofsEnabled) { totalVCpus += sofs.sofsVCpusTotal; totalMemoryGB += sofs.sofsMemoryTotalGB; totalStorageTB += sofs.totalStorageTB }
+  if (state.mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB; totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB }
+
+  const workloadSummary = {
+    totalVCpus: Math.round(totalVCpus),
+    totalMemoryGB: Math.round(totalMemoryGB),
+    totalStorageTB: round2(totalStorageTB),
+  }
+
   const health = runHealthCheck({
     hardware: state.hardware,
     settings: state.advanced,
@@ -89,22 +109,39 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   ), 'Hardware Inputs')
 
   // ── Sheet 2: Capacity Report ──────────────────────────────────────────────
+  const capRows: Row[] = [
+    ['Raw Pool (TB)', capacity.rawPoolTB, 'All capacity drives × drive size'],
+    ['Usable Per Drive (TB)', capacity.usablePerDriveTB, `Drive size × ${state.advanced.capacityEfficiencyFactor} efficiency factor`],
+    ['Total Usable (TB)', capacity.totalUsableTB, 'Usable per drive × drives × nodes'],
+    ['Reserve Drives', capacity.reserveDrives, 'min(nodeCount, 4) — S2D rebuild reserve'],
+    ['Reserve (TB)', capacity.reserveTB, 'Reserve drives × usable per drive'],
+    ['Infra Volume Pool Footprint (TB)', round2(capacity.infraVolumeTB), 'System CSV pool footprint'],
+    ['Available for Volumes (TB)', round2(capacity.availableForVolumesTB), 'Pool space for user volumes'],
+    ['Available for Volumes (TiB)', round2(capacity.availableForVolumesTiB), 'OS-visible value (WAC/PowerShell)'],
+    ['Resiliency Type', capacity.resiliencyType, ''],
+    ['Resiliency Factor', capacity.resiliencyFactor, ''],
+    ['Effective Usable (TB)', round2(capacity.effectiveUsableTB), 'Plan workloads against this number'],
+    ['Volume Utilization (%)', round2(volumeSummary.utilizationPct), `${volumeSummary.totalPlannedTB} TB planned`],
+  ]
+
+  // Quick-start reference
+  if (quickStart.rows.length > 0) {
+    const row = quickStart.rows[0]
+    capRows.push(
+      [],
+      ['--- Quick-Start Reference ---', '', ''],
+      ['Equal Volume Count', row.volumeCount, `1 per node (${row.resiliencyLabel})`],
+      ['Calculator Size (TB)', row.calculatorSizeTB, 'Effective usable ÷ volume count'],
+      ['WAC Size (TiB)', row.wacSizeTiB, 'Binary-unit value for New-Volume -Size'],
+      ['WAC Size (GiB)', row.wacSizeGiB, 'Whole GiB for WAC input'],
+      ['Pool Footprint (TB)', row.poolFootprintTB, 'Total pool space consumed'],
+      ['Fits in Pool', row.fits ? 'YES' : 'NO', `${row.utilizationPct}% utilization`],
+    )
+  }
+
   XLSX.utils.book_append_sheet(wb, makeSheet(
     ['Metric', 'Value', 'Notes'],
-    [
-      ['Raw Pool (TB)', capacity.rawPoolTB, 'All capacity drives × drive size'],
-      ['Usable Per Drive (TB)', capacity.usablePerDriveTB, `Drive size × ${state.advanced.capacityEfficiencyFactor} efficiency factor`],
-      ['Total Usable (TB)', capacity.totalUsableTB, 'Usable per drive × drives × nodes'],
-      ['Reserve Drives', capacity.reserveDrives, 'min(nodeCount, 4) — S2D rebuild reserve'],
-      ['Reserve (TB)', capacity.reserveTB, 'Reserve drives × usable per drive'],
-      ['Infra Volume Pool Footprint (TB)', round2(capacity.infraVolumeTB), 'System CSV pool footprint'],
-      ['Available for Volumes (TB)', round2(capacity.availableForVolumesTB), 'Pool space for user volumes'],
-      ['Available for Volumes (TiB)', round2(capacity.availableForVolumesTiB), 'OS-visible value (WAC/PowerShell)'],
-      ['Resiliency Type', capacity.resiliencyType, ''],
-      ['Resiliency Factor', capacity.resiliencyFactor, ''],
-      ['Effective Usable (TB)', round2(capacity.effectiveUsableTB), 'Plan workloads against this number'],
-      ['Volume Utilization (%)', round2(volumeSummary.utilizationPct), `${volumeSummary.totalPlannedTB} TB planned`],
-    ],
+    capRows,
   ), 'Capacity Report')
 
   // ── Sheet 3: Volume Detail ────────────────────────────────────────────────
@@ -161,71 +198,89 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   if (state.sofsEnabled) wlRows.push(['SOFS Guest Cluster', sofs.sofsVCpusTotal, sofs.sofsMemoryTotalGB, round2(sofs.totalStorageTB), 'Enabled'])
   if (state.mabsEnabled) wlRows.push(['MABS (Azure Backup Server)', mabsResult.mabsVCpus, mabsResult.mabsMemoryGB, round2(mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB), 'Enabled'])
 
+  if (wlRows.length > 0) {
+    wlRows.push([])
+    wlRows.push(['TOTAL', workloadSummary.totalVCpus, workloadSummary.totalMemoryGB, workloadSummary.totalStorageTB, ''])
+  }
+
   XLSX.utils.book_append_sheet(wb, makeSheet(
     ['Scenario', 'vCPUs', 'Memory (GB)', 'Storage (TB)', 'Status'],
     wlRows.length > 0 ? wlRows : [['No scenarios enabled', null, null, null, null]],
   ), 'Workload Planner')
 
   // ── Sheet 6: AVD Planning ─────────────────────────────────────────────────
-  XLSX.utils.book_append_sheet(wb, makeSheet(
-    ['Parameter', 'Value'],
-    [
-      ['Total Users', state.avd.totalUsers],
-      ['Concurrent Users (sizing)', state.avd.concurrentUsers || 'Use total users'],
-      ['Workload Type', state.avd.workloadType],
-      ['Multi-Session', state.avd.multiSession ? 'Yes' : 'No (single-session VDI)'],
-      ['Profile Size (GB)', state.avd.profileSizeGB],
-      ['Growth Buffer (%)', state.avd.growthBufferPct],
-      ['Office Container Enabled', state.avd.officeContainerEnabled ? 'Yes' : 'No'],
-      ['Office Container Size (GB)', state.avd.officeContainerSizeGB],
-      ['Data Disk Per Host (GB)', state.avd.dataDiskPerHostGB || 'None'],
-      ['Profile Storage Location', state.avd.profileStorageLocation],
-      [],
-      ['--- Results ---', ''],
-      ['Users Per Session Host', avd.usersPerHost],
-      ['Session Host Count', avd.sessionHostCount],
-      ['vCPUs Per Host', avd.vCpusPerHost],
-      ['Memory Per Host (GB)', avd.memoryPerHostGB],
-      ['Total vCPUs', avd.totalVCpus],
-      ['Total Memory (GB)', avd.totalMemoryGB],
-      ['Effective Profile Size (GB)', avd.effectiveProfileSizeGB],
-      ['OS Disk Storage (TB)', avd.totalOsStorageTB],
-      ['Profile Storage with Growth (TB)', avd.profileStorageWithGrowthTB],
-      ['Office Container Storage (TB)', avd.totalOfficeContainerStorageTB],
-      ['Data Disk Storage (TB)', avd.totalDataDiskStorageTB],
-      ['Total AVD Storage (TB)', avd.totalStorageTB],
-      ['Bandwidth Per User (Mbps)', avd.bandwidthPerUserMbps],
-      ['Total Bandwidth (Mbps)', avd.totalBandwidthMbps],
-    ],
-  ), 'AVD Planning')
+  if (state.avdEnabled) {
+    XLSX.utils.book_append_sheet(wb, makeSheet(
+      ['Parameter', 'Value'],
+      [
+        ['Total Users', state.avd.totalUsers],
+        ['Concurrent Users (sizing)', state.avd.concurrentUsers || 'Use total users'],
+        ['Workload Type', state.avd.workloadType],
+        ['Multi-Session', state.avd.multiSession ? 'Yes' : 'No (single-session VDI)'],
+        ['Profile Size (GB)', state.avd.profileSizeGB],
+        ['User Type Mix Enabled', state.avd.userTypeMixEnabled ? 'Yes' : 'No'],
+        ['Growth Buffer (%)', state.avd.growthBufferPct],
+        ['Office Container Enabled', state.avd.officeContainerEnabled ? 'Yes' : 'No'],
+        ['Office Container Size (GB)', state.avd.officeContainerSizeGB],
+        ['Data Disk Per Host (GB)', state.avd.dataDiskPerHostGB || 'None'],
+        ['Profile Storage Location', state.avd.profileStorageLocation],
+        [],
+        ['--- Results ---', ''],
+        ['Users Per Session Host', avd.usersPerHost],
+        ['Session Host Count', avd.sessionHostCount],
+        ['Sizing Users', avd.sizingUsers],
+        ['vCPUs Per Host', avd.vCpusPerHost],
+        ['Memory Per Host (GB)', avd.memoryPerHostGB],
+        ['Limiting Factor', avd.limitingFactor],
+        ['CPU-Limited Users/Host', avd.cpuLimitedUsersPerHost],
+        ['RAM-Limited Users/Host', avd.ramLimitedUsersPerHost],
+        ['Effective Profile Size (GB)', avd.effectiveProfileSizeGB],
+        ['Total vCPUs', avd.totalVCpus],
+        ['Total Memory (GB)', avd.totalMemoryGB],
+        ['OS Disk Storage (TB)', avd.totalOsStorageTB],
+        ['Data Disk Storage (TB)', avd.totalDataDiskStorageTB],
+        ['Profile Storage (TB)', avd.totalProfileStorageTB],
+        ['Profile Storage with Growth (TB)', avd.profileStorageWithGrowthTB],
+        ['Office Container Storage (TB)', avd.totalOfficeContainerStorageTB],
+        ['Total AVD Storage (TB)', avd.totalStorageTB],
+        ['Bandwidth Per User (Mbps)', avd.bandwidthPerUserMbps],
+        ['Total Bandwidth (Mbps)', avd.totalBandwidthMbps],
+      ],
+    ), 'AVD Planning')
+  }
 
   // ── Sheet 7: SOFS Planner ─────────────────────────────────────────────────
-  XLSX.utils.book_append_sheet(wb, makeSheet(
-    ['Parameter', 'Value'],
-    [
-      ['User Count', state.sofs.userCount],
-      ['Concurrent Users', state.sofs.concurrentUsers || 'Use total users'],
-      ['Profile Size (GB)', state.sofs.profileSizeGB],
-      ['Redirected Folder Size (GB)', state.sofs.redirectedFolderSizeGB],
-      ['Container Type', state.sofs.containerType],
-      ['Internal Mirror Type', state.sofs.internalMirror],
-      ['SOFS Guest VM Count', state.sofs.sofsGuestVmCount],
-      ['vCPUs / SOFS VM', state.sofs.sofsVCpusPerVm],
-      ['Memory / SOFS VM (GB)', state.sofs.sofsMemoryPerVmGB],
-      [],
-      ['--- Results ---', ''],
-      ['Total Profile Storage (TB)', sofs.totalProfileStorageTB],
-      ['Total Redirected Storage (TB)', sofs.totalRedirectedStorageTB],
-      ['Total Logical Storage (TB)', sofs.totalStorageTB],
-      ['Internal Mirror Factor', `${sofs.internalMirrorFactor}×`],
-      ['Internal Footprint (TB)', sofs.internalFootprintTB],
-      ['Total SOFS vCPUs', sofs.sofsVCpusTotal],
-      ['Total SOFS Memory (GB)', sofs.sofsMemoryTotalGB],
-      ['Steady-State IOPS', sofs.totalSteadyStateIops],
-      ['Login Storm IOPS (peak)', sofs.totalLoginStormIops],
-      ['Auto-Size Drive Size (TB)', sofs.autoSizeDriveSizeTB || 'Disabled'],
-    ],
-  ), 'SOFS Planner')
+  if (state.sofsEnabled) {
+    XLSX.utils.book_append_sheet(wb, makeSheet(
+      ['Parameter', 'Value'],
+      [
+        ['User Count', state.sofs.userCount],
+        ['Concurrent Users', state.sofs.concurrentUsers || 'Use total users'],
+        ['Profile Size (GB)', state.sofs.profileSizeGB],
+        ['Redirected Folder Size (GB)', state.sofs.redirectedFolderSizeGB],
+        ['Container Type', state.sofs.containerType],
+        ['Internal Mirror Type', state.sofs.internalMirror],
+        ['SOFS Guest VM Count', state.sofs.sofsGuestVmCount],
+        ['vCPUs / SOFS VM', state.sofs.sofsVCpusPerVm],
+        ['Memory / SOFS VM (GB)', state.sofs.sofsMemoryPerVmGB],
+        ['Auto-Size Drives/Node', state.sofs.autoSizeDrivesPerNode || 'Disabled'],
+        [],
+        ['--- Results ---', ''],
+        ['Total Profile Storage (TB)', sofs.totalProfileStorageTB],
+        ['Total Redirected Storage (TB)', sofs.totalRedirectedStorageTB],
+        ['Total Logical Storage (TB)', sofs.totalStorageTB],
+        ['Internal Mirror Factor', `${sofs.internalMirrorFactor}×`],
+        ['Internal Footprint (TB)', sofs.internalFootprintTB],
+        ['Total SOFS vCPUs', sofs.sofsVCpusTotal],
+        ['Total SOFS Memory (GB)', sofs.sofsMemoryTotalGB],
+        ['Steady-State IOPS / User', sofs.steadyStateIopsPerUser],
+        ['Login Storm IOPS / User', sofs.loginStormIopsPerUser],
+        ['Total Steady-State IOPS', sofs.totalSteadyStateIops],
+        ['Total Login Storm IOPS (peak)', sofs.totalLoginStormIops],
+        ['Auto-Size Drive Size (TB)', sofs.autoSizeDriveSizeTB || 'Disabled'],
+      ],
+    ), 'SOFS Planner')
+  }
 
   // ── Sheet 8: AKS ─────────────────────────────────────────────────────────
   if (state.aks.enabled) {
@@ -240,30 +295,123 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
         ['OS Disk / Node (GB)', state.aks.osDiskPerNodeGB],
         ['Persistent Volumes (TB)', state.aks.persistentVolumesTB],
         ['Data Services (TB)', state.aks.dataServicesTB],
+        ['Resiliency', state.aks.resiliency],
         [],
         ['--- Results ---', ''],
         ['Total Nodes', aks.totalNodes],
+        ['Control Plane vCPUs', aks.totalControlPlaneVCpus],
+        ['Worker vCPUs', aks.totalWorkerVCpus],
         ['Total vCPUs', aks.totalVCpus],
+        ['Control Plane Memory (GB)', aks.totalControlPlaneMemoryGB],
+        ['Worker Memory (GB)', aks.totalWorkerMemoryGB],
         ['Total Memory (GB)', aks.totalMemoryGB],
+        ['OS Disk (TB)', round2(aks.osDiskTB)],
         ['Total Storage (TB)', round2(aks.totalStorageTB)],
       ],
     ), 'AKS')
   }
 
-  // ── Sheet 9: Health Check ─────────────────────────────────────────────────
+  // ── Sheet 9: Virtual Machines ─────────────────────────────────────────────
+  if (state.virtualMachines?.enabled) {
+    const vm = state.virtualMachines
+    const effectiveVCpus = Math.round((vm.vmCount * vm.vCpusPerVm) / vm.vCpuOvercommitRatio)
+    XLSX.utils.book_append_sheet(wb, makeSheet(
+      ['Parameter', 'Value'],
+      [
+        ['VM Count', vm.vmCount],
+        ['vCPUs / VM', vm.vCpusPerVm],
+        ['Memory / VM (GB)', vm.memoryPerVmGB],
+        ['Storage / VM (GB)', vm.storagePerVmGB],
+        ['Resiliency', vm.resiliency],
+        ['vCPU Overcommit Ratio', `${vm.vCpuOvercommitRatio}:1`],
+        [],
+        ['--- Results ---', ''],
+        ['Raw vCPU Demand', vm.vmCount * vm.vCpusPerVm],
+        ['Effective vCPUs (after overcommit)', effectiveVCpus],
+        ['Total Memory (GB)', vm.vmCount * vm.memoryPerVmGB],
+        ['Total Storage (TB)', round2((vm.vmCount * vm.storagePerVmGB) / 1024)],
+      ],
+    ), 'Virtual Machines')
+  }
+
+  // ── Sheet 10: MABS ────────────────────────────────────────────────────────
+  if (state.mabsEnabled) {
+    XLSX.utils.book_append_sheet(wb, makeSheet(
+      ['Parameter', 'Value'],
+      [
+        ['Protected Data (TB)', state.mabs.protectedDataTB],
+        ['Daily Change Rate (%)', state.mabs.dailyChangeRatePct],
+        ['On-Prem Retention (days)', state.mabs.onPremRetentionDays],
+        ['Scratch Cache (%)', state.mabs.scratchCachePct],
+        ['MABS VM vCPUs', state.mabs.mabsVCpus],
+        ['MABS VM Memory (GB)', state.mabs.mabsMemoryGB],
+        ['MABS VM OS Disk (GB)', state.mabs.mabsOsDiskGB],
+        ['Resiliency', state.mabs.resiliency],
+        ['Internal Mirror', state.mabs.internalMirror],
+        [],
+        ['--- Results ---', ''],
+        ['Scratch Volume (TB)', mabsResult.scratchVolumeTB],
+        ['Backup Data Volume (TB)', mabsResult.backupDataVolumeTB],
+        ['Total Logical Storage (TB)', mabsResult.totalStorageTB],
+        ['Internal Mirror Factor', `${mabsResult.internalMirrorFactor}×`],
+        ['Internal Footprint (TB)', mabsResult.internalFootprintTB],
+        ['MABS VM vCPUs', mabsResult.mabsVCpus],
+        ['MABS VM Memory (GB)', mabsResult.mabsMemoryGB],
+        ['MABS VM OS Disk (TB)', mabsResult.mabsOsDiskTB],
+      ],
+    ), 'MABS')
+  }
+
+  // ── Sheet 11: Health Check ────────────────────────────────────────────────
+  const healthRows: Row[] = []
+
+  // Summary row
+  healthRows.push([
+    health.passed ? 'PASSED' : 'FAILED',
+    '',
+    '',
+    `${health.errorCount} errors, ${health.warningCount} warnings, ${health.infoCount} info`,
+  ])
+  healthRows.push([])
+
+  // Per-volume detail
+  if (health.volumeDetails.length > 0) {
+    healthRows.push(['--- Volume Validation ---', '', '', ''])
+    for (const vd of health.volumeDetails) {
+      healthRows.push([
+        vd.status === 'pass' ? 'PASS' : 'FAIL',
+        vd.name,
+        vd.resiliency,
+        vd.failReason ?? `${vd.poolFootprintTB} TB pool footprint`,
+      ])
+    }
+    healthRows.push([])
+  }
+
+  // Issues
+  if (health.issues.length > 0) {
+    healthRows.push(['--- Issues ---', '', '', ''])
+    for (const i of health.issues) {
+      healthRows.push([
+        i.severity === 'error' ? 'FAIL' : i.severity === 'warning' ? 'WARN' : 'INFO',
+        i.code,
+        i.severity.toUpperCase(),
+        i.message,
+      ])
+    }
+  } else {
+    healthRows.push(['PASS', '', '', 'All health checks passed — no issues found.'])
+  }
+
+  healthRows.push([])
+  healthRows.push(['Pool Utilization (%)', health.utilizationPct, `${round2(health.totalPoolFootprintTB)} TB of ${round2(health.availablePoolTB)} TB`, ''])
+
   XLSX.utils.book_append_sheet(wb, makeSheet(
-    ['Status', 'Code', 'Severity', 'Message'],
-    health.issues.length > 0
-      ? health.issues.map((i) => [
-          i.severity === 'error' ? 'FAIL' : i.severity === 'warning' ? 'WARN' : 'INFO',
-          i.code,
-          i.severity.toUpperCase(),
-          i.message,
-        ])
-      : [['PASS', '', '', 'All health checks passed — no issues found.']],
+    ['Status', 'Code / Name', 'Severity / Resiliency', 'Message / Detail'],
+    healthRows,
   ), 'Health Check')
 
-  // ── Sheet 10: Advanced Settings ───────────────────────────────────────────
+  // ── Sheet 12: Advanced Settings ───────────────────────────────────────────
   const overrides = state.advanced.overrides ?? {}
   XLSX.utils.book_append_sheet(wb, makeSheet(
     ['Setting', 'Value', 'Default', 'Notes'],

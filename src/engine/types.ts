@@ -332,17 +332,38 @@ export interface HealthIssue {
   message: string
 }
 
+export interface VolumeHealthDetail {
+  name: string
+  resiliency: ResiliencyType
+  plannedSizeTiB: number
+  poolFootprintTB: number
+  status: 'pass' | 'fail'
+  failReason?: string
+}
+
 export interface HealthCheckResult {
   passed: boolean                // true only when zero errors
   issues: HealthIssue[]
+  // #77: expanded detail
+  volumeDetails: VolumeHealthDetail[]
+  totalPoolFootprintTB: number
+  availablePoolTB: number
+  utilizationPct: number
+  errorCount: number
+  warningCount: number
+  infoCount: number
 }
 
 // ─── OEM Preset ───────────────────────────────────────────────────────────────
+
+export type OemCatalogType = 'integrated' | 'premier' | 'validated-node'
 
 export interface OemPreset {
   id: string
   vendor: string
   model: string
+  catalogType: OemCatalogType    // certification level in Azure Local solutions catalog
+  generation?: string            // hardware generation (e.g. "Gen11", "V4")
   nodeCount?: number             // if preset is for a fixed-node appliance
   coresPerNode: number
   memoryPerNodeGB: number

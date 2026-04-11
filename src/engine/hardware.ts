@@ -102,8 +102,19 @@ export function validateHardwareInputs(inputs: HardwareInputs): HealthCheckResul
     })
   }
 
+  const errorCount = issues.filter((i) => i.severity === 'error').length
+  const warningCount = issues.filter((i) => i.severity === 'warning').length
+  const infoCount = issues.filter((i) => i.severity === 'info').length
+
   return {
-    passed: issues.filter((i) => i.severity === 'error').length === 0,
+    passed: errorCount === 0,
     issues,
+    volumeDetails: [],
+    totalPoolFootprintTB: 0,
+    availablePoolTB: 0,
+    utilizationPct: 0,
+    errorCount,
+    warningCount,
+    infoCount,
   }
 }

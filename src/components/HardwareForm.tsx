@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useSurveyorStore } from '../state/store'
-import { ALL_PRESETS } from '../engine/presets/index'
+import { ALL_PRESETS, presetsByVendor } from '../engine/presets/index'
+import type { OemCatalogType } from '../engine/types'
 
 /** Parse numeric input — returns current value if input is empty or NaN. */
 function num(e: React.ChangeEvent<HTMLInputElement>, current: number): number {
@@ -38,8 +39,15 @@ function cacheSizesFor(media: string): number[] {
   }
 }
 
+const CATALOG_LABEL: Record<OemCatalogType, string> = {
+  'integrated': 'Integrated',
+  'premier': 'Premier',
+  'validated-node': 'Validated Node',
+}
+
 export default function HardwareForm() {
   const { hardware, setHardware } = useSurveyorStore()
+  const grouped = presetsByVendor()
 
   // Track whether the user is in "custom" entry mode for drive sizes
   const capacitySizes = driveSizesFor(hardware.capacityMediaType)
@@ -95,10 +103,24 @@ export default function HardwareForm() {
           }}
         >
           <option value="">— select a preset —</option>
-          {ALL_PRESETS.map((p) => (
-            <option key={p.id} value={p.id}>{p.vendor} {p.model}</option>
+          {[...grouped.entries()].map(([vendor, presets]) => (
+            <optgroup key={vendor} label={vendor}>
+              {presets.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.model}{p.generation ? ` (${p.generation})` : ''} — {CATALOG_LABEL[p.catalogType]}
+                </option>
+              ))}
+            </optgroup>
           ))}
         </select>
+        <p className="text-xs text-gray-400 mt-1">
+          Presets populate drive, CPU, and RAM fields. Verify specs against the{' '}
+          <a href="https://azurelocalsolutions.azure.microsoft.com/#/catalog"
+            target="_blank" rel="noopener noreferrer"
+            className="text-brand-600 dark:text-brand-400 underline hover:no-underline">
+            Azure Local Solutions Catalog
+          </a>.
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">

@@ -7,8 +7,10 @@ import type {
   WorkloadSummaryResult,
   HealthCheckResult,
   HealthIssue,
+  VolumeHealthDetail,
   ResiliencyType,
 } from './types'
+import { getResiliencyFactor } from './capacity'
 
 /**
  * Validate the full planned configuration and return all health issues.
@@ -223,9 +225,41 @@ export function runHealthCheck(params: {
     })
   }
 
+  // #77: compute per-volume health details
+  const TB_TO_TiB = 1e12 / Math.pow(1024, 4)
+  const volumeDetails: VolumeHealthDetail[] = volumes.map((v) => {
+    const factor = getResiliencyFactor(v.resiliency, hardware.nodeCount)
+    const plannedSizeTiB = Math.round(v.plannedSizeTB * TB_TO_TiB * 100) / 100
+    const poolFootprintTB = Math.round((v.plannedSizeTB / factor) * 100) / 100
+    let status: 'pass' | 'fail' = 'pass'
+    let failReason: string | undefined
+    if (v.plannedSizeTB > 64) {
+      status = 'fail'
+      failReason = 'Exceeds 64 TB S2D limit'
+    } else if (!isResiliencyAllowed(v.resiliency, hardware.nodeCount)) {
+      status = 'fail'
+      failReason = `${formatResiliency(v.resiliency)} requires ${minNodesForResiliency(v.resiliency)}+ nodes`
+    }
+    return { name: v.name, resiliency: v.resiliency, plannedSizeTiB, poolFootprintTB, status, failReason }
+  })
+
+  const totalPoolFootprintTB = Math.round(volumeDetails.reduce((s, v) => s + v.poolFootprintTB, 0) * 100) / 100
+  const availablePoolTB = capacity.availableForVolumesTB
+
+  const errorCount = issues.filter((i) => i.severity === 'error').length
+  const warningCount = issues.filter((i) => i.severity === 'warning').length
+  const infoCount = issues.filter((i) => i.severity === 'info').length
+
   return {
-    passed: issues.filter((i) => i.severity === 'error').length === 0,
+    passed: errorCount === 0,
     issues,
+    volumeDetails,
+    totalPoolFootprintTB,
+    availablePoolTB,
+    utilizationPct: Math.round(utilizationPct * 10) / 10,
+    errorCount,
+    warningCount,
+    infoCount,
   }
 }
 
