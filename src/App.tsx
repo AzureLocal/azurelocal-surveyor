@@ -10,6 +10,7 @@ import ReferencesPage from './pages/ReferencesPage'
 import DocsPage from './pages/DocsPage'
 import AksPage from './pages/AksPage'
 import DriveLayoutPage from './pages/DriveLayoutPage'
+import MabsPage from './pages/MabsPage'
 import Layout from './components/Layout'
 
 export default function App() {
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/aks" element={<AksPage />} />
         <Route path="/volumes" element={<VolumesPage />} />
         <Route path="/drive-layout" element={<DriveLayoutPage />} />
+        <Route path="/mabs" element={<MabsPage />} />
         <Route path="/reports" element={<ReportsPage />} />
         <Route path="/thin-provisioning" element={<ThinProvisioningPage />} />
         <Route path="/references" element={<ReferencesPage />} />

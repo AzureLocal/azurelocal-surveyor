@@ -2,13 +2,13 @@ import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   Server, Cpu, Monitor, HardDrive, BarChart3,
-  Settings, BookOpen, Link2, FileText, Container, X, Layers,
+  Settings, BookOpen, Link2, FileText, Container, X, Layers, ShieldCheck,
 } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
 import AdvancedSettings from './AdvancedSettings'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const { avdEnabled, sofsEnabled, aks } = useSurveyorStore()
+  const { avdEnabled, sofsEnabled, mabsEnabled, aks } = useSurveyorStore()
   const [advancedOpen, setAdvancedOpen] = useState(false)
 
   return (
@@ -39,6 +39,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {avdEnabled   && <NavItem to="/avd"  label="AVD"  icon={Monitor}    />}
           {sofsEnabled  && <NavItem to="/sofs" label="SOFS" icon={HardDrive}  />}
           {aks.enabled  && <NavItem to="/aks"  label="AKS"  icon={Container}  />}
+          {mabsEnabled  && <NavItem to="/mabs" label="MABS" icon={ShieldCheck} />}
           <NavItem to="/volumes" label="Volumes" icon={HardDrive} />
           <NavItem to="/drive-layout" label="Drive Layout" icon={Layers} />
           <NavItem to="/reports" label="Reports" icon={BarChart3} />

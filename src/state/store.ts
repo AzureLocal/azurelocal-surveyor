@@ -9,7 +9,7 @@ import type {
   SofsInputs,
   AksInputs,
   VmScenario,
-  BackupArchiveScenario,
+  MabsInputs,
 } from '../engine/types'
 import { DEFAULT_ADVANCED_SETTINGS } from '../engine/types'
 
@@ -23,12 +23,11 @@ export interface SurveyorState {
   avdEnabled: boolean
   sofs: SofsInputs
   sofsEnabled: boolean
+  mabs: MabsInputs
+  mabsEnabled: boolean
   // Workload scenarios
   aks: AksInputs
-  infraVms: VmScenario
-  devTestVms: VmScenario
-  backupArchive: BackupArchiveScenario
-  customVms: VmScenario
+  virtualMachines: VmScenario
 
   // Actions
   setHardware: (hw: Partial<HardwareInputs>) => void
@@ -43,11 +42,10 @@ export interface SurveyorState {
   setAvdEnabled: (enabled: boolean) => void
   setSofs: (s: Partial<SofsInputs>) => void
   setSofsEnabled: (enabled: boolean) => void
+  setMabs: (m: Partial<MabsInputs>) => void
+  setMabsEnabled: (enabled: boolean) => void
   setAks: (a: Partial<AksInputs>) => void
-  setInfraVms: (s: Partial<VmScenario>) => void
-  setDevTestVms: (s: Partial<VmScenario>) => void
-  setBackupArchive: (s: Partial<BackupArchiveScenario>) => void
-  setCustomVms: (s: Partial<VmScenario>) => void
+  setVirtualMachines: (s: Partial<VmScenario>) => void
   resetAll: () => void
 }
 
@@ -113,40 +111,25 @@ const DEFAULT_AKS: AksInputs = {
   resiliency: 'three-way-mirror',
 }
 
-const DEFAULT_INFRA_VMS: VmScenario = {
-  enabled: false,
-  vmCount: 4,
-  vCpusPerVm: 4,
-  memoryPerVmGB: 16,
-  storagePerVmGB: 500,
-  resiliency: 'three-way-mirror',
-  vCpuOvercommitRatio: 1,
-}
-
-const DEFAULT_DEV_TEST_VMS: VmScenario = {
-  enabled: false,
-  vmCount: 10,
-  vCpusPerVm: 4,
-  memoryPerVmGB: 8,
-  storagePerVmGB: 100,
-  resiliency: 'two-way-mirror',
-  vCpuOvercommitRatio: 2,
-}
-
-const DEFAULT_BACKUP_ARCHIVE: BackupArchiveScenario = {
-  enabled: false,
-  storageTB: 5,
-  resiliency: 'two-way-mirror',
-}
-
-const DEFAULT_CUSTOM_VMS: VmScenario = {
+const DEFAULT_VIRTUAL_MACHINES: VmScenario = {
   enabled: false,
   vmCount: 5,
-  vCpusPerVm: 8,
-  memoryPerVmGB: 32,
+  vCpusPerVm: 4,
+  memoryPerVmGB: 16,
   storagePerVmGB: 200,
   resiliency: 'three-way-mirror',
   vCpuOvercommitRatio: 1,
+}
+
+const DEFAULT_MABS: MabsInputs = {
+  protectedDataTB: 10,
+  dailyChangeRatePct: 10,
+  onPremRetentionDays: 14,
+  scratchCachePct: 15,
+  mabsVCpus: 8,
+  mabsMemoryGB: 32,
+  mabsOsDiskGB: 200,
+  resiliency: 'dual-parity',
 }
 
 export const useSurveyorStore = create<SurveyorState>()(
@@ -160,11 +143,10 @@ export const useSurveyorStore = create<SurveyorState>()(
       avdEnabled: false,
       sofs: DEFAULT_SOFS,
       sofsEnabled: false,
+      mabs: DEFAULT_MABS,
+      mabsEnabled: false,
       aks: DEFAULT_AKS,
-      infraVms: DEFAULT_INFRA_VMS,
-      devTestVms: DEFAULT_DEV_TEST_VMS,
-      backupArchive: DEFAULT_BACKUP_ARCHIVE,
-      customVms: DEFAULT_CUSTOM_VMS,
+      virtualMachines: DEFAULT_VIRTUAL_MACHINES,
 
       setHardware: (hw) =>
         set((s) => ({ hardware: { ...s.hardware, ...hw } })),
@@ -206,20 +188,17 @@ export const useSurveyorStore = create<SurveyorState>()(
       setSofsEnabled: (enabled) =>
         set(() => ({ sofsEnabled: enabled })),
 
+      setMabs: (m) =>
+        set((s) => ({ mabs: { ...s.mabs, ...m } })),
+
+      setMabsEnabled: (enabled) =>
+        set(() => ({ mabsEnabled: enabled })),
+
       setAks: (a) =>
         set((s) => ({ aks: { ...s.aks, ...a } })),
 
-      setInfraVms: (v) =>
-        set((s) => ({ infraVms: { ...s.infraVms, ...v } })),
-
-      setDevTestVms: (v) =>
-        set((s) => ({ devTestVms: { ...s.devTestVms, ...v } })),
-
-      setBackupArchive: (v) =>
-        set((s) => ({ backupArchive: { ...s.backupArchive, ...v } })),
-
-      setCustomVms: (v) =>
-        set((s) => ({ customVms: { ...s.customVms, ...v } })),
+      setVirtualMachines: (v) =>
+        set((s) => ({ virtualMachines: { ...s.virtualMachines, ...v } })),
 
       resetAll: () =>
         set({
@@ -231,11 +210,10 @@ export const useSurveyorStore = create<SurveyorState>()(
           avdEnabled: false,
           sofs: DEFAULT_SOFS,
           sofsEnabled: false,
+          mabs: DEFAULT_MABS,
+          mabsEnabled: false,
           aks: DEFAULT_AKS,
-          infraVms: DEFAULT_INFRA_VMS,
-          devTestVms: DEFAULT_DEV_TEST_VMS,
-          backupArchive: DEFAULT_BACKUP_ARCHIVE,
-          customVms: DEFAULT_CUSTOM_VMS,
+          virtualMachines: DEFAULT_VIRTUAL_MACHINES,
         }),
     }),
     { name: 'surveyor-state' }  // persisted to localStorage

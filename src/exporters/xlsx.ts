@@ -14,6 +14,7 @@ import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
 import { computeWorkloadSummary } from '../engine/workloads'
 import { computeAks } from '../engine/aks'
+import { computeMabs } from '../engine/mabs'
 import { runHealthCheck } from '../engine/healthcheck'
 
 type Row = (string | number | boolean | null)[]
@@ -44,13 +45,14 @@ function makeSheet(header: string[], rows: Row[]): XLSX.WorkSheet {
   return ws
 }
 
-export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'workloads' | 'avd' | 'sofs' | 'aks' | 'infraVms' | 'devTestVms' | 'backupArchive' | 'customVms' | 'avdEnabled' | 'sofsEnabled'>): void {
+export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'workloads' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled'>): void {
   const capacity = computeCapacity(state.hardware, state.advanced)
   const volumeSummary = computeVolumeSummary(state.volumes, capacity)
   const compute = computeCompute(state.hardware, state.advanced)
   const avd = computeAvd(state.avd, state.advanced.overrides)
   const sofs = computeSofs(state.sofs, state.advanced.overrides)
   const aks = computeAks(state.aks)
+  const mabsResult = computeMabs(state.mabs)
   const workloadSummary = computeWorkloadSummary(state.workloads)
   const health = runHealthCheck({
     hardware: state.hardware,
@@ -146,29 +148,18 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   const wlRows: Row[] = []
   if (state.avdEnabled) wlRows.push(['AVD (Azure Virtual Desktop)', avd.totalVCpus, avd.totalMemoryGB, round2(avd.totalStorageTB), 'Enabled'])
   if (state.aks.enabled) wlRows.push(['AKS on Azure Local', aks.totalVCpus, aks.totalMemoryGB, round2(aks.totalStorageTB), 'Enabled'])
-  if (state.infraVms.enabled) wlRows.push([
-    'Infrastructure VMs',
-    Math.round((state.infraVms.vmCount * state.infraVms.vCpusPerVm) / state.infraVms.vCpuOvercommitRatio),
-    state.infraVms.vmCount * state.infraVms.memoryPerVmGB,
-    round2((state.infraVms.vmCount * state.infraVms.storagePerVmGB) / 1024),
-    'Enabled',
-  ])
-  if (state.devTestVms.enabled) wlRows.push([
-    'Dev/Test VMs',
-    Math.round((state.devTestVms.vmCount * state.devTestVms.vCpusPerVm) / state.devTestVms.vCpuOvercommitRatio),
-    state.devTestVms.vmCount * state.devTestVms.memoryPerVmGB,
-    round2((state.devTestVms.vmCount * state.devTestVms.storagePerVmGB) / 1024),
-    'Enabled',
-  ])
-  if (state.backupArchive.enabled) wlRows.push(['Backup / Archive', 0, 0, round2(state.backupArchive.storageTB), 'Enabled'])
-  if (state.customVms.enabled) wlRows.push([
-    'Custom VMs',
-    Math.round((state.customVms.vmCount * state.customVms.vCpusPerVm) / state.customVms.vCpuOvercommitRatio),
-    state.customVms.vmCount * state.customVms.memoryPerVmGB,
-    round2((state.customVms.vmCount * state.customVms.storagePerVmGB) / 1024),
-    'Enabled',
-  ])
+  if (state.virtualMachines?.enabled) {
+    const vm = state.virtualMachines
+    wlRows.push([
+      'Virtual Machines',
+      Math.round((vm.vmCount * vm.vCpusPerVm) / vm.vCpuOvercommitRatio),
+      vm.vmCount * vm.memoryPerVmGB,
+      round2((vm.vmCount * vm.storagePerVmGB) / 1024),
+      'Enabled',
+    ])
+  }
   if (state.sofsEnabled) wlRows.push(['SOFS Guest Cluster', sofs.sofsVCpusTotal, sofs.sofsMemoryTotalGB, round2(sofs.totalStorageTB), 'Enabled'])
+  if (state.mabsEnabled) wlRows.push(['MABS (Azure Backup Server)', mabsResult.mabsVCpus, mabsResult.mabsMemoryGB, round2(mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB), 'Enabled'])
 
   XLSX.utils.book_append_sheet(wb, makeSheet(
     ['Scenario', 'vCPUs', 'Memory (GB)', 'Storage (TB)', 'Status'],

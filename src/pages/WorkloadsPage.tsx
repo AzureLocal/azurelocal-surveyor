@@ -3,23 +3,29 @@ import { useSurveyorStore } from '../state/store'
 import { computeCompute } from '../engine/compute'
 import { computeAvd } from '../engine/avd'
 import { computeAks } from '../engine/aks'
+import { computeSofs } from '../engine/sofs'
+import { computeMabs } from '../engine/mabs'
 import ComputeReport from '../components/ComputeReport'
 
 export default function WorkloadsPage() {
-  const { hardware, advanced, avd, avdEnabled, aks, infraVms, devTestVms, customVms } = useSurveyorStore()
+  const { hardware, advanced, avd, avdEnabled, aks, virtualMachines, sofs, sofsEnabled, mabs, mabsEnabled } = useSurveyorStore()
   const compute = computeCompute(hardware, advanced)
   const avdResult = computeAvd(avd, advanced.overrides)
   const aksResult = computeAks(aks)
+  const sofsResult = computeSofs(sofs, advanced.overrides)
+  const mabsResult = computeMabs(mabs)
 
   // Aggregate enabled scenarios for utilization bars
   let totalVCpus = 0
   let totalMemoryGB = 0
   if (avdEnabled) { totalVCpus += avdResult.totalVCpus; totalMemoryGB += avdResult.totalMemoryGB }
   if (aks.enabled) { totalVCpus += aksResult.totalVCpus; totalMemoryGB += aksResult.totalMemoryGB }
-  if (infraVms.enabled) { totalVCpus += (infraVms.vmCount * infraVms.vCpusPerVm) / infraVms.vCpuOvercommitRatio; totalMemoryGB += infraVms.vmCount * infraVms.memoryPerVmGB }
-  if (devTestVms.enabled) { totalVCpus += (devTestVms.vmCount * devTestVms.vCpusPerVm) / devTestVms.vCpuOvercommitRatio; totalMemoryGB += devTestVms.vmCount * devTestVms.memoryPerVmGB }
-  if (customVms.enabled) { totalVCpus += (customVms.vmCount * customVms.vCpusPerVm) / customVms.vCpuOvercommitRatio; totalMemoryGB += customVms.vmCount * customVms.memoryPerVmGB }
-  // backupArchive is storage-only
+  if (virtualMachines?.enabled) {
+    totalVCpus += (virtualMachines.vmCount * virtualMachines.vCpusPerVm) / virtualMachines.vCpuOvercommitRatio
+    totalMemoryGB += virtualMachines.vmCount * virtualMachines.memoryPerVmGB
+  }
+  if (sofsEnabled) { totalVCpus += sofsResult.sofsVCpusTotal; totalMemoryGB += sofsResult.sofsMemoryTotalGB }
+  if (mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB }
 
   const vcpuUsedPct = compute.usableVCpus > 0
     ? Math.round((totalVCpus / compute.usableVCpus) * 100)

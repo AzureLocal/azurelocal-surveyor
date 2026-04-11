@@ -15,6 +15,7 @@ import { computeCompute } from '../engine/compute'
 import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
+import { computeMabs } from '../engine/mabs'
 
 type Tab = 'capacity' | 'compute' | 'final'
 
@@ -35,16 +36,20 @@ export default function ReportsPage() {
   const avd = computeAvd(state.avd, state.advanced.overrides)
   const sofs = computeSofs(state.sofs, state.advanced.overrides)
   const aks = computeAks(state.aks)
+  const mabsResult = computeMabs(state.mabs)
 
-  // Aggregate workload totals (same pattern as FinalReport/VolumesPage)
+  // Aggregate workload totals (same pattern as VolumesPage)
   let totalVCpus = 0, totalMemoryGB = 0, totalStorageTB = 0
-  if (state.avdEnabled)            { totalVCpus += avd.totalVCpus;   totalMemoryGB += avd.totalMemoryGB;   totalStorageTB += avd.totalStorageTB }
-  if (state.aks.enabled)           { totalVCpus += aks.totalVCpus;   totalMemoryGB += aks.totalMemoryGB;   totalStorageTB += aks.totalStorageTB }
-  if (state.infraVms.enabled)      { totalVCpus += (state.infraVms.vmCount * state.infraVms.vCpusPerVm) / state.infraVms.vCpuOvercommitRatio;     totalMemoryGB += state.infraVms.vmCount * state.infraVms.memoryPerVmGB;     totalStorageTB += (state.infraVms.vmCount * state.infraVms.storagePerVmGB) / 1024 }
-  if (state.devTestVms.enabled)    { totalVCpus += (state.devTestVms.vmCount * state.devTestVms.vCpusPerVm) / state.devTestVms.vCpuOvercommitRatio; totalMemoryGB += state.devTestVms.vmCount * state.devTestVms.memoryPerVmGB; totalStorageTB += (state.devTestVms.vmCount * state.devTestVms.storagePerVmGB) / 1024 }
-  if (state.backupArchive.enabled) { totalStorageTB += state.backupArchive.storageTB }
-  if (state.customVms.enabled)     { totalVCpus += (state.customVms.vmCount * state.customVms.vCpusPerVm) / state.customVms.vCpuOvercommitRatio;   totalMemoryGB += state.customVms.vmCount * state.customVms.memoryPerVmGB;   totalStorageTB += (state.customVms.vmCount * state.customVms.storagePerVmGB) / 1024 }
-  if (state.sofsEnabled)           { totalVCpus += sofs.sofsVCpusTotal; totalMemoryGB += sofs.sofsMemoryTotalGB; totalStorageTB += sofs.totalStorageTB }
+  if (state.avdEnabled)  { totalVCpus += avd.totalVCpus;  totalMemoryGB += avd.totalMemoryGB;  totalStorageTB += avd.totalStorageTB }
+  if (state.aks.enabled) { totalVCpus += aks.totalVCpus;  totalMemoryGB += aks.totalMemoryGB;  totalStorageTB += aks.totalStorageTB }
+  if (state.virtualMachines?.enabled) {
+    const vm = state.virtualMachines
+    totalVCpus    += (vm.vmCount * vm.vCpusPerVm) / vm.vCpuOvercommitRatio
+    totalMemoryGB += vm.vmCount * vm.memoryPerVmGB
+    totalStorageTB += (vm.vmCount * vm.storagePerVmGB) / 1024
+  }
+  if (state.sofsEnabled) { totalVCpus += sofs.sofsVCpusTotal; totalMemoryGB += sofs.sofsMemoryTotalGB; totalStorageTB += sofs.totalStorageTB }
+  if (state.mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB; totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB }
 
   const workloadTotals = {
     totalVCpus: Math.round(totalVCpus),

@@ -1,18 +1,19 @@
 /**
- * WorkloadPlanner — six fixed, enable/disable scenarios matching the Excel
- * "Workload Planner" sheet exactly:
+ * WorkloadPlanner — enable/disable workload scenarios for capacity planning.
+ *
+ * Scenarios:
  *   1. AVD (Azure Virtual Desktop) — configured on the AVD page
  *   2. AKS on Azure Local
- *   3. Infrastructure VMs
- *   4. Dev / Test VMs
- *   5. Backup / Archive
- *   6. Custom VMs
+ *   3. Virtual Machines — general purpose VMs (consolidated)
+ *   4. SOFS (Scale-Out File Server) — configured on the SOFS page
+ *   5. MABS (Microsoft Azure Backup Server) — configured on the MABS page
  */
 import { Link } from 'react-router-dom'
 import { useSurveyorStore } from '../state/store'
 import { computeAvd } from '../engine/avd'
 import { computeAks } from '../engine/aks'
 import { computeSofs } from '../engine/sofs'
+import { computeMabs } from '../engine/mabs'
 import type { ResiliencyType, VmScenario } from '../engine/types'
 
 // ─── Scenario card wrapper ────────────────────────────────────────────────────
@@ -66,7 +67,7 @@ function ResiliencySelect({ value, onChange }: { value: ResiliencyType; onChange
   )
 }
 
-// ─── VM scenario fields (Infra / Dev-Test / Custom) ──────────────────────────
+// ─── VM scenario fields ─────────────────────────────────────────────────────
 
 function VmFields({
   value,
@@ -125,20 +126,17 @@ export default function WorkloadPlanner() {
   const {
     avd, avdEnabled, setAvdEnabled,
     aks, setAks,
-    infraVms, setInfraVms,
-    devTestVms, setDevTestVms,
-    backupArchive, setBackupArchive,
-    customVms, setCustomVms,
+    virtualMachines, setVirtualMachines,
     sofs, sofsEnabled, setSofsEnabled,
+    mabs, mabsEnabled, setMabsEnabled,
     advanced,
   } = useSurveyorStore()
 
   const avdResult = computeAvd(avd, advanced.overrides)
   const aksResult = computeAks(aks)
   const sofsResult = computeSofs(sofs, advanced.overrides)
-  const infraTotals = vmScenarioTotals(infraVms)
-  const devTestTotals = vmScenarioTotals(devTestVms)
-  const customTotals = vmScenarioTotals(customVms)
+  const mabsResult = computeMabs(mabs)
+  const vmTotals = vmScenarioTotals(virtualMachines)
 
   // Aggregate totals across all enabled scenarios
   let totalVCpus = 0
@@ -155,28 +153,20 @@ export default function WorkloadPlanner() {
     totalMemoryGB += aksResult.totalMemoryGB
     totalStorageTB += aksResult.totalStorageTB
   }
-  if (infraVms.enabled) {
-    totalVCpus   += infraTotals.vCpus
-    totalMemoryGB += infraTotals.memoryGB
-    totalStorageTB += infraTotals.storageTB
-  }
-  if (devTestVms.enabled) {
-    totalVCpus   += devTestTotals.vCpus
-    totalMemoryGB += devTestTotals.memoryGB
-    totalStorageTB += devTestTotals.storageTB
-  }
-  if (backupArchive.enabled) {
-    totalStorageTB += backupArchive.storageTB
-  }
-  if (customVms.enabled) {
-    totalVCpus   += customTotals.vCpus
-    totalMemoryGB += customTotals.memoryGB
-    totalStorageTB += customTotals.storageTB
+  if (virtualMachines.enabled) {
+    totalVCpus   += vmTotals.vCpus
+    totalMemoryGB += vmTotals.memoryGB
+    totalStorageTB += vmTotals.storageTB
   }
   if (sofsEnabled) {
     totalVCpus   += sofsResult.sofsVCpusTotal
     totalMemoryGB += sofsResult.sofsMemoryTotalGB
     totalStorageTB += sofsResult.totalStorageTB
+  }
+  if (mabsEnabled) {
+    totalVCpus   += mabsResult.mabsVCpus
+    totalMemoryGB += mabsResult.mabsMemoryGB
+    totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB
   }
 
   return (
@@ -242,42 +232,14 @@ export default function WorkloadPlanner() {
         </div>
       </ScenarioCard>
 
-      {/* ── 3. Infrastructure VMs ── */}
-      <ScenarioCard label="Infrastructure VMs" enabled={infraVms.enabled} onToggle={() => setInfraVms({ enabled: !infraVms.enabled })}>
-        <VmFields value={infraVms} onChange={setInfraVms} />
-        <ScenarioTotals vCpus={infraTotals.vCpus} memGB={infraTotals.memoryGB} storageTB={infraTotals.storageTB}
-          rawVCpus={infraVms.vmCount * infraVms.vCpusPerVm} overcommit={infraVms.vCpuOvercommitRatio} />
+      {/* ── 3. Virtual Machines ── */}
+      <ScenarioCard label="Virtual Machines" enabled={virtualMachines.enabled} onToggle={() => setVirtualMachines({ enabled: !virtualMachines.enabled })}>
+        <VmFields value={virtualMachines} onChange={setVirtualMachines} />
+        <ScenarioTotals vCpus={vmTotals.vCpus} memGB={vmTotals.memoryGB} storageTB={vmTotals.storageTB}
+          rawVCpus={virtualMachines.vmCount * virtualMachines.vCpusPerVm} overcommit={virtualMachines.vCpuOvercommitRatio} />
       </ScenarioCard>
 
-      {/* ── 4. Dev / Test VMs ── */}
-      <ScenarioCard label="Dev / Test VMs" enabled={devTestVms.enabled} onToggle={() => setDevTestVms({ enabled: !devTestVms.enabled })}>
-        <VmFields value={devTestVms} onChange={setDevTestVms} />
-        <ScenarioTotals vCpus={devTestTotals.vCpus} memGB={devTestTotals.memoryGB} storageTB={devTestTotals.storageTB}
-          rawVCpus={devTestVms.vmCount * devTestVms.vCpusPerVm} overcommit={devTestVms.vCpuOvercommitRatio} />
-      </ScenarioCard>
-
-      {/* ── 5. Backup / Archive ── */}
-      <ScenarioCard label="Backup / Archive" enabled={backupArchive.enabled} onToggle={() => setBackupArchive({ enabled: !backupArchive.enabled })}>
-        <div className="grid grid-cols-2 gap-3">
-          <SmallField label="Storage (TB)">
-            <input type="number" min={0.1} step={0.1} className="input w-full" value={backupArchive.storageTB}
-              onChange={(e) => setBackupArchive({ storageTB: +e.target.value })} />
-          </SmallField>
-          <SmallField label="Resiliency">
-            <ResiliencySelect value={backupArchive.resiliency} onChange={(r) => setBackupArchive({ resiliency: r })} />
-          </SmallField>
-        </div>
-        <ScenarioTotals storageTB={backupArchive.storageTB} />
-      </ScenarioCard>
-
-      {/* ── 6. Custom VMs ── */}
-      <ScenarioCard label="Custom VMs" enabled={customVms.enabled} onToggle={() => setCustomVms({ enabled: !customVms.enabled })}>
-        <VmFields value={customVms} onChange={setCustomVms} />
-        <ScenarioTotals vCpus={customTotals.vCpus} memGB={customTotals.memoryGB} storageTB={customTotals.storageTB}
-          rawVCpus={customVms.vmCount * customVms.vCpusPerVm} overcommit={customVms.vCpuOvercommitRatio} />
-      </ScenarioCard>
-
-      {/* ── 7. SOFS ── */}
+      {/* ── 4. SOFS ── */}
       <ScenarioCard label="Scale-Out File Server (SOFS)" badge="separate page" enabled={sofsEnabled} onToggle={() => setSofsEnabled(!sofsEnabled)}>
         <div className="text-sm text-gray-500">
           SOFS is configured on the{' '}
@@ -287,6 +249,19 @@ export default function WorkloadPlanner() {
         <SummaryRow label="Profile + redirected storage" value={`${sofsResult.totalStorageTB} TB`} />
         <SummaryRow label="SOFS vCPUs" value={String(sofsResult.sofsVCpusTotal)} />
         <SummaryRow label="SOFS memory" value={`${sofsResult.sofsMemoryTotalGB} GB`} />
+      </ScenarioCard>
+
+      {/* ── 5. MABS ── */}
+      <ScenarioCard label="Azure Backup Server (MABS)" badge="separate page" enabled={mabsEnabled} onToggle={() => setMabsEnabled(!mabsEnabled)}>
+        <div className="text-sm text-gray-500">
+          MABS is configured on the{' '}
+          <Link to="/mabs" className="text-brand-600 hover:underline">MABS Planning page</Link>.
+          Enabling this includes the MABS VM compute and backup storage in the totals below.
+        </div>
+        <SummaryRow label="Protected data" value={`${mabs.protectedDataTB} TB`} />
+        <SummaryRow label="On-prem backup storage" value={`${mabsResult.totalStorageTB} TB`} />
+        <SummaryRow label="MABS VM vCPUs" value={String(mabsResult.mabsVCpus)} />
+        <SummaryRow label="MABS VM memory" value={`${mabsResult.mabsMemoryGB} GB`} />
       </ScenarioCard>
 
       {/* ── Totals ── */}

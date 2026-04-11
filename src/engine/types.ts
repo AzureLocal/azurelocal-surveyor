@@ -157,10 +157,26 @@ export interface VmScenario {
   vCpuOvercommitRatio: number
 }
 
-export interface BackupArchiveScenario {
-  enabled: boolean
-  storageTB: number
-  resiliency: ResiliencyType
+// ─── MABS (Microsoft Azure Backup Server) ───────────────────────────────────
+
+export interface MabsInputs {
+  protectedDataTB: number           // total data being backed up across all workloads
+  dailyChangeRatePct: number        // typical 10% for mixed workloads
+  onPremRetentionDays: number       // 7–14 typical before Azure offload
+  scratchCachePct: number           // scratch/cache as % of protected data (default 15)
+  mabsVCpus: number                 // MABS VM vCPUs (default 8)
+  mabsMemoryGB: number              // MABS VM RAM (default 32)
+  mabsOsDiskGB: number              // MABS VM OS disk (default 200)
+  resiliency: ResiliencyType        // backup volume resiliency (typically dual-parity)
+}
+
+export interface MabsResult {
+  scratchVolumeTB: number           // staging/cache area
+  backupDataVolumeTB: number        // full + incremental retention
+  totalStorageTB: number            // scratch + backup data
+  mabsVCpus: number                 // VM compute
+  mabsMemoryGB: number              // VM memory
+  mabsOsDiskTB: number              // OS disk in TB
 }
 
 // ─── Workloads (Sheet: "Workload Planner") ────────────────────────────────────
