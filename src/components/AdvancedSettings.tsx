@@ -5,7 +5,7 @@ import { DEFAULT_ADVANCED_SETTINGS } from '../engine/types'
 import type { AdvancedSettingsOverrides, ResiliencyType } from '../engine/types'
 
 export default function AdvancedSettings() {
-  const { advanced, setAdvanced } = useSurveyorStore()
+  const { advanced, setAdvanced, hardware, setHardware } = useSurveyorStore()
   const [overridesOpen, setOverridesOpen] = useState(false)
 
   const overrides: AdvancedSettingsOverrides = advanced.overrides ?? {}
@@ -75,6 +75,32 @@ export default function AdvancedSettings() {
             <option value="nested-two-way">Nested Two-Way (25%)</option>
           </select>
         </Field>
+      </div>
+
+      {/* Hyperthreading override */}
+      <div className={`flex items-start justify-between gap-4 rounded-lg border px-4 py-3 ${!hardware.hyperthreadingEnabled ? 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20' : 'border-gray-200 dark:border-gray-700'}`}>
+        <div>
+          <div className="text-sm font-medium">
+            Hyperthreading (SMT)
+            {!hardware.hyperthreadingEnabled && (
+              <span className="ml-2 text-xs font-medium text-amber-600 dark:text-amber-400">override active — disabled</span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Enabled on all Azure Local validated hardware by default. Disable only if your BIOS/UEFI has SMT turned off (rare — typically done for MDS/L1TF security mitigations).
+          </p>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Current: {hardware.coresPerNode} physical cores → {hardware.hyperthreadingEnabled ? `${hardware.coresPerNode * 2} logical (×2)` : `${hardware.coresPerNode} logical (HT off)`}
+          </p>
+        </div>
+        <button
+          role="switch"
+          aria-checked={hardware.hyperthreadingEnabled}
+          onClick={() => setHardware({ hyperthreadingEnabled: !hardware.hyperthreadingEnabled })}
+          className={`shrink-0 relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${hardware.hyperthreadingEnabled ? 'bg-brand-600' : 'bg-gray-300 dark:bg-gray-600'}`}
+        >
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${hardware.hyperthreadingEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+        </button>
       </div>
 
       <button

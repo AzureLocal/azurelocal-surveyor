@@ -97,13 +97,12 @@ export default function HardwareForm() {
             className="input" />
         </Field>
 
-        <Field label="Hyperthreading" hint="doubles logical vCPU count">
-          <select value={hardware.hyperthreadingEnabled ? 'yes' : 'no'}
-            onChange={(e) => setHardware({ hyperthreadingEnabled: e.target.value === 'yes' })}
-            className="input">
-            <option value="yes">Enabled</option>
-            <option value="no">Disabled</option>
-          </select>
+        <Field label="Hyperthreading" hint="override in Advanced Settings">
+          <div className="input bg-gray-50 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-default select-none">
+            {hardware.hyperthreadingEnabled
+              ? `Enabled — ${hardware.coresPerNode} cores × 2 = ${hardware.coresPerNode * 2} logical`
+              : `Disabled — ${hardware.coresPerNode} logical cores`}
+          </div>
         </Field>
 
         <Field label="Volume provisioning">
