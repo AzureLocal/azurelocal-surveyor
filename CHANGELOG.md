@@ -5,6 +5,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.3.0] — Workload Intelligence
+
+> Commits: `1f3c0dc` → `974b73a`
+
+### Added
+
+- AKS planner: `aks.resiliency` is now wired into the `AKS-PersistentVolumes` volume suggestion; previously defaulted to the global resiliency setting regardless of the per-cluster selection (#89)
+- AKS planner: scope note at top clarifying this page sizes base AKS infrastructure only — Arc-enabled service workloads are added separately as service presets (#89)
+- Arc-enabled service presets: pre-built workload templates for Arc SQL MI (General Purpose), Arc SQL MI (Business Critical), Azure IoT Operations, Azure AI Foundry Local, and Azure Container Apps (#81)
+- Service presets: per-instance configuration with optional vCPU, memory, and storage overrides; catalog defaults are preserved when overrides are cleared (#81)
+- Service presets: all enabled instances roll up into Workload Planner aggregate totals, volume suggestions (using catalog `defaultPvcResiliency`), FinalReport, and XLSX/Markdown exports (#81)
+- Custom workload builder: manual entry form for any workload not covered by built-in scenarios — VM count, vCPUs/VM, memory/VM, OS disk/VM, logical storage, resiliency, internal mirror compounding factor, and optional bandwidth estimate (#80)
+- Custom workload builder: JSON import from file upload; downloadable JSON template for schema reference (#80)
+- Custom workload builder: multiple workloads with independent enable/disable; internal mirror compounding generates accurate volume suggestion footprints (#80)
+- Custom workloads: roll up into Workload Planner totals, volume suggestions, FinalReport, and XLSX/Markdown exports with a dedicated detail sheet (#80)
+- Zustand persist: migrated to v6 (adds `customWorkloads`); v5 adds `servicePresets` (#80, #81)
+
+### Changed
+
+- AVD page: clarified single-pool scope note; added multi-pool approximation guidance; added RemoteApp mention (#95)
+- AKS planner: renamed "Storage resiliency" → "Workload volume resiliency"; storage total row now shows separate OS-disk vs PVC resiliency sub-labels (#89)
+
+---
+
 ## [1.1.0] — Planner Features
 
 > Commits: `37e3660` → `b4c4796`
