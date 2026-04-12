@@ -251,12 +251,17 @@ function QuickStartVolumes({ capacity }: { capacity: import('../engine/types').C
 
       {open && (
         <div className="border-t border-gray-100 dark:border-gray-800">
-          {/* Fit Check */}
-          <div className={`flex items-center gap-2 px-4 py-2.5 text-sm font-semibold border-b border-gray-100 dark:border-gray-800 ${fitColor}`}>
-            {row.fits
-              ? <><CheckCircle className="w-4 h-4 shrink-0" /> FIT CHECK: PASS — {row.utilizationPct}% utilized. Healthy headroom for drive failure repair.</>
-              : <><AlertTriangle className="w-4 h-4 shrink-0" /> FIT CHECK: FAIL — Pool footprint ({row.poolFootprintTB} TB) exceeds available space ({qs.availableForVolumesTB.toFixed(2)} TB).</>
-            }
+          {/* Reference fit banner */}
+          <div className={`px-4 py-2.5 border-b border-gray-100 dark:border-gray-800 ${fitColor}`}>
+            <div className="flex items-center gap-2 text-sm font-semibold">
+              {row.fits
+                ? <><CheckCircle className="w-4 h-4 shrink-0" /> Reference scenario fits — {row.utilizationPct}% pool utilized. Headroom available for drive failure rebuild.</>
+                : <><AlertTriangle className="w-4 h-4 shrink-0" /> Reference scenario does not fit — pool footprint ({row.poolFootprintTB.toFixed(2)} TB) exceeds available pool space ({qs.availableForVolumesTB.toFixed(2)} TB).</>
+              }
+            </div>
+            <p className="text-xs mt-1 opacity-80">
+              This checks the equal-volume reference scenario below — not your Volume Health Check. A fail here means this specific reference layout doesn't fit; your actual planned volumes may still pass.
+            </p>
           </div>
 
           {/* TiB/TB Warning */}
@@ -331,12 +336,24 @@ function QuickStartVolumes({ capacity }: { capacity: import('../engine/types').C
           </div>
 
           {/* Footer notes */}
-          <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 text-xs text-gray-500 space-y-1">
-            <p>This section is informational only — it does not feed into the Workload Planner or Capacity Report.
-            Use it when you don't need workload-specific volumes and just want to see your cluster's raw capability
-            with balanced, equal-sized volumes. Max 64 volumes and 64 TB per volume per Microsoft docs.</p>
-            <p className="text-blue-600 dark:text-blue-400">
-              Already created volumes that don't match these sizes? Go to the Volume Health Check tab to assess reserve loss and resiliency risk.
+          <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 text-xs text-gray-500 space-y-1.5">
+            <p>
+              <strong className="text-gray-700 dark:text-gray-300">This is a reference-only section</strong> — it does not feed into the Workload Planner or Capacity Report.
+              Use it when you want to see your cluster's raw capability as a set of balanced, equal-sized volumes (one per node, up to 4 nodes per Microsoft guidance).
+              Max 64 volumes and 64 TB per volume.
+            </p>
+            <p>
+              <strong className="text-gray-700 dark:text-gray-300">Difference from Volume Health Check:</strong> The Volume Health Check (below) evaluates the volumes you actually plan to create.
+              This section only checks whether the equal-volume reference scenario fits — the two results are independent.
+            </p>
+            <p>
+              <span className="text-blue-600 dark:text-blue-400">Already created volumes that don't match these sizes?</span> Use the Volume Health Check section to assess reserve loss and resiliency risk for your actual volume plan.
+            </p>
+            <p className="text-gray-400">
+              References:{' '}
+              <a href="https://learn.microsoft.com/azure-stack/hci/concepts/plan-volumes" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600 dark:hover:text-gray-300">Plan volumes (Microsoft Learn)</a>
+              {' · '}
+              <a href="https://learn.microsoft.com/azure-stack/hci/concepts/fault-tolerance" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600 dark:hover:text-gray-300">Fault tolerance and storage efficiency</a>
             </p>
           </div>
         </div>
