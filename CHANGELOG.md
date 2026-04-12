@@ -5,6 +5,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.0.1] — Stability and UX Clarity
+
+> Commits: `75814ca` → `97f1db0`
+
+### Added
+
+- Version number displayed in sidebar and About page (#84)
+- Changelog (`CHANGELOG.md`) with full version history (#84)
+- About page with resource links, credits, and release history (#84)
+- ErrorBoundary component — catches render errors and offers a one-click reset instead of a blank screen (#83)
+- Reset All Settings button in Advanced Settings panel with two-step confirmation dialog (#82)
+
+### Fixed
+
+- Blank screen on Volumes and AVD pages in Edge caused by stale Zustand localStorage state from older schema versions (#83)
+- `normalizePersistedState()` + `merge` callback ensures all store fields are hydrated with defaults on load (#83)
+- Removed `dell-ax-670-large` (not a real catalog entry); Dell AX presets now match the April 2026 solutions catalog (#87)
+- Pre-existing lint errors: `no-useless-escape` in volumes.ts, unused variable in ReportsPage.tsx
+
+### Changed
+
+- Lenovo MX: added V4 Premier Solutions (MX630 V4, MX650 V4); V3 models remain as Integrated Systems (#87)
+- HPE ProLiant: DL380 Gen11 elevated to Premier (Ignite 2025); DL145 Gen11 added as Integrated System for edge (May 2025); DL360 Gen11 remains Validated Node (#87)
+- AKS and VM workload resiliency fields renamed from generic "Resiliency" / "Storage resiliency" to "Workload volume resiliency" with context hints (#91)
+- AVD scenario card now explains that OS disks use Three-Way Mirror and profile/data volumes follow the default resiliency in Advanced Settings (#91)
+- Quick-Start Volumes fit-check banner renamed from "FIT CHECK: PASS/FAIL" to "Reference scenario fits/does not fit" (#98)
+- Quick-Start footer now explicitly distinguishes the reference scenario from the Volume Health Check and explains they are independent (#98)
+- Added Microsoft Learn reference links to the Quick-Start Volumes section (#98)
+- Milestone structure reorganized: v1.0.1 (stability), v1.1.0 (polish), v1.2.0 (research/docs), v1.3.0 (intelligence) (#84)
+
+---
+
 ## [1.0.0] — Quick-Start Volumes and Report Alignment
 
 > Commit: `a8beb7c`
