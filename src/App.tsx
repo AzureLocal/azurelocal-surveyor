@@ -11,6 +11,7 @@ import DocsPage from './pages/DocsPage'
 import AksPage from './pages/AksPage'
 import DriveLayoutPage from './pages/DriveLayoutPage'
 import MabsPage from './pages/MabsPage'
+import AboutPage from './pages/AboutPage'
 import Layout from './components/Layout'
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
         <Route path="/thin-provisioning" element={<ThinProvisioningPage />} />
         <Route path="/references" element={<ReferencesPage />} />
         <Route path="/docs" element={<DocsPage />} />
+        <Route path="/about" element={<AboutPage />} />
       </Routes>
     </Layout>
   )

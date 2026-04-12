@@ -2,10 +2,11 @@ import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import {
   Server, Cpu, Monitor, HardDrive, BarChart3,
-  Settings, BookOpen, Link2, FileText, Container, X, Layers, ShieldCheck,
+  Settings, BookOpen, Link2, FileText, Container, X, Layers, ShieldCheck, Info,
 } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
 import AdvancedSettings from './AdvancedSettings'
+import { version } from '../../package.json'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { avdEnabled, sofsEnabled, mabsEnabled, aks } = useSurveyorStore()
@@ -32,6 +33,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
           </div>
           <div className="text-xs text-blue-300/60 mt-1">Capacity Planning Tool</div>
+          <div className="text-xs text-blue-300/40 mt-0.5 font-mono">v{version}</div>
         </div>
         <nav className="flex-1 py-4 space-y-0.5 px-2">
           <NavItem to="/" label="Hardware" icon={Server} end />
@@ -46,6 +48,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <NavItem to="/thin-provisioning" label="Thin Provision" icon={BookOpen} />
           <NavItem to="/references" label="References" icon={Link2} />
           <NavItem to="/docs" label="Docs" icon={FileText} />
+          <NavItem to="/about" label="About" icon={Info} />
         </nav>
         <div className="px-2 py-3 border-t border-white/10">
           <button
