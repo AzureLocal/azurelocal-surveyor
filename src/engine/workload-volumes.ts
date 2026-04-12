@@ -15,8 +15,9 @@ import type { AksResult } from './types'
 import type { SofsResult, SofsInputs } from './types'
 import type { MabsResult, MabsInputs } from './types'
 import type { VmScenario } from './types'
-import type { ServicePresetInstance } from './service-presets'
+import type { ServicePresetInstance, } from './service-presets'
 import { getCatalogEntry, computeServicePreset } from './service-presets'
+import type { CustomWorkload } from './types'
 
 export interface SuggestedVolume extends VolumeSpec {
   source: string      // which workload generated this suggestion
@@ -44,6 +45,8 @@ interface WorkloadVolumeInputs {
   mabsResult: MabsResult
   // Service presets
   servicePresets?: ServicePresetInstance[]
+  // Custom workloads
+  customWorkloads?: CustomWorkload[]
 }
 
 let _sugId = 1000
@@ -220,6 +223,41 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
           plannedSizeTB: round2(t.totalStorageTB),
           source: 'Service Presets',
           description: `${entry.shortName} × ${inst.instanceCount} — ${t.totalVCpus} vCPU, ${t.totalMemoryGB} GB`,
+        })
+      }
+    }
+  }
+
+  // ── Custom Workloads ──────────────────────────────────────────────────────
+  // OS disks → Three-Way Mirror; logical storage → selected resiliency
+  // Internal mirror compounding: volume suggestion = storageTB × mirrorFactor
+  if (inputs.customWorkloads && inputs.customWorkloads.length > 0) {
+    for (const wl of inputs.customWorkloads) {
+      if (!wl.enabled) continue
+      const safeName = wl.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 20) || 'Custom'
+      if (wl.osDiskPerVmGB > 0 && wl.vmCount > 0) {
+        const osTB = round2((wl.vmCount * wl.osDiskPerVmGB) / 1024)
+        suggestions.push({
+          id: `sug-${_sugId++}`,
+          name: `${safeName}-OsDisk`,
+          resiliency: 'three-way-mirror',
+          plannedSizeTB: osTB,
+          source: 'Custom Workloads',
+          description: `${wl.vmCount} VMs × ${wl.osDiskPerVmGB} GB OS disk — ${wl.name}`,
+        })
+      }
+      if (wl.storageTB > 0) {
+        const footprint = round2(wl.storageTB * wl.internalMirrorFactor)
+        const mirrorNote = wl.internalMirrorFactor > 1
+          ? ` (${wl.storageTB} TB × ${wl.internalMirrorFactor} internal mirror)`
+          : ''
+        suggestions.push({
+          id: `sug-${_sugId++}`,
+          name: `${safeName}-Data`,
+          resiliency: wl.resiliency,
+          plannedSizeTB: footprint,
+          source: 'Custom Workloads',
+          description: `${wl.name}${mirrorNote}`,
         })
       }
     }

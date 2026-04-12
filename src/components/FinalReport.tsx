@@ -12,6 +12,7 @@ import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
 import { computeAllServicePresets } from '../engine/service-presets'
+import { computeAllCustomWorkloads } from './CustomWorkloads'
 import { runHealthCheck } from '../engine/healthcheck'
 import CapacityReport from './CapacityReport'
 import ComputeReport from './ComputeReport'
@@ -68,6 +69,10 @@ export default function FinalReport() {
   totalVCpus    += presetTotals.totalVCpus
   totalMemoryGB += presetTotals.totalMemoryGB
   totalStorageTB += presetTotals.totalStorageTB
+  const customTotals = computeAllCustomWorkloads(state.customWorkloads)
+  totalVCpus    += customTotals.totalVCpus
+  totalMemoryGB += customTotals.totalMemoryGB
+  totalStorageTB += customTotals.totalStorageTB
 
   const workloadSummary = {
     totalVCpus: Math.round(totalVCpus),
@@ -86,7 +91,7 @@ export default function FinalReport() {
 
   const anyWorkloadEnabled = state.avdEnabled || state.aks.enabled
     || state.virtualMachines?.enabled || state.sofsEnabled || state.mabsEnabled
-    || presetTotals.totalVCpus > 0
+    || presetTotals.totalVCpus > 0 || customTotals.totalVCpus > 0
 
   function copyPowerShell() {
     navigator.clipboard.writeText(generatePowerShell(state))
@@ -198,6 +203,18 @@ export default function FinalReport() {
             <Stat label="Total vCPUs" value={String(presetTotals.totalVCpus)} />
             <Stat label="Total memory" value={`${presetTotals.totalMemoryGB} GB`} />
             <Stat label="Total storage" value={`${presetTotals.totalStorageTB} TB`} />
+          </dl>
+        </section>
+      )}
+
+      {/* Custom workloads section — only shown when at least one is enabled */}
+      {customTotals.totalVCpus > 0 && (
+        <section>
+          <h2 className="text-lg font-semibold mb-3">Custom Workloads</h2>
+          <dl className="grid grid-cols-3 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden text-sm">
+            <Stat label="Total vCPUs" value={String(customTotals.totalVCpus)} />
+            <Stat label="Total memory" value={`${customTotals.totalMemoryGB} GB`} />
+            <Stat label="Total storage" value={`${customTotals.totalStorageTB} TB`} />
           </dl>
         </section>
       )}

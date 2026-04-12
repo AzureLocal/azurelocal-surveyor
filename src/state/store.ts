@@ -10,6 +10,7 @@ import type {
   AksInputs,
   VmScenario,
   MabsInputs,
+  CustomWorkload,
 } from '../engine/types'
 import { DEFAULT_ADVANCED_SETTINGS } from '../engine/types'
 import type { ServicePresetInstance } from '../engine/service-presets'
@@ -33,6 +34,7 @@ export interface SurveyorState {
   aks: AksInputs
   virtualMachines: VmScenario
   servicePresets: ServicePresetInstance[]
+  customWorkloads: CustomWorkload[]
 
   // Actions
   setHardware: (hw: Partial<HardwareInputs>) => void
@@ -55,6 +57,9 @@ export interface SurveyorState {
   addServicePreset: (p: ServicePresetInstance) => void
   updateServicePreset: (id: string, p: Partial<ServicePresetInstance>) => void
   removeServicePreset: (id: string) => void
+  addCustomWorkload: (w: CustomWorkload) => void
+  updateCustomWorkload: (id: string, w: Partial<CustomWorkload>) => void
+  removeCustomWorkload: (id: string) => void
   resetAll: () => void
 }
 
@@ -158,6 +163,7 @@ const DEFAULT_STATE = {
   aks: DEFAULT_AKS,
   virtualMachines: DEFAULT_VIRTUAL_MACHINES,
   servicePresets: [] as ServicePresetInstance[],
+  customWorkloads: [] as CustomWorkload[],
 }
 
 type SurveyorPersistedSlice = typeof DEFAULT_STATE
@@ -200,6 +206,9 @@ export function normalizePersistedState(persisted: unknown): SurveyorPersistedSl
     virtualMachines: mergeObject(DEFAULT_VIRTUAL_MACHINES, state.virtualMachines),
     servicePresets: Array.isArray(state.servicePresets)
       ? (state.servicePresets as ServicePresetInstance[])
+      : [],
+    customWorkloads: Array.isArray(state.customWorkloads)
+      ? (state.customWorkloads as CustomWorkload[])
       : [],
   }
 }
@@ -275,14 +284,29 @@ export const useSurveyorStore = create<SurveyorState>()(
       removeServicePreset: (id) =>
         set((s) => ({ servicePresets: s.servicePresets.filter((sp) => sp.id !== id) })),
 
+      addCustomWorkload: (w) =>
+        set((s) => ({ customWorkloads: [...s.customWorkloads, w] })),
+
+      updateCustomWorkload: (id, w) =>
+        set((s) => ({
+          customWorkloads: s.customWorkloads.map((cw) => (cw.id === id ? { ...cw, ...w } : cw)),
+        })),
+
+      removeCustomWorkload: (id) =>
+        set((s) => ({ customWorkloads: s.customWorkloads.filter((cw) => cw.id !== id) })),
+
       resetAll: () =>
         set(DEFAULT_STATE),
     }),
     {
       name: 'surveyor-state',
-      version: 5,
+      version: 6,
       migrate: (persisted: unknown, version: number) => {
         const state = isRecord(persisted) ? { ...persisted } : {}
+        if (version < 6) {
+          // v6: add customWorkloads
+          if (!Array.isArray(state.customWorkloads)) state.customWorkloads = []
+        }
         if (version < 5) {
           // v5: add servicePresets
           if (!Array.isArray(state.servicePresets)) state.servicePresets = []

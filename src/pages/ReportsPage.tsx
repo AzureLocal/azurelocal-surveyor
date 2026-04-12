@@ -18,6 +18,7 @@ import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
 import { computeAllServicePresets } from '../engine/service-presets'
+import { computeAllCustomWorkloads } from '../components/CustomWorkloads'
 
 type Tab = 'capacity' | 'compute' | 'sofs' | 'final'
 
@@ -59,6 +60,9 @@ export default function ReportsPage() {
   const presetTotals = computeAllServicePresets(state.servicePresets)
   totalVCpus    += presetTotals.totalVCpus
   totalMemoryGB += presetTotals.totalMemoryGB
+  const customTotals = computeAllCustomWorkloads(state.customWorkloads)
+  totalVCpus    += customTotals.totalVCpus
+  totalMemoryGB += customTotals.totalMemoryGB
 
   const workloadTotals = {
     totalVCpus: Math.round(totalVCpus),

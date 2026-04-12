@@ -18,9 +18,10 @@ import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
 import { computeAllServicePresets, getCatalogEntry } from '../engine/service-presets'
+import { computeAllCustomWorkloads } from '../components/CustomWorkloads'
 import { runHealthCheck } from '../engine/healthcheck'
 
-export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled' | 'servicePresets'>): string {
+export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled' | 'servicePresets' | 'customWorkloads'>): string {
   const capacity = computeCapacity(state.hardware, state.advanced)
   const summary = computeVolumeSummary(state.volumes, capacity)
   const compute = computeCompute(state.hardware, state.advanced)
@@ -46,6 +47,10 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
   totalVCpus    += presetTotals.totalVCpus
   totalMemoryGB += presetTotals.totalMemoryGB
   totalStorageTB += presetTotals.totalStorageTB
+  const customTotals = computeAllCustomWorkloads(state.customWorkloads)
+  totalVCpus    += customTotals.totalVCpus
+  totalMemoryGB += customTotals.totalMemoryGB
+  totalStorageTB += customTotals.totalStorageTB
 
   const workloadSummary = {
     totalVCpus: Math.round(totalVCpus),
@@ -135,7 +140,7 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
   // ── Workloads ──
   const anyWorkloadEnabled = state.avdEnabled || state.aks.enabled
     || state.virtualMachines?.enabled || state.sofsEnabled || state.mabsEnabled
-    || presetTotals.totalVCpus > 0
+    || presetTotals.totalVCpus > 0 || customTotals.totalVCpus > 0
 
   if (anyWorkloadEnabled) {
     lines.push('## Workload Summary')
@@ -151,6 +156,7 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
     if (state.sofsEnabled) lines.push(`| SOFS | ${sofs.sofsVCpusTotal} | ${sofs.sofsMemoryTotalGB} | ${round2(sofs.totalStorageTB)} |`)
     if (state.mabsEnabled) lines.push(`| MABS | ${mabsResult.mabsVCpus} | ${mabsResult.mabsMemoryGB} | ${round2(mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB)} |`)
     if (presetTotals.totalVCpus > 0) lines.push(`| Arc-Enabled Services | ${presetTotals.totalVCpus} | ${presetTotals.totalMemoryGB} | ${presetTotals.totalStorageTB} |`)
+    if (customTotals.totalVCpus > 0) lines.push(`| Custom Workloads | ${customTotals.totalVCpus} | ${customTotals.totalMemoryGB} | ${customTotals.totalStorageTB} |`)
     lines.push(`| **Total** | **${workloadSummary.totalVCpus}** | **${workloadSummary.totalMemoryGB}** | **${workloadSummary.totalStorageTB}** |`)
     lines.push('')
   }
@@ -212,6 +218,23 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
       t.totalMemoryGB = (inst.memoryGBOverride ?? entry.defaultMemoryGBPerInstance) * inst.instanceCount
       t.totalStorageTB = round2((inst.storageTBOverride ?? entry.defaultStorageTBPerInstance) * inst.instanceCount)
       lines.push(`| ${entry.shortName} | ${inst.instanceCount} | ${t.totalVCpus} | ${t.totalMemoryGB} | ${t.totalStorageTB} |`)
+    }
+    lines.push('')
+  }
+
+  // ── Custom Workloads Detail ──
+  const enabledCustom = state.customWorkloads.filter((w) => w.enabled)
+  if (enabledCustom.length > 0) {
+    lines.push('### Custom Workloads Detail')
+    lines.push('')
+    lines.push('| Name | VMs | vCPUs | Memory (GB) | Storage (TB) | Mirror |')
+    lines.push('|---|---:|---:|---:|---:|---:|')
+    for (const w of enabledCustom) {
+      const vCpus = w.vmCount * w.vCpusPerVm
+      const memGB = w.vmCount * w.memoryPerVmGB
+      const osDiskTB = round2((w.vmCount * w.osDiskPerVmGB) / 1024)
+      const storeTB = round2(w.storageTB + osDiskTB)
+      lines.push(`| ${w.name} | ${w.vmCount} | ${vCpus} | ${memGB} | ${storeTB} | ${w.internalMirrorFactor}× |`)
     }
     lines.push('')
   }

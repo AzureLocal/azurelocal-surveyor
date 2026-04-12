@@ -12,6 +12,7 @@ import { computeMabs } from '../engine/mabs'
 import { runHealthCheck } from '../engine/healthcheck'
 import { generateWorkloadVolumes, type SuggestedVolume } from '../engine/workload-volumes'
 import { computeAllServicePresets } from '../engine/service-presets'
+import { computeAllCustomWorkloads } from '../components/CustomWorkloads'
 import { toWacSize, computeQuickStart, generateGenericVolumes, type GenericSuggestion } from '../engine/volumes'
 
 export default function VolumesPage() {
@@ -40,6 +41,10 @@ export default function VolumesPage() {
   totalVCpus    += presetTotals.totalVCpus
   totalMemoryGB += presetTotals.totalMemoryGB
   totalStorageTB += presetTotals.totalStorageTB
+  const customTotals = computeAllCustomWorkloads(state.customWorkloads)
+  totalVCpus    += customTotals.totalVCpus
+  totalMemoryGB += customTotals.totalMemoryGB
+  totalStorageTB += customTotals.totalStorageTB
 
   const workloadSummary = {
     totalVCpus: Math.round(totalVCpus),
@@ -65,6 +70,7 @@ export default function VolumesPage() {
     mabsInputs: state.mabs,
     mabsResult: mabsResult,
     servicePresets: state.servicePresets,
+    customWorkloads: state.customWorkloads,
   })
 
   return (

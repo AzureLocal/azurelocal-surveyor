@@ -199,6 +199,24 @@ export interface WorkloadSpec {
   resiliency: ResiliencyType
 }
 
+export interface CustomWorkload {
+  id: string
+  name: string
+  description: string
+  enabled: boolean
+  // Compute
+  vmCount: number           // VMs (use 1 for non-VM workloads)
+  vCpusPerVm: number        // vCPUs per VM
+  memoryPerVmGB: number     // memory per VM in GB
+  osDiskPerVmGB: number     // OS disk per VM in GB (0 = none)
+  // Storage
+  storageTB: number         // logical storage in TB (before resiliency)
+  resiliency: ResiliencyType
+  internalMirrorFactor: number  // 1 = no compounding, 2 = two-way, 3 = three-way
+  // Optional
+  bandwidthMbps: number     // 0 = not specified
+}
+
 export interface WorkloadSummaryResult {
   totalVCpus: number
   totalMemoryGB: number

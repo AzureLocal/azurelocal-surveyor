@@ -16,6 +16,7 @@ import { computeSofs } from '../engine/sofs'
 import { computeMabs } from '../engine/mabs'
 import { computeAllServicePresets } from '../engine/service-presets'
 import ServicePresets from './ServicePresets'
+import CustomWorkloads, { computeAllCustomWorkloads } from './CustomWorkloads'
 import type { ResiliencyType, VmScenario } from '../engine/types'
 
 /** Parse numeric input — returns current value if input is empty or NaN. */
@@ -140,6 +141,7 @@ export default function WorkloadPlanner() {
     sofs, sofsEnabled, setSofsEnabled,
     mabs, mabsEnabled, setMabsEnabled,
     servicePresets,
+    customWorkloads,
     advanced,
   } = useSurveyorStore()
 
@@ -149,6 +151,7 @@ export default function WorkloadPlanner() {
   const mabsResult = computeMabs(mabs)
   const vmTotals = vmScenarioTotals(virtualMachines)
   const presetTotals = computeAllServicePresets(servicePresets)
+  const customTotals = computeAllCustomWorkloads(customWorkloads)
 
   // Aggregate totals across all enabled scenarios
   let totalVCpus = 0
@@ -184,6 +187,10 @@ export default function WorkloadPlanner() {
   totalVCpus    += presetTotals.totalVCpus
   totalMemoryGB += presetTotals.totalMemoryGB
   totalStorageTB += presetTotals.totalStorageTB
+  // Custom workloads: always aggregate enabled instances
+  totalVCpus    += customTotals.totalVCpus
+  totalMemoryGB += customTotals.totalMemoryGB
+  totalStorageTB += customTotals.totalStorageTB
 
   return (
     <div className="space-y-4">
@@ -302,6 +309,27 @@ export default function WorkloadPlanner() {
             Each enabled instance is included in the workload totals.
           </p>
           <ServicePresets />
+        </div>
+      </div>
+
+      {/* ── 7. Custom Workloads ── */}
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold">Custom Workloads</span>
+            {customWorkloads.length > 0 && (
+              <span className="px-2 py-0.5 text-xs rounded-full bg-brand-100 dark:bg-brand-900 text-brand-700 dark:text-brand-300">
+                {customWorkloads.filter((w) => w.enabled).length} enabled
+              </span>
+            )}
+          </div>
+        </div>
+        <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700">
+          <p className="text-xs text-gray-500 mb-3">
+            Manually define any workload not covered by the built-in scenarios. Supports internal mirror compounding.
+            Import from JSON or download a template to get started.
+          </p>
+          <CustomWorkloads />
         </div>
       </div>
 

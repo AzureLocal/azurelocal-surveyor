@@ -16,6 +16,7 @@ import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
 import { computeAllServicePresets, getCatalogEntry, computeServicePreset } from '../engine/service-presets'
+import { computeAllCustomWorkloads } from '../components/CustomWorkloads'
 import { runHealthCheck } from '../engine/healthcheck'
 
 type Row = (string | number | boolean | null)[]
@@ -46,7 +47,7 @@ function makeSheet(header: string[], rows: Row[]): XLSX.WorkSheet {
   return ws
 }
 
-export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'workloads' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled' | 'servicePresets'>): void {
+export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'workloads' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled' | 'servicePresets' | 'customWorkloads'>): void {
   const capacity = computeCapacity(state.hardware, state.advanced)
   const volumeSummary = computeVolumeSummary(state.volumes, capacity)
   const compute = computeCompute(state.hardware, state.advanced)
@@ -72,6 +73,10 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   totalVCpus    += presetTotals.totalVCpus
   totalMemoryGB += presetTotals.totalMemoryGB
   totalStorageTB += presetTotals.totalStorageTB
+  const customTotals = computeAllCustomWorkloads(state.customWorkloads)
+  totalVCpus    += customTotals.totalVCpus
+  totalMemoryGB += customTotals.totalMemoryGB
+  totalStorageTB += customTotals.totalStorageTB
 
   const workloadSummary = {
     totalVCpus: Math.round(totalVCpus),
@@ -203,6 +208,7 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   if (state.sofsEnabled) wlRows.push(['SOFS Guest Cluster', sofs.sofsVCpusTotal, sofs.sofsMemoryTotalGB, round2(sofs.totalStorageTB), 'Enabled'])
   if (state.mabsEnabled) wlRows.push(['MABS (Azure Backup Server)', mabsResult.mabsVCpus, mabsResult.mabsMemoryGB, round2(mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB), 'Enabled'])
   if (presetTotals.totalVCpus > 0) wlRows.push(['Arc-Enabled Services', presetTotals.totalVCpus, presetTotals.totalMemoryGB, presetTotals.totalStorageTB, 'Enabled'])
+  if (customTotals.totalVCpus > 0) wlRows.push(['Custom Workloads', customTotals.totalVCpus, customTotals.totalMemoryGB, customTotals.totalStorageTB, 'Enabled'])
 
   if (wlRows.length > 0) {
     wlRows.push([])
@@ -394,6 +400,34 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
       ['Service', 'Instances', 'vCPUs/Instance', 'Memory/Instance (GB)', 'Storage/Instance (TB)', 'Total vCPUs', 'Total Memory (GB)', 'Total Storage (TB)', 'PVC Resiliency'],
       presetRows,
     ), 'Arc Services')
+  }
+
+  // ── Custom Workloads sheet ────────────────────────────────────────────────
+  const enabledCustom = state.customWorkloads.filter((w) => w.enabled)
+  if (enabledCustom.length > 0) {
+    const cwRows: Row[] = enabledCustom.map((w) => [
+      w.name,
+      w.description || '',
+      w.vmCount,
+      w.vCpusPerVm,
+      w.vmCount * w.vCpusPerVm,
+      w.memoryPerVmGB,
+      w.vmCount * w.memoryPerVmGB,
+      w.osDiskPerVmGB,
+      round2((w.vmCount * w.osDiskPerVmGB) / 1024),
+      w.storageTB,
+      w.resiliency,
+      w.internalMirrorFactor > 1 ? `${w.internalMirrorFactor}×` : 'None',
+      round2(w.storageTB * w.internalMirrorFactor),
+      w.bandwidthMbps > 0 ? w.bandwidthMbps : 'Not specified',
+    ])
+    cwRows.push([])
+    cwRows.push(['TOTAL', '', '', '', customTotals.totalVCpus, '', customTotals.totalMemoryGB, '', '', '', '', '', '', ''])
+
+    XLSX.utils.book_append_sheet(wb, makeSheet(
+      ['Name', 'Description', 'VMs', 'vCPUs/VM', 'Total vCPUs', 'RAM/VM (GB)', 'Total RAM (GB)', 'OS Disk/VM (GB)', 'OS Disk Total (TB)', 'Storage (TB)', 'Resiliency', 'Internal Mirror', 'Storage Footprint (TB)', 'Bandwidth (Mbps)'],
+      cwRows,
+    ), 'Custom Workloads')
   }
 
   // ── Sheet 12/13: Health Check ─────────────────────────────────────────────
