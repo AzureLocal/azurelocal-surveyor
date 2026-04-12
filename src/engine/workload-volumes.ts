@@ -15,6 +15,8 @@ import type { AksResult } from './types'
 import type { SofsResult, SofsInputs } from './types'
 import type { MabsResult, MabsInputs } from './types'
 import type { VmScenario } from './types'
+import type { ServicePresetInstance } from './service-presets'
+import { getCatalogEntry, computeServicePreset } from './service-presets'
 
 export interface SuggestedVolume extends VolumeSpec {
   source: string      // which workload generated this suggestion
@@ -40,6 +42,8 @@ interface WorkloadVolumeInputs {
   mabsEnabled: boolean
   mabsInputs: MabsInputs
   mabsResult: MabsResult
+  // Service presets
+  servicePresets?: ServicePresetInstance[]
 }
 
 let _sugId = 1000
@@ -196,6 +200,28 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
         source: 'MABS',
         description: 'MABS VM operating system disk',
       })
+    }
+  }
+
+  // ── Service Presets ───────────────────────────────────────────────────────
+  // Each enabled preset instance gets a PVC volume suggestion using the
+  // catalog's defaultPvcResiliency.
+  if (inputs.servicePresets && inputs.servicePresets.length > 0) {
+    for (const inst of inputs.servicePresets) {
+      if (!inst.enabled || inst.instanceCount <= 0) continue
+      const entry = getCatalogEntry(inst.catalogId)
+      if (!entry) continue
+      const t = computeServicePreset(inst)
+      if (t.totalStorageTB > 0) {
+        suggestions.push({
+          id: `sug-${_sugId++}`,
+          name: `Svc-${entry.shortName.replace(/[^a-zA-Z0-9]/g, '')}`,
+          resiliency: entry.defaultPvcResiliency,
+          plannedSizeTB: round2(t.totalStorageTB),
+          source: 'Service Presets',
+          description: `${entry.shortName} × ${inst.instanceCount} — ${t.totalVCpus} vCPU, ${t.totalMemoryGB} GB`,
+        })
+      }
     }
   }
 

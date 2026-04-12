@@ -11,6 +11,7 @@ import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
 import { runHealthCheck } from '../engine/healthcheck'
 import { generateWorkloadVolumes, type SuggestedVolume } from '../engine/workload-volumes'
+import { computeAllServicePresets } from '../engine/service-presets'
 import { toWacSize, computeQuickStart, generateGenericVolumes, type GenericSuggestion } from '../engine/volumes'
 
 export default function VolumesPage() {
@@ -35,6 +36,10 @@ export default function VolumesPage() {
   }
   if (state.sofsEnabled) { totalVCpus += sofs.sofsVCpusTotal; totalMemoryGB += sofs.sofsMemoryTotalGB; totalStorageTB += sofs.totalStorageTB }
   if (state.mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB; totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB }
+  const presetTotals = computeAllServicePresets(state.servicePresets)
+  totalVCpus    += presetTotals.totalVCpus
+  totalMemoryGB += presetTotals.totalMemoryGB
+  totalStorageTB += presetTotals.totalStorageTB
 
   const workloadSummary = {
     totalVCpus: Math.round(totalVCpus),
@@ -59,6 +64,7 @@ export default function VolumesPage() {
     mabsEnabled: state.mabsEnabled,
     mabsInputs: state.mabs,
     mabsResult: mabsResult,
+    servicePresets: state.servicePresets,
   })
 
   return (

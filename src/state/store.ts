@@ -12,6 +12,7 @@ import type {
   MabsInputs,
 } from '../engine/types'
 import { DEFAULT_ADVANCED_SETTINGS } from '../engine/types'
+import type { ServicePresetInstance } from '../engine/service-presets'
 
 export type VolumeMode = 'workload' | 'generic'
 
@@ -31,6 +32,7 @@ export interface SurveyorState {
   // Workload scenarios
   aks: AksInputs
   virtualMachines: VmScenario
+  servicePresets: ServicePresetInstance[]
 
   // Actions
   setHardware: (hw: Partial<HardwareInputs>) => void
@@ -50,6 +52,9 @@ export interface SurveyorState {
   setAks: (a: Partial<AksInputs>) => void
   setVirtualMachines: (s: Partial<VmScenario>) => void
   setVolumeMode: (mode: VolumeMode) => void
+  addServicePreset: (p: ServicePresetInstance) => void
+  updateServicePreset: (id: string, p: Partial<ServicePresetInstance>) => void
+  removeServicePreset: (id: string) => void
   resetAll: () => void
 }
 
@@ -152,6 +157,7 @@ const DEFAULT_STATE = {
   mabsEnabled: false,
   aks: DEFAULT_AKS,
   virtualMachines: DEFAULT_VIRTUAL_MACHINES,
+  servicePresets: [] as ServicePresetInstance[],
 }
 
 type SurveyorPersistedSlice = typeof DEFAULT_STATE
@@ -192,6 +198,9 @@ export function normalizePersistedState(persisted: unknown): SurveyorPersistedSl
     mabsEnabled: typeof state.mabsEnabled === 'boolean' ? state.mabsEnabled : false,
     aks: mergeObject(DEFAULT_AKS, state.aks),
     virtualMachines: mergeObject(DEFAULT_VIRTUAL_MACHINES, state.virtualMachines),
+    servicePresets: Array.isArray(state.servicePresets)
+      ? (state.servicePresets as ServicePresetInstance[])
+      : [],
   }
 }
 
@@ -255,14 +264,29 @@ export const useSurveyorStore = create<SurveyorState>()(
       setVolumeMode: (mode) =>
         set(() => ({ volumeMode: mode })),
 
+      addServicePreset: (p) =>
+        set((s) => ({ servicePresets: [...s.servicePresets, p] })),
+
+      updateServicePreset: (id, p) =>
+        set((s) => ({
+          servicePresets: s.servicePresets.map((sp) => sp.id === id ? { ...sp, ...p } : sp),
+        })),
+
+      removeServicePreset: (id) =>
+        set((s) => ({ servicePresets: s.servicePresets.filter((sp) => sp.id !== id) })),
+
       resetAll: () =>
         set(DEFAULT_STATE),
     }),
     {
       name: 'surveyor-state',
-      version: 4,
+      version: 5,
       migrate: (persisted: unknown, version: number) => {
         const state = isRecord(persisted) ? { ...persisted } : {}
+        if (version < 5) {
+          // v5: add servicePresets
+          if (!Array.isArray(state.servicePresets)) state.servicePresets = []
+        }
         if (version < 3) {
           // v3: add volumeMode
           if (state.volumeMode === undefined) state.volumeMode = 'generic'

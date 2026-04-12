@@ -17,9 +17,10 @@ import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
+import { computeAllServicePresets, getCatalogEntry } from '../engine/service-presets'
 import { runHealthCheck } from '../engine/healthcheck'
 
-export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled'>): string {
+export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled' | 'servicePresets'>): string {
   const capacity = computeCapacity(state.hardware, state.advanced)
   const summary = computeVolumeSummary(state.volumes, capacity)
   const compute = computeCompute(state.hardware, state.advanced)
@@ -41,6 +42,10 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
   }
   if (state.sofsEnabled) { totalVCpus += sofs.sofsVCpusTotal; totalMemoryGB += sofs.sofsMemoryTotalGB; totalStorageTB += sofs.totalStorageTB }
   if (state.mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB; totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB }
+  const presetTotals = computeAllServicePresets(state.servicePresets)
+  totalVCpus    += presetTotals.totalVCpus
+  totalMemoryGB += presetTotals.totalMemoryGB
+  totalStorageTB += presetTotals.totalStorageTB
 
   const workloadSummary = {
     totalVCpus: Math.round(totalVCpus),
@@ -130,6 +135,7 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
   // ── Workloads ──
   const anyWorkloadEnabled = state.avdEnabled || state.aks.enabled
     || state.virtualMachines?.enabled || state.sofsEnabled || state.mabsEnabled
+    || presetTotals.totalVCpus > 0
 
   if (anyWorkloadEnabled) {
     lines.push('## Workload Summary')
@@ -144,6 +150,7 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
     }
     if (state.sofsEnabled) lines.push(`| SOFS | ${sofs.sofsVCpusTotal} | ${sofs.sofsMemoryTotalGB} | ${round2(sofs.totalStorageTB)} |`)
     if (state.mabsEnabled) lines.push(`| MABS | ${mabsResult.mabsVCpus} | ${mabsResult.mabsMemoryGB} | ${round2(mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB)} |`)
+    if (presetTotals.totalVCpus > 0) lines.push(`| Arc-Enabled Services | ${presetTotals.totalVCpus} | ${presetTotals.totalMemoryGB} | ${presetTotals.totalStorageTB} |`)
     lines.push(`| **Total** | **${workloadSummary.totalVCpus}** | **${workloadSummary.totalMemoryGB}** | **${workloadSummary.totalStorageTB}** |`)
     lines.push('')
   }
@@ -187,6 +194,25 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
     lines.push(`| Backup volume | ${mabsResult.backupDataVolumeTB} TB |`)
     lines.push(`| Internal mirror | ${state.mabs.internalMirror} (${mabsResult.internalMirrorFactor}×) |`)
     lines.push(`| Internal footprint | ${mabsResult.internalFootprintTB} TB |`)
+    lines.push('')
+  }
+
+  // ── Service Presets Detail ──
+  const enabledPresets = state.servicePresets.filter((p) => p.enabled && p.instanceCount > 0)
+  if (enabledPresets.length > 0) {
+    lines.push('### Arc-Enabled Services Detail')
+    lines.push('')
+    lines.push('| Service | Instances | vCPUs | Memory (GB) | Storage (TB) |')
+    lines.push('|---|---:|---:|---:|---:|')
+    for (const inst of enabledPresets) {
+      const entry = getCatalogEntry(inst.catalogId)
+      if (!entry) continue
+      const t = { totalVCpus: 0, totalMemoryGB: 0, totalStorageTB: 0 }
+      t.totalVCpus   = (inst.vCpusOverride   ?? entry.defaultVCpusPerInstance)    * inst.instanceCount
+      t.totalMemoryGB = (inst.memoryGBOverride ?? entry.defaultMemoryGBPerInstance) * inst.instanceCount
+      t.totalStorageTB = round2((inst.storageTBOverride ?? entry.defaultStorageTBPerInstance) * inst.instanceCount)
+      lines.push(`| ${entry.shortName} | ${inst.instanceCount} | ${t.totalVCpus} | ${t.totalMemoryGB} | ${t.totalStorageTB} |`)
+    }
     lines.push('')
   }
 

@@ -15,6 +15,7 @@ import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
+import { computeAllServicePresets, getCatalogEntry, computeServicePreset } from '../engine/service-presets'
 import { runHealthCheck } from '../engine/healthcheck'
 
 type Row = (string | number | boolean | null)[]
@@ -45,7 +46,7 @@ function makeSheet(header: string[], rows: Row[]): XLSX.WorkSheet {
   return ws
 }
 
-export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'workloads' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled'>): void {
+export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'workloads' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled' | 'servicePresets'>): void {
   const capacity = computeCapacity(state.hardware, state.advanced)
   const volumeSummary = computeVolumeSummary(state.volumes, capacity)
   const compute = computeCompute(state.hardware, state.advanced)
@@ -67,6 +68,10 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   }
   if (state.sofsEnabled) { totalVCpus += sofs.sofsVCpusTotal; totalMemoryGB += sofs.sofsMemoryTotalGB; totalStorageTB += sofs.totalStorageTB }
   if (state.mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB; totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB }
+  const presetTotals = computeAllServicePresets(state.servicePresets)
+  totalVCpus    += presetTotals.totalVCpus
+  totalMemoryGB += presetTotals.totalMemoryGB
+  totalStorageTB += presetTotals.totalStorageTB
 
   const workloadSummary = {
     totalVCpus: Math.round(totalVCpus),
@@ -197,6 +202,7 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   }
   if (state.sofsEnabled) wlRows.push(['SOFS Guest Cluster', sofs.sofsVCpusTotal, sofs.sofsMemoryTotalGB, round2(sofs.totalStorageTB), 'Enabled'])
   if (state.mabsEnabled) wlRows.push(['MABS (Azure Backup Server)', mabsResult.mabsVCpus, mabsResult.mabsMemoryGB, round2(mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB), 'Enabled'])
+  if (presetTotals.totalVCpus > 0) wlRows.push(['Arc-Enabled Services', presetTotals.totalVCpus, presetTotals.totalMemoryGB, presetTotals.totalStorageTB, 'Enabled'])
 
   if (wlRows.length > 0) {
     wlRows.push([])
@@ -362,7 +368,35 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
     ), 'MABS')
   }
 
-  // ── Sheet 11: Health Check ────────────────────────────────────────────────
+  // ── Sheet 11: Arc-Enabled Services ───────────────────────────────────────
+  const enabledPresets = state.servicePresets.filter((p) => p.enabled && p.instanceCount > 0)
+  if (enabledPresets.length > 0) {
+    const presetRows: Row[] = enabledPresets.map((inst) => {
+      const entry = getCatalogEntry(inst.catalogId)
+      if (!entry) return [inst.catalogId, inst.instanceCount, null, null, null, null]
+      const t = computeServicePreset(inst)
+      return [
+        entry.shortName,
+        inst.instanceCount,
+        inst.vCpusOverride ?? entry.defaultVCpusPerInstance,
+        inst.memoryGBOverride ?? entry.defaultMemoryGBPerInstance,
+        inst.storageTBOverride ?? entry.defaultStorageTBPerInstance,
+        t.totalVCpus,
+        t.totalMemoryGB,
+        t.totalStorageTB,
+        entry.defaultPvcResiliency,
+      ]
+    })
+    presetRows.push([])
+    presetRows.push(['TOTAL', null, null, null, null, presetTotals.totalVCpus, presetTotals.totalMemoryGB, presetTotals.totalStorageTB, ''])
+
+    XLSX.utils.book_append_sheet(wb, makeSheet(
+      ['Service', 'Instances', 'vCPUs/Instance', 'Memory/Instance (GB)', 'Storage/Instance (TB)', 'Total vCPUs', 'Total Memory (GB)', 'Total Storage (TB)', 'PVC Resiliency'],
+      presetRows,
+    ), 'Arc Services')
+  }
+
+  // ── Sheet 12/13: Health Check ─────────────────────────────────────────────
   const healthRows: Row[] = []
 
   // Summary row

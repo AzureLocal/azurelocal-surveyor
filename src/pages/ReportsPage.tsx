@@ -17,6 +17,7 @@ import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
+import { computeAllServicePresets } from '../engine/service-presets'
 
 type Tab = 'capacity' | 'compute' | 'sofs' | 'final'
 
@@ -55,6 +56,9 @@ export default function ReportsPage() {
   }
   if (state.sofsEnabled) { totalVCpus += sofs.sofsVCpusTotal; totalMemoryGB += sofs.sofsMemoryTotalGB }
   if (state.mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB }
+  const presetTotals = computeAllServicePresets(state.servicePresets)
+  totalVCpus    += presetTotals.totalVCpus
+  totalMemoryGB += presetTotals.totalMemoryGB
 
   const workloadTotals = {
     totalVCpus: Math.round(totalVCpus),

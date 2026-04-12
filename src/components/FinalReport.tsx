@@ -11,6 +11,7 @@ import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
+import { computeAllServicePresets } from '../engine/service-presets'
 import { runHealthCheck } from '../engine/healthcheck'
 import CapacityReport from './CapacityReport'
 import ComputeReport from './ComputeReport'
@@ -63,6 +64,10 @@ export default function FinalReport() {
     totalMemoryGB += mabsResult.mabsMemoryGB
     totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB
   }
+  const presetTotals = computeAllServicePresets(state.servicePresets)
+  totalVCpus    += presetTotals.totalVCpus
+  totalMemoryGB += presetTotals.totalMemoryGB
+  totalStorageTB += presetTotals.totalStorageTB
 
   const workloadSummary = {
     totalVCpus: Math.round(totalVCpus),
@@ -81,6 +86,7 @@ export default function FinalReport() {
 
   const anyWorkloadEnabled = state.avdEnabled || state.aks.enabled
     || state.virtualMachines?.enabled || state.sofsEnabled || state.mabsEnabled
+    || presetTotals.totalVCpus > 0
 
   function copyPowerShell() {
     navigator.clipboard.writeText(generatePowerShell(state))
@@ -180,6 +186,18 @@ export default function FinalReport() {
             <Stat label="Profile storage" value={`${sofs.totalProfileStorageTB} TB`} />
             <Stat label="Redirected storage" value={`${sofs.totalRedirectedStorageTB} TB`} />
             <Stat label="Total storage" value={`${sofs.totalStorageTB} TB`} />
+          </dl>
+        </section>
+      )}
+
+      {/* Service presets section — only shown when at least one preset is enabled */}
+      {presetTotals.totalVCpus > 0 && (
+        <section>
+          <h2 className="text-lg font-semibold mb-3">Arc-Enabled Services</h2>
+          <dl className="grid grid-cols-3 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden text-sm">
+            <Stat label="Total vCPUs" value={String(presetTotals.totalVCpus)} />
+            <Stat label="Total memory" value={`${presetTotals.totalMemoryGB} GB`} />
+            <Stat label="Total storage" value={`${presetTotals.totalStorageTB} TB`} />
           </dl>
         </section>
       )}
