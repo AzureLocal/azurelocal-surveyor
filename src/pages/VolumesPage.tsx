@@ -51,6 +51,7 @@ export default function VolumesPage() {
     avdResult: avd,
     aksEnabled: state.aks.enabled,
     aksResult: aks,
+    aksResiliency: state.aks.resiliency,
     virtualMachines: state.virtualMachines,
     sofsEnabled: state.sofsEnabled,
     sofsInputs: state.sofs,

@@ -29,6 +29,7 @@ interface WorkloadVolumeInputs {
   // AKS
   aksEnabled: boolean
   aksResult: AksResult
+  aksResiliency: ResiliencyType  // resiliency for PVC + data service volume suggestions
   // Virtual Machines
   virtualMachines: VmScenario
   // SOFS
@@ -114,7 +115,7 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
       suggestions.push({
         id: `sug-${_sugId++}`,
         name: 'AKS-PersistentVolumes',
-        resiliency: defaultRes,
+        resiliency: inputs.aksResiliency,
         plannedSizeTB: pvcTB,
         source: 'AKS',
         description: 'Persistent volume claims + data services',

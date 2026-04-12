@@ -35,6 +35,10 @@ export default function AksPage() {
           Kubernetes cluster sizing for AKS enabled by Azure Arc on Azure Local.
           Configure cluster count, control plane, worker nodes, and storage requirements.
         </p>
+        <p className="text-xs text-gray-400 mt-1">
+          This page sizes the base AKS infrastructure. Arc-enabled service workloads (SQL Managed Instance,
+          IoT Operations, AI Foundry Local, etc.) are added separately as service presets in the Workload Planner.
+        </p>
       </div>
 
       {/* Inputs */}
@@ -82,13 +86,17 @@ export default function AksPage() {
             onChange={(e) => setAks({ dataServicesTB: +e.target.value })} />
         </Field>
 
-        <Field label="Storage resiliency" className="col-span-2">
+        <Field label="Workload volume resiliency" hint="applies to PVC and data service volume suggestions" className="col-span-2">
           <select className="input" value={aks.resiliency}
             onChange={(e) => setAks({ resiliency: e.target.value as ResiliencyType })}>
             {Object.entries(RESILIENCY_LABELS).map(([v, l]) => (
               <option key={v} value={v}>{l}</option>
             ))}
           </select>
+          <p className="text-xs text-gray-400 mt-1">
+            Node OS disks always use Three-Way Mirror. This setting controls the resiliency of the
+            AKS-PersistentVolumes volume suggestion generated in Volume Detail.
+          </p>
         </Field>
       </div>
 
@@ -149,8 +157,13 @@ export default function AksPage() {
               <td className="px-4 py-2 text-right">{aks.dataServicesTB} TB</td>
             </tr>
             <tr className="border-t border-gray-100 dark:border-gray-800 bg-brand-50 dark:bg-brand-900/20 font-semibold">
-              <td className="px-4 py-2">Total storage ({RESILIENCY_LABELS[aks.resiliency]})</td>
-              <td className="px-4 py-2 text-right">{result.totalStorageTB} TB logical</td>
+              <td className="px-4 py-2">
+                Total logical storage
+                <div className="text-xs text-gray-400 font-normal">
+                  OS disks → Three-Way Mirror · PVCs + data services → {RESILIENCY_LABELS[aks.resiliency]}
+                </div>
+              </td>
+              <td className="px-4 py-2 text-right align-top">{result.totalStorageTB} TB</td>
             </tr>
           </tbody>
         </table>
