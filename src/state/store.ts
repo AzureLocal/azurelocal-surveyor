@@ -138,22 +138,67 @@ const DEFAULT_MABS: MabsInputs = {
   internalMirror: 'two-way',
 }
 
+const DEFAULT_STATE = {
+  hardware: DEFAULT_HARDWARE,
+  advanced: DEFAULT_ADVANCED_SETTINGS,
+  volumes: [] as VolumeSpec[],
+  workloads: [] as WorkloadSpec[],
+  volumeMode: 'generic' as VolumeMode,
+  avd: DEFAULT_AVD,
+  avdEnabled: false,
+  sofs: DEFAULT_SOFS,
+  sofsEnabled: false,
+  mabs: DEFAULT_MABS,
+  mabsEnabled: false,
+  aks: DEFAULT_AKS,
+  virtualMachines: DEFAULT_VIRTUAL_MACHINES,
+}
+
+type SurveyorPersistedSlice = typeof DEFAULT_STATE
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function mergeObject<T extends object>(defaults: T, value: unknown): T {
+  return {
+    ...defaults,
+    ...(isRecord(value) ? value : {}),
+  } as T
+}
+
+export function normalizePersistedState(persisted: unknown): SurveyorPersistedSlice {
+  const state = isRecord(persisted) ? persisted : {}
+  const advanced = mergeObject(DEFAULT_ADVANCED_SETTINGS, state.advanced)
+  const avd = mergeObject(DEFAULT_AVD, state.avd)
+
+  return {
+    hardware: mergeObject(DEFAULT_HARDWARE, state.hardware),
+    advanced: {
+      ...advanced,
+      overrides: mergeObject(DEFAULT_ADVANCED_SETTINGS.overrides, advanced.overrides),
+    },
+    volumes: Array.isArray(state.volumes) ? state.volumes as VolumeSpec[] : [],
+    workloads: Array.isArray(state.workloads) ? state.workloads as WorkloadSpec[] : [],
+    volumeMode: state.volumeMode === 'workload' ? ('workload' as VolumeMode) : ('generic' as VolumeMode),
+    avd: {
+      ...avd,
+      userTypeMix: mergeObject(DEFAULT_AVD.userTypeMix, avd.userTypeMix),
+    },
+    avdEnabled: typeof state.avdEnabled === 'boolean' ? state.avdEnabled : false,
+    sofs: mergeObject(DEFAULT_SOFS, state.sofs),
+    sofsEnabled: typeof state.sofsEnabled === 'boolean' ? state.sofsEnabled : false,
+    mabs: mergeObject(DEFAULT_MABS, state.mabs),
+    mabsEnabled: typeof state.mabsEnabled === 'boolean' ? state.mabsEnabled : false,
+    aks: mergeObject(DEFAULT_AKS, state.aks),
+    virtualMachines: mergeObject(DEFAULT_VIRTUAL_MACHINES, state.virtualMachines),
+  }
+}
+
 export const useSurveyorStore = create<SurveyorState>()(
   persist(
     (set) => ({
-      hardware: DEFAULT_HARDWARE,
-      advanced: DEFAULT_ADVANCED_SETTINGS,
-      volumes: [],
-      workloads: [],
-      volumeMode: 'generic' as VolumeMode,
-      avd: DEFAULT_AVD,
-      avdEnabled: false,
-      sofs: DEFAULT_SOFS,
-      sofsEnabled: false,
-      mabs: DEFAULT_MABS,
-      mabsEnabled: false,
-      aks: DEFAULT_AKS,
-      virtualMachines: DEFAULT_VIRTUAL_MACHINES,
+      ...DEFAULT_STATE,
 
       setHardware: (hw) =>
         set((s) => ({ hardware: { ...s.hardware, ...hw } })),
@@ -211,27 +256,13 @@ export const useSurveyorStore = create<SurveyorState>()(
         set(() => ({ volumeMode: mode })),
 
       resetAll: () =>
-        set({
-          hardware: DEFAULT_HARDWARE,
-          advanced: DEFAULT_ADVANCED_SETTINGS,
-          volumes: [],
-          workloads: [],
-          volumeMode: 'generic' as VolumeMode,
-          avd: DEFAULT_AVD,
-          avdEnabled: false,
-          sofs: DEFAULT_SOFS,
-          sofsEnabled: false,
-          mabs: DEFAULT_MABS,
-          mabsEnabled: false,
-          aks: DEFAULT_AKS,
-          virtualMachines: DEFAULT_VIRTUAL_MACHINES,
-        }),
+        set(DEFAULT_STATE),
     }),
     {
       name: 'surveyor-state',
-      version: 3,  // bump when store shape changes
+      version: 4,
       migrate: (persisted: unknown, version: number) => {
-        const state = persisted as Record<string, unknown>
+        const state = isRecord(persisted) ? { ...persisted } : {}
         if (version < 3) {
           // v3: add volumeMode
           if (state.volumeMode === undefined) state.volumeMode = 'generic'
@@ -266,8 +297,13 @@ export const useSurveyorStore = create<SurveyorState>()(
           delete state.customVms
           delete state.backupArchive
         }
-        return state as unknown as SurveyorState
+
+        return normalizePersistedState(state) as unknown as SurveyorState
       },
+      merge: (persisted: unknown, current: SurveyorState) => ({
+        ...current,
+        ...normalizePersistedState(persisted),
+      }),
     }
   )
 )

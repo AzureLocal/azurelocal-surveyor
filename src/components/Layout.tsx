@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
 import AdvancedSettings from './AdvancedSettings'
+import { ErrorBoundary } from './ErrorBoundary'
 import { version } from '../../package.json'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
@@ -64,7 +65,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Main content */}
       <main className="flex-1 overflow-auto">
         <div className="max-w-5xl mx-auto px-6 py-8">
-          {children}
+          <ErrorBoundary>{children}</ErrorBoundary>
         </div>
       </main>
 
