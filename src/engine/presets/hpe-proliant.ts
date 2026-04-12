@@ -8,7 +8,6 @@ import type { OemPreset } from '../types'
  *
  * HPE DL380 Gen11 was elevated to Premier Solution at Microsoft Ignite 2025.
  * HPE DL145 Gen11 is an Integrated System for edge deployments (May 2025).
- * HPE DL360 Gen11 remains a Validated Node.
  *
  * Specs are representative mid-range configurations — confirm with HPE
  * or the catalog before quoting.
@@ -63,23 +62,6 @@ const HPE_PROLIANT_PRESETS: OemPreset[] = [
     cacheDriveSizeTB: 0,
     cacheMediaType: 'none',
     notes: 'Edge-optimized 1U AMD EPYC. Integrated System for Azure Local edge deployments (May 2025).',
-  },
-  // ── Validated Nodes ──────────────────────────────────────────────────────
-  {
-    id: 'hpe-dl360-gen11',
-    vendor: 'HPE',
-    model: 'ProLiant DL360 Gen11',
-    catalogType: 'validated-node',
-    generation: 'Gen11',
-    coresPerNode: 32,
-    memoryPerNodeGB: 256,
-    capacityDrivesPerNode: 4,
-    capacityDriveSizeTB: 3.84,
-    capacityMediaType: 'nvme',
-    cacheDrivesPerNode: 0,
-    cacheDriveSizeTB: 0,
-    cacheMediaType: 'none',
-    notes: '1U all-NVMe. Validated Node for Azure Local.',
   },
 ]
 
