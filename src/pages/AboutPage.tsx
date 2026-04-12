@@ -148,6 +148,10 @@ export default function AboutPage() {
             <span className="font-semibold text-gray-800 dark:text-gray-200">Built with </span>
             React, Vite, TypeScript, Tailwind CSS, Radix UI, Zustand, jsPDF, and SheetJS.
           </div>
+          <div className="pt-2 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-400">
+            &copy; 2026 Azure Local Cloud. Released under the{' '}
+            <a href="https://github.com/AzureLocal/azurelocal-surveyor/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600 dark:hover:text-gray-300">MIT License</a>.
+          </div>
         </div>
       </section>
 

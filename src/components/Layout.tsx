@@ -59,6 +59,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Settings className="w-4 h-4" />
             Advanced Settings
           </button>
+          <div className="px-3 pt-2 text-xs text-blue-300/30 leading-snug">
+            &copy; 2026 Azure Local Cloud<br />MIT License
+          </div>
         </div>
       </aside>
 
