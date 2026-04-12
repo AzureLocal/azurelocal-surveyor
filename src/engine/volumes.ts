@@ -203,7 +203,7 @@ export function computeQuickStart(capacity: CapacityResult): QuickStartResult {
     const redundancyParam = ps.redundancy != null ? ` -PhysicalDiskRedundancy ${ps.redundancy}` : ''
     psScript = [
       `# Create ${row.volumeCount} equal volumes of ${row.wacSizeTiB} TiB each (${resiliencyLabel})`,
-      `1..${row.volumeCount} | ForEach { New-Volume -FriendlyName "Vol\$_" -Size ${row.wacSizeGiB}GB -StoragePoolFriendlyName S2D* -FileSystem CSVFS_ReFS -ResiliencySettingName ${ps.setting}${redundancyParam} }`,
+      `1..${row.volumeCount} | ForEach { New-Volume -FriendlyName "Vol$_" -Size ${row.wacSizeGiB}GB -StoragePoolFriendlyName S2D* -FileSystem CSVFS_ReFS -ResiliencySettingName ${ps.setting}${redundancyParam} }`,
     ].join('\n')
   }
 
