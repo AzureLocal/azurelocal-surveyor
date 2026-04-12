@@ -8,6 +8,7 @@ import { Settings } from 'lucide-react'
 import FinalReport from '../components/FinalReport'
 import CapacityReport from '../components/CapacityReport'
 import ComputeReport from '../components/ComputeReport'
+import SofsReport from '../components/SofsReport'
 import AdvancedSettings from '../components/AdvancedSettings'
 import { useSurveyorStore } from '../state/store'
 import { computeCapacity } from '../engine/capacity'
@@ -17,9 +18,9 @@ import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
 
-type Tab = 'capacity' | 'compute' | 'final'
+type Tab = 'capacity' | 'compute' | 'sofs' | 'final'
 
-const TABS: { id: Tab; label: string }[] = [
+const BASE_TABS: { id: Tab; label: string }[] = [
   { id: 'capacity', label: 'Capacity' },
   { id: 'compute', label: 'Compute' },
   { id: 'final', label: 'Final Report' },
@@ -30,6 +31,11 @@ export default function ReportsPage() {
   const [showAdvanced, setShowAdvanced] = useState(false)
 
   const state = useSurveyorStore()
+  const tabs: { id: Tab; label: string }[] = [
+    ...BASE_TABS.filter((t) => t.id !== 'final'),
+    ...(state.sofsEnabled ? [{ id: 'sofs' as Tab, label: 'SOFS Report' }] : []),
+    { id: 'final', label: 'Final Report' },
+  ]
   const { hardware, advanced } = state
   const capacity = computeCapacity(hardware, advanced)
   const compute = computeCompute(hardware, advanced)
@@ -82,7 +88,7 @@ export default function ReportsPage() {
 
       {/* Tab bar */}
       <div className="flex border-b border-gray-200 dark:border-gray-700">
-        {TABS.map((tab) => (
+        {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -115,6 +121,8 @@ export default function ReportsPage() {
           <ComputeReport result={compute} totalVCpus={workloadTotals.totalVCpus} totalMemoryGB={workloadTotals.totalMemoryGB} />
         </div>
       )}
+
+      {activeTab === 'sofs' && state.sofsEnabled && <SofsReport />}
 
       {activeTab === 'final' && <FinalReport />}
     </div>

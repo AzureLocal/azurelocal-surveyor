@@ -1,13 +1,9 @@
 /**
  * SofsPlanner — SOFS guest cluster sizing for FSLogix profile share scale-out.
  * Ports the 25 formulas from the "SOFS Planner" Excel sheet.
- * Distinct page/component — not nested under workloads or AVD.
  *
- * Features:
- *  #41 — IOPS estimate (steady-state and login storm peak)
- *  #43 — cluster hardware auto-sizing
- *  #45 — FSLogix profile container type selector
- *  #47 — SOFS deployment readiness checklist
+ * Architecture:
+ *   Azure Local host cluster (CSVs) → SOFS guest VM cluster (Storage Spaces + SOFS role) → FSLogix clients
  */
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
@@ -60,66 +56,92 @@ export default function SofsPlanner() {
 
   return (
     <div className="space-y-8">
-      {/* ── Inputs ── */}
-      <div className="grid grid-cols-2 gap-4">
-        <Field label="Total users">
-          <input type="number" min={1} className="input" value={sofs.userCount}
-            onChange={(e) => setSofs({ userCount: num(e, sofs.userCount) })} />
-        </Field>
 
-        <Field label="Concurrent users (login storm)" hint="#41 — 0 = use total">
-          <input type="number" min={0} className="input" value={sofs.concurrentUsers}
-            onChange={(e) => setSofs({ concurrentUsers: num(e, sofs.concurrentUsers) })} />
-        </Field>
-
-        <Field label="FSLogix profile size (GB)">
-          <input type="number" min={1} className="input" value={sofs.profileSizeGB}
-            onChange={(e) => setSofs({ profileSizeGB: num(e, sofs.profileSizeGB) })} />
-        </Field>
-
-        <Field label="Redirected folders size (GB)">
-          <input type="number" min={0} className="input" value={sofs.redirectedFolderSizeGB}
-            onChange={(e) => setSofs({ redirectedFolderSizeGB: num(e, sofs.redirectedFolderSizeGB) })} />
-        </Field>
-
-        <Field label="Profile container type (#45)" className="col-span-2">
-          <select className="input w-full" value={sofs.containerType}
-            onChange={(e) => setSofs({ containerType: e.target.value as SofsContainerType })}>
-            <option value="single">Single Container (Profile VHD)</option>
-            <option value="split">Split Container (Profile + Office)</option>
-            <option value="three">Three Containers (Profile + Office + Apps)</option>
-          </select>
-        </Field>
-
-        <Field label="SOFS internal mirror type (#69)" hint="inside guest cluster">
-          <select className="input w-full" value={sofs.internalMirror}
-            onChange={(e) => setSofs({ internalMirror: e.target.value as SofsInternalMirror })}>
-            <option value="three-way">Three-Way Mirror (3× footprint)</option>
-            <option value="two-way">Two-Way Mirror (2× footprint)</option>
-            <option value="simple">Simple / No Mirror (1×)</option>
-          </select>
-        </Field>
-
-        <Field label="SOFS guest VM count" hint="min 2 for HA">
-          <input type="number" min={2} className="input" value={sofs.sofsGuestVmCount}
-            onChange={(e) => setSofs({ sofsGuestVmCount: num(e, sofs.sofsGuestVmCount) })} />
-        </Field>
-
-        <Field label="vCPUs / SOFS VM">
-          <input type="number" min={2} className="input" value={sofs.sofsVCpusPerVm}
-            onChange={(e) => setSofs({ sofsVCpusPerVm: num(e, sofs.sofsVCpusPerVm) })} />
-        </Field>
-
-        <Field label="RAM / SOFS VM (GB)">
-          <input type="number" min={4} className="input" value={sofs.sofsMemoryPerVmGB}
-            onChange={(e) => setSofs({ sofsMemoryPerVmGB: num(e, sofs.sofsMemoryPerVmGB) })} />
-        </Field>
+      {/* Architecture context */}
+      <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 text-xs text-blue-700 dark:text-blue-300 space-y-1">
+        <p className="font-semibold text-sm">How SOFS for FSLogix works on Azure Local</p>
+        <p><strong>Layer 1 — Azure Local host cluster:</strong> provides Cluster Shared Volumes (CSVs) that host SOFS guest VM virtual disks.</p>
+        <p><strong>Layer 2 — SOFS guest VM cluster:</strong> 2+ Windows Server VMs running Failover Clustering, Storage Spaces, and the Scale-Out File Server role. This cluster owns the SMB share.</p>
+        <p><strong>Layer 3 — FSLogix clients:</strong> AVD session hosts mount the SOFS SMB share and store profile VHD(X) containers there.</p>
+        <p className="text-blue-600 dark:text-blue-400 mt-1">
+          Inputs below size the SOFS guest cluster. The host-side Azure Local volume requirement is shown in Sizing Results.
+        </p>
       </div>
 
-      {/* Container type advisory */}
-      <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
-        <span className="font-semibold">{(CONTAINER_TYPE_INFO[sofs.containerType] ?? CONTAINER_TYPE_INFO.split).label}:</span>{' '}
-        {(CONTAINER_TYPE_INFO[sofs.containerType] ?? CONTAINER_TYPE_INFO.split).desc}
+      {/* ── FSLogix Demand Inputs ── */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">FSLogix Profile Storage Demand</h3>
+        <p className="text-xs text-gray-400 mb-3">These inputs determine how much logical storage the SOFS guest cluster must provide.</p>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Total users">
+            <input type="number" min={1} className="input" value={sofs.userCount}
+              onChange={(e) => setSofs({ userCount: num(e, sofs.userCount) })} />
+          </Field>
+
+          <Field label="Concurrent users" hint="0 = use total; affects IOPS peak estimate only">
+            <input type="number" min={0} className="input" value={sofs.concurrentUsers}
+              onChange={(e) => setSofs({ concurrentUsers: num(e, sofs.concurrentUsers) })} />
+          </Field>
+
+          <Field label="FSLogix profile size (GB)">
+            <input type="number" min={1} className="input" value={sofs.profileSizeGB}
+              onChange={(e) => setSofs({ profileSizeGB: num(e, sofs.profileSizeGB) })} />
+          </Field>
+
+          <Field label="Redirected folders size (GB)">
+            <input type="number" min={0} className="input" value={sofs.redirectedFolderSizeGB}
+              onChange={(e) => setSofs({ redirectedFolderSizeGB: num(e, sofs.redirectedFolderSizeGB) })} />
+          </Field>
+
+          <Field label="FSLogix container type" className="col-span-2">
+            <select className="input w-full" value={sofs.containerType}
+              onChange={(e) => setSofs({ containerType: e.target.value as SofsContainerType })}>
+              <option value="single">Single Container (Profile VHD)</option>
+              <option value="split">Split Container (Profile + Office)</option>
+              <option value="three">Three Containers (Profile + Office + Apps)</option>
+            </select>
+          </Field>
+        </div>
+
+        {/* Container type advisory */}
+        <div className="mt-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
+          <span className="font-semibold">{(CONTAINER_TYPE_INFO[sofs.containerType] ?? CONTAINER_TYPE_INFO.split).label}:</span>{' '}
+          {(CONTAINER_TYPE_INFO[sofs.containerType] ?? CONTAINER_TYPE_INFO.split).desc}
+        </div>
+      </div>
+
+      {/* ── SOFS Guest Cluster Inputs ── */}
+      <div>
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">SOFS Guest Cluster Configuration</h3>
+        <p className="text-xs text-gray-400 mb-3">
+          These inputs size the Windows Server VM cluster that runs the SOFS role on Azure Local.
+          Guest VMs should be placed on separate host nodes using anti-affinity rules.
+        </p>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Guest cluster data protection" hint="mirrors data across SOFS guest VMs">
+            <select className="input w-full" value={sofs.internalMirror}
+              onChange={(e) => setSofs({ internalMirror: e.target.value as SofsInternalMirror })}>
+              <option value="three-way">Three-Way Mirror (3× footprint) — recommended</option>
+              <option value="two-way">Two-Way Mirror (2× footprint)</option>
+              <option value="simple">Simple / No Mirror (1×) — not recommended for production</option>
+            </select>
+          </Field>
+
+          <Field label="SOFS guest VM count" hint="min 2 for HA">
+            <input type="number" min={2} className="input" value={sofs.sofsGuestVmCount}
+              onChange={(e) => setSofs({ sofsGuestVmCount: num(e, sofs.sofsGuestVmCount) })} />
+          </Field>
+
+          <Field label="vCPUs / SOFS VM">
+            <input type="number" min={2} className="input" value={sofs.sofsVCpusPerVm}
+              onChange={(e) => setSofs({ sofsVCpusPerVm: num(e, sofs.sofsVCpusPerVm) })} />
+          </Field>
+
+          <Field label="RAM / SOFS VM (GB)">
+            <input type="number" min={4} className="input" value={sofs.sofsMemoryPerVmGB}
+              onChange={(e) => setSofs({ sofsMemoryPerVmGB: num(e, sofs.sofsMemoryPerVmGB) })} />
+          </Field>
+        </div>
       </div>
 
       {/* ── Sizing Results ── */}
@@ -127,38 +149,49 @@ export default function SofsPlanner() {
         <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">SOFS Sizing Results</div>
         <table className="w-full text-sm">
           <tbody>
-            <Row label="Profile storage" value={`${result.totalProfileStorageTB} TB`} />
-            <Row label="Redirected folder storage" value={`${result.totalRedirectedStorageTB} TB`} />
+            <Row label="Profile storage (logical)" sub="All users × profile size"
+              value={`${result.totalProfileStorageTB} TB`} />
+            <Row label="Redirected folder storage (logical)" sub="All users × redirected folder size"
+              value={`${result.totalRedirectedStorageTB} TB`} />
             <Row label="Total logical storage" value={`${result.totalStorageTB} TB`} highlight />
-            <Row label={`Internal mirror (${sofs.internalMirror === 'simple' ? '1×' : sofs.internalMirror === 'two-way' ? '2×' : '3×'})`}
-              value={`${result.internalFootprintTB} TB`} />
-            <Row label="Total SOFS vCPUs" value={String(result.sofsVCpusTotal)} />
-            <Row label="Total SOFS RAM" value={`${result.sofsMemoryTotalGB} GB`} />
+            <Row
+              label={`Guest cluster footprint (${sofs.internalMirror === 'simple' ? '1×' : sofs.internalMirror === 'two-way' ? '2× mirror' : '3× mirror'})`}
+              sub="Virtual disk space inside the SOFS guest Storage Spaces pool"
+              value={`${result.internalFootprintTB} TB`}
+            />
+            <Row
+              label="Azure Local host-side volume requirement"
+              sub="Minimum usable space needed on the Azure Local CSV backing SOFS — before host resiliency overhead"
+              value={`${result.internalFootprintTB} TB`}
+              highlight
+            />
+            <Row label="Total SOFS vCPUs" sub={`${sofs.sofsGuestVmCount} VMs × ${sofs.sofsVCpusPerVm} vCPUs`}
+              value={String(result.sofsVCpusTotal)} />
+            <Row label="Total SOFS RAM" sub={`${sofs.sofsGuestVmCount} VMs × ${sofs.sofsMemoryPerVmGB} GB`}
+              value={`${result.sofsMemoryTotalGB} GB`} />
           </tbody>
         </table>
       </div>
 
-      {/* ── Resiliency Compounding (#69) ── */}
+      {/* ── Resiliency Compounding ── */}
       {result.internalMirrorFactor > 1 && (
         <div className="rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3 text-sm space-y-1">
-          <p className="font-semibold text-amber-900 dark:text-amber-200">Resiliency Compounding</p>
+          <p className="font-semibold text-amber-900 dark:text-amber-200">Resiliency compounding — plan your Azure Local volumes accordingly</p>
           <p className="text-amber-800 dark:text-amber-300 text-xs">
-            SOFS stores {result.totalStorageTB} TB of logical data with a{' '}
-            <strong>{sofs.internalMirror === 'two-way' ? 'two-way' : 'three-way'} mirror</strong> inside the guest cluster,
-            consuming <strong>{result.internalFootprintTB} TB</strong> of virtual disk space.
-            That virtual disk sits on an Azure Local CSV volume which has its own resiliency
-            (e.g. three-way mirror = 3× pool footprint).
-            The compounding effect means {result.totalStorageTB} TB of user profiles may consume
-            up to <strong>{result.internalFootprintTB} × 3 = {(result.internalFootprintTB * 3).toFixed(2)} TB</strong> of
-            raw pool space at three-way mirror on the host cluster.
+            The SOFS guest cluster mirrors data {result.internalMirrorFactor}× internally, producing{' '}
+            <strong>{result.internalFootprintTB} TB</strong> of virtual disks on the Azure Local CSV.
+            Those virtual disks sit on an Azure Local volume that has its own resiliency — for example, at three-way mirror
+            on the host cluster, raw pool consumption for SOFS would be up to{' '}
+            <strong>{(result.internalFootprintTB * 3).toFixed(2)} TB</strong>.
+            Use the Azure Local host-side volume requirement above as the input to your host-cluster volume planning.
           </p>
         </div>
       )}
 
-      {/* ── IOPS Estimate (#41) ── */}
+      {/* ── IOPS Estimate ── */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">
-          IOPS Estimate (#41)
+          IOPS Estimate
           {sofs.concurrentUsers > 0 && (
             <span className="ml-2 text-xs font-normal text-gray-500">based on {sofs.concurrentUsers} concurrent users</span>
           )}
@@ -176,48 +209,53 @@ export default function SofsPlanner() {
           </div>
         </div>
         <p className="px-4 py-2 text-xs text-gray-500 border-t border-gray-100 dark:border-gray-800">
-          Estimates based on FSLogix sizing guidance — steady-state ~10 IOPS/user, login storm ~50 IOPS/user.
-          Validate with actual workload profiling in production. Profile Azure Premium SSD or NVMe capacity drives for login storm headroom.
+          Based on FSLogix guidance — steady-state ~10 IOPS/user, login storm ~50 IOPS/user.
+          Validate with actual workload profiling. Size SOFS guest cluster drives for login storm headroom.
         </p>
       </div>
 
-      {/* ── Auto-Sizing (#43) ── */}
+      {/* ── Guest Cluster Drive Sizing ── */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">SOFS Cluster Hardware Auto-Sizing (#43)</div>
+        <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">Guest Cluster Drive Sizing</div>
         <div className="px-4 py-4 space-y-3">
           <p className="text-sm text-gray-500">
-            Set the target SOFS cluster layout and the required drive size will be auto-calculated based on your storage demand.
-            This is for the <strong>SOFS guest cluster</strong> hardware, separate from your main Azure Local cluster.
+            Enter the SOFS guest cluster node and drive count to calculate the required capacity drive size.
+            This sizes the <strong>virtual drives inside the SOFS guest Storage Spaces pool</strong> — not physical
+            drives on the Azure Local host. Those virtual drives are VHD/VHDX files stored on an Azure Local CSV.
+          </p>
+          <p className="text-xs text-gray-400">
+            Drive size = guest cluster footprint ÷ (nodes × drives per node). If demand grows, prefer adding drives
+            or nodes before only increasing drive sizes.
           </p>
           <div className="grid grid-cols-2 gap-4">
-            <Field label="SOFS cluster nodes">
+            <Field label="SOFS guest cluster nodes">
               <input type="number" min={2} className="input" value={sofs.autoSizeNodes}
                 onChange={(e) => setSofs({ autoSizeNodes: num(e, sofs.autoSizeNodes) })} />
             </Field>
-            <Field label="Capacity drives per node (0 = disable)">
+            <Field label="Virtual drives per node (0 = disable)">
               <input type="number" min={0} className="input" value={sofs.autoSizeDrivesPerNode}
                 onChange={(e) => setSofs({ autoSizeDrivesPerNode: num(e, sofs.autoSizeDrivesPerNode) })} />
             </Field>
           </div>
           {result.autoSizeDriveSizeTB > 0 ? (
             <div className="rounded-lg bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 px-4 py-3">
-              <div className="text-xs text-gray-500">Required drive size ({sofs.internalMirror} mirror, includes {result.internalMirrorFactor}× footprint)</div>
+              <div className="text-xs text-gray-500">Required virtual drive size (includes {result.internalMirrorFactor}× guest mirror overhead)</div>
               <div className="text-2xl font-bold text-brand-700 dark:text-brand-300 mt-1">
                 {result.autoSizeDriveSizeTB} TB
-                <span className="text-sm font-normal text-gray-500 ml-2">per drive</span>
+                <span className="text-sm font-normal text-gray-500 ml-2">per virtual drive</span>
               </div>
               <div className="text-xs text-gray-400 mt-1">
-                {sofs.autoSizeDrivesPerNode} drives × {sofs.autoSizeNodes} nodes = {sofs.autoSizeDrivesPerNode * sofs.autoSizeNodes} total drives
-                to store {result.totalStorageTB} TB at {result.internalMirrorFactor}× mirror footprint
+                {sofs.autoSizeDrivesPerNode} drives × {sofs.autoSizeNodes} nodes = {sofs.autoSizeDrivesPerNode * sofs.autoSizeNodes} total virtual drives
+                to store {result.internalFootprintTB} TB of guest-mirrored data on the Azure Local CSV
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-400 italic">Set drives per node above 0 to enable auto-sizing.</p>
+            <p className="text-sm text-gray-400 italic">Set virtual drives per node above 0 to enable sizing.</p>
           )}
         </div>
       </div>
 
-      {/* ── Readiness Checklist (#47) ── */}
+      {/* ── Readiness Checklist ── */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <button
           className="flex items-center gap-2 w-full px-4 py-3 text-sm font-semibold text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
@@ -253,11 +291,14 @@ function Field({ label, hint, className, children }: { label: string; hint?: str
   )
 }
 
-function Row({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function Row({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
     <tr className={`border-t border-gray-100 dark:border-gray-800 ${highlight ? 'bg-brand-50 dark:bg-brand-900/20 font-semibold' : ''}`}>
-      <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{label}</td>
-      <td className="px-4 py-2 text-right">{value}</td>
+      <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
+        <span className="text-sm">{label}</span>
+        {sub && <div className="text-xs text-gray-400 font-normal">{sub}</div>}
+      </td>
+      <td className="px-4 py-2 text-right text-sm">{value}</td>
     </tr>
   )
 }
