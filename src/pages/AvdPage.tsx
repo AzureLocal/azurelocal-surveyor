@@ -16,9 +16,14 @@ export default function AvdPage() {
       <div className="rounded-lg bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 p-4 text-sm space-y-2">
         <p className="text-gray-700 dark:text-gray-300">
           <strong>Azure Virtual Desktop (AVD)</strong> delivers Windows 11 multi-session or single-session VDI
-          desktops from session hosts running on your Azure Local cluster. Each session host is a Hyper-V VM
-          consuming vCPUs, memory, and OS disk storage. FSLogix profile containers store user profiles as
-          VHDXs — sizing depends on user count, profile size, and growth buffer.
+          desktops and RemoteApp published applications from session hosts running on your Azure Local cluster.
+          Each session host is a Hyper-V VM consuming vCPUs, memory, and OS disk storage. FSLogix profile
+          containers store user profiles as VHDXs — sizing depends on user count, profile size, and growth buffer.
+        </p>
+        <p className="text-xs text-gray-500">
+          This planner models a single host pool. If you have multiple host pools with different workload
+          types (e.g., Light for task workers and Heavy for power users), size each pool separately and sum
+          the results — multi-pool planning will be supported natively in a future release.
         </p>
         <div className="flex flex-wrap gap-3 pt-1">
           <DocLink href="https://azurelocal.cloud/azurelocal-avd/" label="AVD on Azure Local Guide" />
