@@ -71,12 +71,18 @@ export default function AvdPlanner() {
             onChange={(e) => setAvd({ totalUsers: num(e, avd.totalUsers) })} />
         </Field>
 
-        <Field label="Concurrent users (peak)" hint="#26 — 0 = size for all users">
+        <Field label="Concurrent users (peak)" hint="0 = size for all users">
           <input type="number" min={0} className="input" value={avd.concurrentUsers}
             onChange={(e) => setAvd({ concurrentUsers: num(e, avd.concurrentUsers) })} />
-          {avd.concurrentUsers > 0 && (
-            <p className="text-xs text-brand-600 dark:text-brand-400 mt-1">
-              Sizing for {avd.concurrentUsers} concurrent users (not all {avd.totalUsers})
+          <p className="text-xs text-gray-400 mt-1">
+            Session hosts, compute, and bandwidth are sized for concurrent users.
+            Profile and Office Container storage is always sized for all total users —
+            profiles exist for every assigned user, not just active ones.
+          </p>
+          {avd.concurrentUsers > 0 && avd.concurrentUsers < avd.totalUsers && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+              Sizing for {avd.concurrentUsers} concurrent ({Math.round(avd.concurrentUsers / avd.totalUsers * 100)}% of {avd.totalUsers} total).
+              {avd.concurrentUsers < avd.totalUsers * 0.7 && ' If actual peak exceeds this, session hosts will be overloaded — build in headroom or use the total user count.'}
             </p>
           )}
         </Field>
@@ -228,14 +234,17 @@ export default function AvdPlanner() {
             <Row label="Total RAM" value={`${result.totalMemoryGB} GB`} highlight />
             <Row label="OS disk per host" value={`${result.osDiskPerHostGB} GB`} />
             {avd.dataDiskPerHostGB > 0 && (
-              <Row label="Data/temp disk per host (#31)" value={`${avd.dataDiskPerHostGB} GB`} />
+              <Row label="Data/temp disk per host" value={`${avd.dataDiskPerHostGB} GB`} />
             )}
             <Row label="OS disk storage" value={`${result.totalOsStorageTB} TB`} />
             {result.totalDataDiskStorageTB > 0 && (
-              <Row label="Data disk storage (#31)" value={`${result.totalDataDiskStorageTB} TB`} />
+              <Row label="Data disk storage" value={`${result.totalDataDiskStorageTB} TB`} />
             )}
-            <Row label={`Profile storage (${avd.growthBufferPct > 0 ? `+${avd.growthBufferPct}% growth` : 'no buffer'})`}
-              value={`${result.profileStorageWithGrowthTB} TB`} />
+            <Row
+              label={`Profile storage (${avd.growthBufferPct > 0 ? `+${avd.growthBufferPct}% growth` : 'no buffer'})`}
+              value={`${result.profileStorageWithGrowthTB} TB`}
+              sub={`Sized for all ${avd.totalUsers} users — allocated for every assigned user regardless of concurrency`}
+            />
             {avd.officeContainerEnabled && (
               <Row label="Office Container storage" value={`${result.totalOfficeContainerStorageTB} TB`} />
             )}
@@ -295,7 +304,7 @@ export default function AvdPlanner() {
         </p>
       </div>
 
-      {/* ── Gold Image Reference (#37) ── */}
+      {/* ── Gold Image Reference ── */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">Gold Image Sizing Reference</div>
         <table className="w-full text-sm">
@@ -317,7 +326,7 @@ export default function AvdPlanner() {
         </p>
       </div>
 
-      {/* ── AVD Deployment Readiness Checklist (#39) ── */}
+      {/* ── AVD Deployment Readiness Checklist ── */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <button
           className="flex items-center gap-2 w-full px-4 py-3 text-sm font-semibold text-left hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
@@ -354,11 +363,14 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   )
 }
 
-function Row({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+function Row({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {
   return (
     <tr className={`border-t border-gray-100 dark:border-gray-800 ${highlight ? 'bg-brand-50 dark:bg-brand-900/20 font-semibold' : ''}`}>
-      <td className="px-4 py-2 text-gray-600 dark:text-gray-400">{label}</td>
-      <td className="px-4 py-2 text-right">{value}</td>
+      <td className="px-4 py-2 text-gray-600 dark:text-gray-400">
+        <span className="text-sm">{label}</span>
+        {sub && <div className="text-xs text-gray-400 font-normal">{sub}</div>}
+      </td>
+      <td className="px-4 py-2 text-right text-sm">{value}</td>
     </tr>
   )
 }
