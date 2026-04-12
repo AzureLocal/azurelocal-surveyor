@@ -131,6 +131,26 @@ export default function AboutPage() {
         </div>
       </section>
 
+      {/* Credits */}
+      <section>
+        <h2 className="text-xl font-semibold mb-4">Credits</h2>
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-5 space-y-3 text-sm text-gray-600 dark:text-gray-400">
+          <div>
+            <span className="font-semibold text-gray-800 dark:text-gray-200">Built by </span>
+            <a href="https://azurelocal.cloud" target="_blank" rel="noopener noreferrer" className="text-brand-600 dark:text-brand-400 hover:underline">AzureLocal.cloud</a>
+            {' '}— community-driven Azure Local guidance, tools, and reference architecture.
+          </div>
+          <div>
+            <span className="font-semibold text-gray-800 dark:text-gray-200">Based on </span>
+            the Azure Local S2D Capacity Calculator Excel workbook — formulas and methodology ported directly from the workbook into a live web app.
+          </div>
+          <div>
+            <span className="font-semibold text-gray-800 dark:text-gray-200">Built with </span>
+            React, Vite, TypeScript, Tailwind CSS, Radix UI, Zustand, jsPDF, and SheetJS.
+          </div>
+        </div>
+      </section>
+
       {/* Release history */}
       <section>
         <h2 className="text-xl font-semibold mb-4">Release History</h2>
