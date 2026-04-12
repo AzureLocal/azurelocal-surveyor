@@ -5,6 +5,30 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.1.0] — Planner Features
+
+> Commits: `37e3660` → `b4c4796`
+
+### Added
+
+- SOFS planner: architecture context banner explaining the three layers — Azure Local host CSVs → SOFS guest VM cluster → FSLogix clients (#88)
+- SOFS planner: "Azure Local host-side volume requirement" row in Sizing Results, explicitly showing the CSV space needed before host resiliency overhead (#88)
+- SOFS Report tab in Reports — dedicated end-to-end SOFS solution summary (FSLogix demand, guest cluster design, host-side requirement, resiliency compounding, IOPS, deployment assumptions); tab is hidden when SOFS is disabled (#88)
+- AVD ↔ SOFS sync panel: when AVD profile storage is set to SOFS, an "Apply to SOFS planner" button syncs user count, concurrent users, and profile size into SOFS state (#92)
+- SOFS planner: reciprocal sync indicator — green when in sync with AVD, amber when values diverge (#92)
+- AVD planner: burst headroom warning when concurrent users < 70% of total users (#96)
+
+### Changed
+
+- SOFS planner: removed all internal issue numbers (`#41`, `#43`, `#45`, `#69`) from user-facing labels and headings (#88)
+- SOFS planner: split inputs into two named sections — FSLogix Storage Demand and SOFS Guest Cluster Configuration (#88)
+- SOFS planner: renamed "SOFS internal mirror type" → "Guest cluster data protection"; "SOFS Cluster Hardware Auto-Sizing" → "Guest Cluster Drive Sizing" with rewritten descriptions clarifying storage layers (#88)
+- AVD planner: concurrent users field now has a persistent explanation that session hosts/compute/bandwidth use concurrent users while profile storage always uses total users (#96)
+- AVD planner: profile storage row in Sizing Results has a sub-label making the total-users sizing explicit (#96)
+- AVD planner: removed remaining internal issue numbers (`#26`, `#31`, `#33`, `#37`, `#39`) from user-facing labels (#96)
+
+---
+
 ## [1.0.1] — Stability and UX Clarity
 
 > Commits: `75814ca` → `97f1db0`
