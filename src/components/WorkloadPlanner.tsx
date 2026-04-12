@@ -113,7 +113,7 @@ function VmFields({
           <option value={8}>8:1</option>
         </select>
       </SmallField>
-      <SmallField label="Resiliency">
+      <SmallField label="Workload volume resiliency" hint="applies to VM storage volumes">
         <ResiliencySelect value={value.resiliency} onChange={(r) => onChange({ resiliency: r })} />
       </SmallField>
     </div>
@@ -191,6 +191,9 @@ export default function WorkloadPlanner() {
         <SummaryRow label="vCPUs" value={String(avdResult.totalVCpus)} />
         <SummaryRow label="Memory" value={`${avdResult.totalMemoryGB} GB`} />
         <SummaryRow label="Storage" value={`${avdResult.totalStorageTB} TB`} />
+        <p className="text-xs text-gray-400 mt-1">
+          Volume resiliency: OS disks use Three-Way Mirror. Profile and data volumes follow the default resiliency in Advanced Settings.
+        </p>
       </ScenarioCard>
 
       {/* ── 2. AKS ── */}
@@ -228,8 +231,9 @@ export default function WorkloadPlanner() {
             <input type="number" min={0} step={0.1} className="input w-full" value={aks.dataServicesTB}
               onChange={(e) => setAks({ dataServicesTB: num(e, aks.dataServicesTB) })} />
           </SmallField>
-          <SmallField label="Storage resiliency" className="col-span-2">
+          <SmallField label="Workload volume resiliency" hint="applies to persistent volumes and data services" className="col-span-2">
             <ResiliencySelect value={aks.resiliency} onChange={(r) => setAks({ resiliency: r })} />
+            <p className="text-xs text-gray-400 mt-1">AKS node OS disks are always Three-Way Mirror regardless of this setting.</p>
           </SmallField>
         </div>
         <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 grid grid-cols-4 gap-2 text-xs text-gray-500">
