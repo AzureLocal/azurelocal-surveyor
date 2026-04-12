@@ -58,9 +58,26 @@ function num(e: React.ChangeEvent<HTMLInputElement>, current: number): number {
 }
 
 export default function AvdPlanner() {
-  const { avd, setAvd, advanced } = useSurveyorStore()
+  const { avd, setAvd, advanced, setSofs, setSofsEnabled, sofsEnabled, sofs } = useSurveyorStore()
   const result = computeAvd(avd, advanced.overrides)
   const [checklistOpen, setChecklistOpen] = useState(false)
+
+  const usingSofs = avd.profileStorageLocation === 'sofs'
+
+  // Check if SOFS inputs already match AVD inputs
+  const sofsInSync = usingSofs && sofsEnabled &&
+    sofs.userCount === avd.totalUsers &&
+    sofs.concurrentUsers === avd.concurrentUsers &&
+    sofs.profileSizeGB === avd.profileSizeGB
+
+  function syncToSofs() {
+    setSofsEnabled(true)
+    setSofs({
+      userCount: avd.totalUsers,
+      concurrentUsers: avd.concurrentUsers,
+      profileSizeGB: avd.profileSizeGB,
+    })
+  }
 
   return (
     <div className="space-y-8">
@@ -144,12 +161,12 @@ export default function AvdPlanner() {
           </Field>
         )}
 
-        <Field label="Data / temp disk per host (GB)" hint="#31 — 0 if not needed">
+        <Field label="Data / temp disk per host (GB)" hint="0 if not needed">
           <input type="number" min={0} step={10} className="input" value={avd.dataDiskPerHostGB}
             onChange={(e) => setAvd({ dataDiskPerHostGB: num(e, avd.dataDiskPerHostGB) })} />
         </Field>
 
-        <Field label="FSLogix profile storage location" hint="#33">
+        <Field label="FSLogix profile storage location">
           <select className="input" value={avd.profileStorageLocation}
             onChange={(e) => setAvd({ profileStorageLocation: e.target.value as AvdProfileStorageLocation })}>
             <option value="s2d">S2D (CSV on this cluster)</option>
@@ -219,6 +236,39 @@ export default function AvdPlanner() {
         <span className="font-semibold">Profile storage ({avd.profileStorageLocation}):</span>{' '}
         {STORAGE_LOCATION_DESCRIPTIONS[avd.profileStorageLocation]}
       </div>
+
+      {/* SOFS sync panel — shown when SOFS is selected as AVD profile storage */}
+      {usingSofs && (
+        <div className={`rounded-lg border px-4 py-3 space-y-2 ${sofsInSync ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20' : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20'}`}>
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className={`text-sm font-semibold ${sofsInSync ? 'text-green-800 dark:text-green-300' : 'text-amber-800 dark:text-amber-300'}`}>
+                {sofsInSync ? 'SOFS planner is in sync with AVD inputs' : 'SOFS planner needs AVD profile sizing'}
+              </p>
+              <p className={`text-xs mt-0.5 ${sofsInSync ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                {sofsInSync
+                  ? `SOFS is enabled and sized for ${avd.totalUsers} users with ${avd.profileSizeGB} GB profiles. Configure additional SOFS settings on the SOFS page.`
+                  : `You selected SOFS as your profile storage location. Apply AVD sizing to the SOFS planner to keep user count and profile size consistent — or configure SOFS manually on the SOFS page.`
+                }
+              </p>
+            </div>
+            {!sofsInSync && (
+              <button
+                onClick={syncToSofs}
+                className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-md bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+              >
+                Apply to SOFS planner
+              </button>
+            )}
+          </div>
+          {!sofsInSync && (
+            <p className="text-xs text-amber-600 dark:text-amber-400">
+              Applies: {avd.totalUsers} total users, {avd.concurrentUsers} concurrent, {avd.profileSizeGB} GB profile size.
+              Does not overwrite SOFS guest VM count, mirror type, or redirected folder sizing.
+            </p>
+          )}
+        </div>
+      )}
 
       {/* ── Sizing Results ── */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">

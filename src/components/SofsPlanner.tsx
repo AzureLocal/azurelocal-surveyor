@@ -50,12 +50,33 @@ function num(e: React.ChangeEvent<HTMLInputElement>, current: number): number {
 }
 
 export default function SofsPlanner() {
-  const { sofs, setSofs, advanced } = useSurveyorStore()
+  const { sofs, setSofs, advanced, avd, avdEnabled } = useSurveyorStore()
   const result = computeSofs(sofs, advanced.overrides)
   const [checklistOpen, setChecklistOpen] = useState(false)
 
+  const avdUsingSofs = avdEnabled && avd.profileStorageLocation === 'sofs'
+  const avdInSync = avdUsingSofs &&
+    sofs.userCount === avd.totalUsers &&
+    sofs.concurrentUsers === avd.concurrentUsers &&
+    sofs.profileSizeGB === avd.profileSizeGB
+
   return (
     <div className="space-y-8">
+
+      {/* AVD source-of-truth indicator */}
+      {avdUsingSofs && (
+        <div className={`rounded-lg border px-4 py-3 text-xs ${avdInSync ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20 text-green-800 dark:text-green-300' : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300'}`}>
+          <p className="font-semibold text-sm">
+            {avdInSync ? 'Synced with AVD planner' : 'AVD planner is using SOFS for profile storage'}
+          </p>
+          <p className="mt-0.5">
+            {avdInSync
+              ? `User count (${sofs.userCount}), concurrent users (${sofs.concurrentUsers}), and profile size (${sofs.profileSizeGB} GB) match AVD inputs. Adjust guest VM count, mirror type, and redirected folders here as needed.`
+              : `The AVD planner has SOFS selected as its profile storage location, but the user count or profile size here differs from AVD inputs. Use "Apply to SOFS planner" on the AVD page to sync, or set values manually below.`
+            }
+          </p>
+        </div>
+      )}
 
       {/* Architecture context */}
       <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 text-xs text-blue-700 dark:text-blue-300 space-y-1">
