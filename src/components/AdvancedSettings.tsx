@@ -1,12 +1,15 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
 import { DEFAULT_ADVANCED_SETTINGS } from '../engine/types'
 import type { AdvancedSettingsOverrides, ResiliencyType } from '../engine/types'
 
 export default function AdvancedSettings() {
-  const { advanced, setAdvanced, hardware, setHardware } = useSurveyorStore()
+  const { advanced, setAdvanced, hardware, setHardware, resetAll } = useSurveyorStore()
   const [overridesOpen, setOverridesOpen] = useState(false)
+  const [confirmReset, setConfirmReset] = useState(false)
+  const navigate = useNavigate()
 
   const overrides: AdvancedSettingsOverrides = advanced.overrides ?? {}
   const hasActiveOverride = Object.values(overrides).some((v) => v !== undefined && v > 0)
@@ -167,6 +170,46 @@ export default function AdvancedSettings() {
             )}
           </div>
         )}
+      </div>
+
+      {/* Reset All Settings */}
+      <div className="border border-red-200 dark:border-red-800 rounded-lg overflow-hidden">
+        <div className="bg-red-50 dark:bg-red-900/20 px-4 py-3 flex items-center justify-between gap-4">
+          <div>
+            <div className="text-sm font-semibold text-red-700 dark:text-red-400">Reset All Settings</div>
+            <p className="text-xs text-red-600/70 dark:text-red-400/70 mt-0.5">
+              Clears all hardware inputs, workload configurations, and volume plans.
+            </p>
+          </div>
+          {!confirmReset ? (
+            <button
+              className="shrink-0 px-3 py-1.5 text-xs font-medium rounded-md border border-red-300 dark:border-red-700 text-red-700 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+              onClick={() => setConfirmReset(true)}
+            >
+              Reset all…
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 shrink-0">
+              <span className="text-xs text-red-700 dark:text-red-400 font-medium">Are you sure?</span>
+              <button
+                className="px-3 py-1.5 text-xs font-semibold rounded-md bg-red-600 hover:bg-red-700 text-white transition-colors"
+                onClick={() => {
+                  resetAll()
+                  setConfirmReset(false)
+                  navigate('/')
+                }}
+              >
+                Yes, reset
+              </button>
+              <button
+                className="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                onClick={() => setConfirmReset(false)}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* TB ↔ TiB Conversion Reference (#57) */}
