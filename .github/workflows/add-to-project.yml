@@ -1,0 +1,15 @@
+name: Add to Project
+
+on:
+  issues:
+    types: [opened, reopened, labeled]
+  pull_request:
+    types: [opened, labeled]
+
+jobs:
+  call-shared:
+    uses: AzureLocal/.github/.github/workflows/reusable-add-to-project.yml@main
+    with:
+      id-prefix: SURV
+      solution-option-id: 'd25838d6'
+    secrets: inherit
