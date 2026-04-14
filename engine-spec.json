@@ -2,9 +2,208 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "engine-spec",
   "title": "Azure Local Surveyor — Engine Specification",
-  "description": "Phase 0 output: machine-readable mapping of Excel formulas to TypeScript engine functions.",
-  "version": "0.0.0",
-  "status": "placeholder",
-  "note": "This file will be populated after Phase 0 formula audit is complete.",
-  "sheets": {}
+  "version": "1.0.0",
+  "surveyorVersion": "1.3.0",
+  "lastUpdated": "2026-04-14",
+  "typeNamingNote": "src/engine uses kebab-case enums (e.g. 'three-way-mirror'). reference/temp uses title-case (e.g. 'Three-Way Mirror'). These are the same concepts. All manifest and spec files use kebab-case exclusively.",
+  "overrideGap": {
+    "implemented": 4,
+    "expected": 38,
+    "implementedKeys": [
+      "driveUsableTb",
+      "avdSessionHostsNeeded",
+      "avdProfileLogicalTb",
+      "sofsProfileDemandTb"
+    ],
+    "note": "34 override keys from reference/temp/types.ts OverrideKey are not yet implemented. They are tracked as deferred in the Advanced Settings sheet entry below."
+  },
+  "statusValues": {
+    "implemented": "Full formula coverage — output matches workbook to parity-test tolerance.",
+    "partial": "Some formulas implemented; known gaps documented in the sheet entry.",
+    "re-expressed": "Logic is equivalent but the app has evolved beyond the workbook (e.g. new fields, consolidated types). The workbook is the baseline reference, not the ceiling.",
+    "deferred": "Not yet implemented.",
+    "static": "UI or guidance text only — no formulas to implement."
+  },
+  "sheets": {
+    "How to Use": {
+      "engineModule": null,
+      "engineFunction": null,
+      "status": "static",
+      "parityTestFile": null,
+      "parityScenarioCount": 0,
+      "divergences": [],
+      "notes": "Implemented as docs/index.md and the in-app DocsPage.tsx. No formula translation required."
+    },
+    "Hardware Inputs": {
+      "engineModule": "src/engine/hardware.ts",
+      "engineFunction": "validateHardwareInputs()",
+      "status": "implemented",
+      "parityTestFile": null,
+      "parityScenarioCount": 0,
+      "divergences": [
+        "Workbook uses a single DriveMedia dropdown ('All-NVMe (No Cache)', 'NVMe + SSD'). App splits this into capacityMediaType + cacheMediaType to support SSD/HDD capacity tiers not in the original workbook.",
+        "Workbook uses YesNo string for hyperthreading. App uses hyperthreadingEnabled: boolean.",
+        "Field renamed: nodes -> nodeCount, driveSizeTb -> capacityDriveSizeTB, physicalCoresPerNode -> coresPerNode, ramPerNodeGb -> memoryPerNodeGB.",
+        "hostOsReservedRamGb moved from Hardware Inputs to Advanced Settings as systemReservedMemoryGB."
+      ],
+      "notes": "Validation only — no computation. All inputs flow to capacity.ts and compute.ts."
+    },
+    "Workload Planner": {
+      "engineModule": "src/engine/workloads.ts, src/engine/aks.ts, src/engine/mabs.ts",
+      "engineFunction": "computeWorkloadSummary(), computeWorkloadTotals(), computeAks(), computeMabs()",
+      "status": "partial",
+      "parityTestFile": null,
+      "parityScenarioCount": 0,
+      "divergences": [
+        "Original workbook has 6 scenario tabs (Infra VMs, Dev/Test, Backup/Archive, Custom). App consolidates Infra+Dev/Test+Custom into a single VmScenario type and replaces Backup/Archive with a dedicated MABS planner.",
+        "App adds service presets (Azure Arc SQL MI, IoT Operations, AI Foundry Local) and custom workload builder — both beyond the workbook scope.",
+        "MABS adds internal Storage Spaces mirror compounding (#70) not present in the workbook.",
+        "AKS adds per-cluster control plane + worker node sizing not present in the workbook."
+      ],
+      "notes": "Core workload math is implemented. The partial status reflects the gap between the workbook's 6-scenario model and the app's expanded workload surface."
+    },
+    "AVD Planning": {
+      "engineModule": "src/engine/avd.ts",
+      "engineFunction": "computeAvd()",
+      "status": "re-expressed",
+      "parityTestFile": "src/engine/__tests__/avd.parity.test.ts",
+      "parityScenarioCount": 12,
+      "divergences": [
+        "App adds user type mix (task/knowledge/power worker weighted average profile size) — #59.",
+        "App adds Office Container sizing as a separate storage bucket — #59.",
+        "App adds data disk per session host — #31.",
+        "App adds profile storage location selector (S2D / SOFS / Azure Files / External) — #33.",
+        "growthBuffer scale differs: workbook uses decimal (0.3 = 30%), app uses integer percent (30 = 30%).",
+        "AVD enable flag moved from AvdInputs to top-level store as avdEnabled: boolean.",
+        "concurrentUsers is optional (0 = use totalUsers); workbook always requires a value.",
+        "Profile storage correctly sizes against totalUsers, not concurrentUsers — documented in avd.ts:136."
+      ],
+      "notes": "Core density, session host count, and storage formulas match the workbook. App has significantly extended the AVD surface with features the workbook does not cover."
+    },
+    "SOFS Planner": {
+      "engineModule": "src/engine/sofs.ts",
+      "engineFunction": "computeSofs()",
+      "status": "re-expressed",
+      "parityTestFile": "src/engine/__tests__/sofs.parity.test.ts",
+      "parityScenarioCount": 8,
+      "divergences": [
+        "App adds internal Storage Spaces mirror compounding inside the SOFS guest cluster — #69.",
+        "App adds three container types: single, split, three (workbook has single and split only).",
+        "App adds auto-sizing mode: user specifies drive count and app calculates required drive size — #43.",
+        "App adds IOPS estimates for steady-state and login storm — #41.",
+        "sofsNodes is auto-calculated in the app; workbook exposes it as a user input.",
+        "SOFS enable flag moved to top-level store as sofsEnabled: boolean."
+      ],
+      "notes": "Core profile storage demand and SOFS VM sizing match the workbook. App extends SOFS significantly beyond the original workbook scope."
+    },
+    "Volume Detail": {
+      "engineModule": "src/engine/volumes.ts",
+      "engineFunction": "computeVolumeSummary(), toWacSize(), computeQuickStart()",
+      "status": "implemented",
+      "parityTestFile": null,
+      "parityScenarioCount": 0,
+      "divergences": [
+        "App preserves the TB vs WAC-TiB distinction from the workbook (toWacSize()). This is the critical per-volume sizing correctness invariant.",
+        "App adds Quick-Start Volumes reference table (hardware-based equal-split layout) — beyond workbook."
+      ],
+      "notes": "Volume footprint math and WAC size translation fully implemented."
+    },
+    "Capacity Report": {
+      "engineModule": "src/engine/capacity.ts",
+      "engineFunction": "computeCapacity()",
+      "status": "implemented",
+      "parityTestFile": "src/engine/__tests__/capacity.parity.test.ts",
+      "parityScenarioCount": 20,
+      "divergences": [],
+      "notes": "All 20 golden scenarios pass to +-0.02 TB tolerance. This is the most rigorously tested module in the engine."
+    },
+    "Compute Report": {
+      "engineModule": "src/engine/compute.ts",
+      "engineFunction": "computeCompute()",
+      "status": "implemented",
+      "parityTestFile": "src/engine/__tests__/compute.parity.test.ts",
+      "parityScenarioCount": 6,
+      "divergences": [
+        "App adds NUMA domain estimate (nodeCount x 2) — not in workbook.",
+        "App adds N+1 failover analysis: usableVCpusN1 and usableMemoryGBN1 — not in workbook."
+      ],
+      "notes": "Core logical vCPU, usable RAM, and system reserved calculations match the workbook."
+    },
+    "Final Report": {
+      "engineModule": "src/components/FinalReport.tsx (composite)",
+      "engineFunction": "FinalReport()",
+      "status": "partial",
+      "parityTestFile": null,
+      "parityScenarioCount": 0,
+      "divergences": [
+        "Workbook Final Report sheet has 238 formulas — many are display/formatting, not computation.",
+        "App re-implements as a React component pulling from all engine modules.",
+        "App adds JSON export (SurveyorPlan manifest) beyond what the workbook produces — #118.",
+        "App adds PowerShell script generation — beyond workbook.",
+        "App adds Markdown export — beyond workbook."
+      ],
+      "notes": "The report surface is implemented. 'Partial' reflects that not every workbook display formula has a direct equivalent; the app's output is structurally equivalent but not formula-for-formula identical."
+    },
+    "Drive Layout Comparison": {
+      "engineModule": "src/pages/DriveLayoutPage.tsx",
+      "engineFunction": "(UI component — no engine module)",
+      "status": "implemented",
+      "parityTestFile": null,
+      "parityScenarioCount": 0,
+      "divergences": [],
+      "notes": "Implemented as a dedicated page. Calculates equivalent drive size for same raw capacity with different drive counts — matches workbook tab."
+    },
+    "Thin Provisioning": {
+      "engineModule": null,
+      "engineFunction": null,
+      "status": "static",
+      "parityTestFile": null,
+      "parityScenarioCount": 0,
+      "divergences": [],
+      "notes": "Implemented as ThinProvisioningPage.tsx — guidance text, risks, PowerShell monitoring commands, and a 9-item checklist. No formula translation required."
+    },
+    "Volume Health Check": {
+      "engineModule": "src/engine/healthcheck.ts",
+      "engineFunction": "runHealthCheck()",
+      "status": "implemented",
+      "parityTestFile": "src/engine/__tests__/engine.test.ts",
+      "parityScenarioCount": 0,
+      "divergences": [
+        "App adds compute vCPU and memory health checks (workload vs usable) — beyond Volume Health Check sheet scope.",
+        "App adds thin provisioning over-commit warning — beyond sheet scope.",
+        "Expandable per-row pass/fail detail not yet implemented (tracked in #108)."
+      ],
+      "notes": "Core volume-level checks (size, resiliency, pool fit, node count) are implemented. Health check codes validated in engine.test.ts."
+    },
+    "Advanced Settings": {
+      "engineModule": "src/engine/types.ts",
+      "engineFunction": "DEFAULT_ADVANCED_SETTINGS",
+      "status": "partial",
+      "parityTestFile": null,
+      "parityScenarioCount": 0,
+      "divergences": [
+        "Workbook defines 38 override keys. App implements 4: driveUsableTb, avdSessionHostsNeeded, avdProfileLogicalTb, sofsProfileDemandTb.",
+        "34 override keys are deferred — see overrideGap at the top of this file."
+      ],
+      "notes": "Core settings (capacityEfficiencyFactor, infraVolumeSizeTB, vCpuOversubscriptionRatio, systemReservedMemoryGB, defaultResiliency) are fully implemented. Override registry is partially implemented."
+    },
+    "References": {
+      "engineModule": null,
+      "engineFunction": null,
+      "status": "static",
+      "parityTestFile": null,
+      "parityScenarioCount": 0,
+      "divergences": [],
+      "notes": "Implemented as ReferencesPage.tsx — 17 categorized Microsoft Learn hyperlinks from the workbook reference catalog."
+    },
+    "To Do": {
+      "engineModule": null,
+      "engineFunction": null,
+      "status": "static",
+      "parityTestFile": null,
+      "parityScenarioCount": 0,
+      "divergences": [],
+      "notes": "Workbook To Do tab is an internal scratch pad. No implementation required. Feature backlog is tracked in GitHub issues."
+    }
+  }
 }

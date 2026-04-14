@@ -21,7 +21,8 @@ import { exportPdf } from '../exporters/pdf'
 import { exportXlsx } from '../exporters/xlsx'
 import { generatePowerShell } from '../exporters/powershell'
 import { generateMarkdown } from '../exporters/markdown'
-import { FileDown, Table2, Terminal, FileText, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { exportJson } from '../exporters/json'
+import { FileDown, Table2, Terminal, FileText, Braces, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 import type { HardwareInputs, CapacityResult, ComputeResult, VolumeSpec, WorkloadSummaryResult } from '../engine/types'
 
 export default function FinalReport() {
@@ -108,6 +109,7 @@ export default function FinalReport() {
         <ExportBtn icon={<Table2 className="w-4 h-4" />} label="Export XLSX" onClick={() => exportXlsx(state)} />
         <ExportBtn icon={<Terminal className="w-4 h-4" />} label="Copy PowerShell" onClick={copyPowerShell} />
         <ExportBtn icon={<FileText className="w-4 h-4" />} label="Copy Markdown" onClick={copyMarkdown} />
+        <ExportBtn icon={<Braces className="w-4 h-4" />} label="Export JSON" onClick={() => exportJson(state)} />
       </div>
 
       {/* Cluster summary */}
