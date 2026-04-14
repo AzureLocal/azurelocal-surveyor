@@ -32,12 +32,14 @@ function num(e: React.ChangeEvent<HTMLInputElement>, current: number): number {
 
 function ScenarioCard({
   label,
+  subtitle,
   badge,
   enabled,
   onToggle,
   children,
 }: {
   label: string
+  subtitle?: string
   badge?: string
   enabled: boolean
   onToggle: () => void
@@ -47,7 +49,10 @@ function ScenarioCard({
     <div className={`rounded-lg border ${enabled ? 'border-brand-400 dark:border-brand-600' : 'border-gray-200 dark:border-gray-700'} overflow-hidden`}>
       <div className="flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold">{label}</span>
+          <div>
+            <span className="text-sm font-semibold">{label}</span>
+            {subtitle && <span className="block text-xs font-normal text-gray-400 dark:text-gray-500 leading-none mt-0.5">{subtitle}</span>}
+          </div>
           {badge && <span className="px-2 py-0.5 text-xs rounded-full bg-brand-100 dark:bg-brand-900 text-brand-700 dark:text-brand-300">{badge}</span>}
         </div>
         <button
@@ -202,7 +207,7 @@ export default function WorkloadPlanner() {
     <div className="space-y-4">
 
       {/* ── 1. AVD ── */}
-      <ScenarioCard label="Azure Virtual Desktop (AVD)" badge="separate page" enabled={avdEnabled} onToggle={() => setAvdEnabled(!avdEnabled)}>
+      <ScenarioCard label="Azure Virtual Desktop (AVD)" subtitle="Azure Virtual Desktop" badge="separate page" enabled={avdEnabled} onToggle={() => setAvdEnabled(!avdEnabled)}>
         <div className="text-sm text-gray-500">
           AVD is configured on the{' '}
           <Link to="/avd" className="text-brand-600 hover:underline">AVD Planning page</Link>.
@@ -218,7 +223,7 @@ export default function WorkloadPlanner() {
       </ScenarioCard>
 
       {/* ── 2. AKS ── */}
-      <ScenarioCard label="AKS on Azure Local" enabled={aks.enabled} onToggle={() => {
+      <ScenarioCard label="AKS on Azure Local" subtitle="Kubernetes" enabled={aks.enabled} onToggle={() => {
         if (aks.enabled && aksDependentPresetsEnabled) {
           if (!window.confirm('One or more Arc-enabled services (SQL MI, IoT Operations, etc.) require AKS. Disabling AKS will leave those presets without a runtime. Disable anyway?')) return
         }
@@ -271,14 +276,14 @@ export default function WorkloadPlanner() {
       </ScenarioCard>
 
       {/* ── 3. Virtual Machines ── */}
-      <ScenarioCard label="Virtual Machines" enabled={virtualMachines.enabled} onToggle={() => setVirtualMachines({ enabled: !virtualMachines.enabled })}>
+      <ScenarioCard label="Virtual Machines" subtitle="Workload VMs, dev/test, infra" enabled={virtualMachines.enabled} onToggle={() => setVirtualMachines({ enabled: !virtualMachines.enabled })}>
         <VmFields value={virtualMachines} onChange={setVirtualMachines} />
         <ScenarioTotals vCpus={vmTotals.vCpus} memGB={vmTotals.memoryGB} storageTB={vmTotals.storageTB}
           rawVCpus={virtualMachines.vmCount * virtualMachines.vCpusPerVm} overcommit={virtualMachines.vCpuOvercommitRatio} />
       </ScenarioCard>
 
       {/* ── 4. SOFS ── */}
-      <ScenarioCard label="Scale-Out File Server (SOFS)" badge="separate page" enabled={sofsEnabled} onToggle={() => setSofsEnabled(!sofsEnabled)}>
+      <ScenarioCard label="Scale-Out File Server (SOFS)" subtitle="Scale-Out File Server" badge="separate page" enabled={sofsEnabled} onToggle={() => setSofsEnabled(!sofsEnabled)}>
         <div className="text-sm text-gray-500">
           SOFS is configured on the{' '}
           <Link to="/sofs" className="text-brand-600 hover:underline">SOFS Planning page</Link>.
@@ -290,7 +295,7 @@ export default function WorkloadPlanner() {
       </ScenarioCard>
 
       {/* ── 5. MABS ── */}
-      <ScenarioCard label="Azure Backup Server (MABS)" badge="separate page" enabled={mabsEnabled} onToggle={() => setMabsEnabled(!mabsEnabled)}>
+      <ScenarioCard label="Azure Backup Server (MABS)" subtitle="Azure Backup Server" badge="separate page" enabled={mabsEnabled} onToggle={() => setMabsEnabled(!mabsEnabled)}>
         <div className="text-sm text-gray-500">
           MABS is configured on the{' '}
           <Link to="/mabs" className="text-brand-600 hover:underline">MABS Planning page</Link>.

@@ -39,11 +39,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 py-4 space-y-0.5 px-2">
           <NavItem to="/" label="Home" icon={Home} end />
           <NavItem to="/hardware" label="Hardware" icon={Server} end />
-          <NavItem to="/workloads" label="Workloads" subtitle="Virtual Machines" icon={Cpu} />
-          {avdEnabled   && <NavItem to="/avd"  label="AVD"  subtitle="Azure Virtual Desktop" icon={Monitor}    />}
-          {aks.enabled  && <NavItem to="/aks"  label="AKS"  subtitle="Kubernetes" icon={Container}  />}
-          {sofsEnabled  && <NavItem to="/sofs" label="SOFS" subtitle="Scale-Out File Server" icon={HardDrive}  />}
-          {mabsEnabled  && <NavItem to="/mabs" label="MABS" subtitle="Azure Backup Server" icon={ShieldCheck} />}
+          <NavItem to="/workloads" label="Workloads" icon={Cpu} />
+          {avdEnabled   && <NavItem to="/avd"  label="AVD"  icon={Monitor}    />}
+          {aks.enabled  && <NavItem to="/aks"  label="AKS"  icon={Container}  />}
+          {sofsEnabled  && <NavItem to="/sofs" label="SOFS" icon={HardDrive}  />}
+          {mabsEnabled  && <NavItem to="/mabs" label="MABS" icon={ShieldCheck} />}
           <NavItem to="/volumes" label="Volumes" icon={HardDrive} />
           <NavItem to="/drive-layout" label="Drive Layout" icon={Layers} />
           <NavItem to="/reports" label="Reports" icon={BarChart3} />
