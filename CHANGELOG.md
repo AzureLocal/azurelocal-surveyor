@@ -5,6 +5,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.5.0] — AVD Maturity
+
+> Commits: `8e190af`
+
+### Added
+
+- AVD planner: multi-pool host pool support — plan up to 10 independent AVD host pools in a single session, each with its own name, user count, workload model, session type, and profile storage location (#111)
+- AVD planner: per-pool breakdown table shown when more than one pool is configured; aggregate totals always shown at the top (#111)
+- AVD planner: pool selector card rail with add/remove controls; selecting a pool shows its detailed density analysis and bandwidth estimate (#111)
+- AVD planner: SOFS sync panel now aggregates across all SOFS-targeted pools only; shows aggregate user count, concurrent users, and profile size driving SOFS demand (#111, #112)
+- SOFS planner: reciprocal sync values now reflect SOFS-targeted pool aggregates rather than total AVD demand (#111)
+- AVD ↔ SOFS cross-page navigation: "Open the SOFS planner" link in the AVD sync panel; "Open the AVD planner" link in the SOFS sync indicator (#112)
+- Markdown export: per-pool breakdown table included when more than one pool is configured; external storage total shown when any pool uses non-SOFS storage (#111)
+- XLSX export: AVD Planning sheet includes aggregate summary rows followed by per-pool detail sections (#111)
+- Engine docs: `docs/engine/avd.md` and `docs/engine/sofs.md` updated to document multi-pool architecture and SOFS-targeted aggregation
+
+### Changed
+
+- AVD planner page copy: removed single-pool caveat; explains native multi-pool planning support
+- SOFS planner page copy: clarifies that only SOFS-targeted AVD pools are counted toward linked AVD demand
+- Zustand store: bumped to version 8; migration converts legacy flat AVD state into the new `pools[]` array format
+
+### Fixed
+
+- Store migration: `omitUndefined()` guard added to prevent legacy persisted `undefined` values from overwriting pool defaults during migration (#116)
+
+---
+
 ## [1.4.0] — Stability and UX Clarity
 
 > This release absorbs the unreleased v1.2.0 research and documentation work.
