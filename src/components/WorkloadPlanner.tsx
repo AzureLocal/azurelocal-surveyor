@@ -206,7 +206,14 @@ export default function WorkloadPlanner() {
   return (
     <div className="space-y-4">
 
-      {/* ── 1. AVD ── */}
+      {/* ── 1. Virtual Machines ── */}
+      <ScenarioCard label="Virtual Machines" subtitle="Workload VMs, dev/test, infra" enabled={virtualMachines.enabled} onToggle={() => setVirtualMachines({ enabled: !virtualMachines.enabled })}>
+        <VmFields value={virtualMachines} onChange={setVirtualMachines} />
+        <ScenarioTotals vCpus={vmTotals.vCpus} memGB={vmTotals.memoryGB} storageTB={vmTotals.storageTB}
+          rawVCpus={virtualMachines.vmCount * virtualMachines.vCpusPerVm} overcommit={virtualMachines.vCpuOvercommitRatio} />
+      </ScenarioCard>
+
+      {/* ── 2. AVD ── */}
       <ScenarioCard label="Azure Virtual Desktop (AVD)" subtitle="Azure Virtual Desktop" badge="separate page" enabled={avdEnabled} onToggle={() => setAvdEnabled(!avdEnabled)}>
         <div className="text-sm text-gray-500">
           AVD is configured on the{' '}
@@ -222,7 +229,7 @@ export default function WorkloadPlanner() {
         </p>
       </ScenarioCard>
 
-      {/* ── 2. AKS ── */}
+      {/* ── 3. AKS ── */}
       <ScenarioCard label="AKS on Azure Local" subtitle="Kubernetes" enabled={aks.enabled} onToggle={() => {
         if (aks.enabled && aksDependentPresetsEnabled) {
           if (!window.confirm('One or more Arc-enabled services (SQL MI, IoT Operations, etc.) require AKS. Disabling AKS will leave those presets without a runtime. Disable anyway?')) return
@@ -273,13 +280,6 @@ export default function WorkloadPlanner() {
           <span>RAM: <strong className="text-gray-900 dark:text-white">{aksResult.totalMemoryGB} GB</strong></span>
           <span>Storage: <strong className="text-gray-900 dark:text-white">{aksResult.totalStorageTB} TB</strong></span>
         </div>
-      </ScenarioCard>
-
-      {/* ── 3. Virtual Machines ── */}
-      <ScenarioCard label="Virtual Machines" subtitle="Workload VMs, dev/test, infra" enabled={virtualMachines.enabled} onToggle={() => setVirtualMachines({ enabled: !virtualMachines.enabled })}>
-        <VmFields value={virtualMachines} onChange={setVirtualMachines} />
-        <ScenarioTotals vCpus={vmTotals.vCpus} memGB={vmTotals.memoryGB} storageTB={vmTotals.storageTB}
-          rawVCpus={virtualMachines.vmCount * virtualMachines.vCpusPerVm} overcommit={virtualMachines.vCpuOvercommitRatio} />
       </ScenarioCard>
 
       {/* ── 4. SOFS ── */}
