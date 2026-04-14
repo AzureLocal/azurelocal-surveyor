@@ -23,7 +23,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { computeAvd } from '../avd'
-import type { AvdInputs } from '../types'
+import type { AvdHostPool, AvdInputs } from '../types'
 
 const TOL = 0.02
 
@@ -31,19 +31,33 @@ function near(actual: number, expected: number): boolean {
   return Math.abs(actual - expected) <= TOL
 }
 
-const BASE_AVD: AvdInputs = {
+const BASE_POOL: AvdHostPool = {
+  id: 'pool-1',
+  name: 'Host Pool 1',
   totalUsers: 100,
   concurrentUsers: 0,
   workloadType: 'medium',
   multiSession: true,
   profileSizeGB: 40,
-  userTypeMixEnabled: false,
-  userTypeMix: { taskPct: 0, taskProfileGB: 15, knowledgePct: 0, knowledgeProfileGB: 40, powerPct: 0, powerProfileGB: 80 },
-  growthBufferPct: 0,
   officeContainerEnabled: false,
   officeContainerSizeGB: 20,
   dataDiskPerHostGB: 0,
   profileStorageLocation: 's2d',
+}
+
+const BASE_AVD: AvdInputs = {
+  pools: [BASE_POOL],
+  userTypeMixEnabled: false,
+  userTypeMix: { taskPct: 0, taskProfileGB: 15, knowledgePct: 0, knowledgeProfileGB: 40, powerPct: 0, powerProfileGB: 80 },
+  growthBufferPct: 0,
+}
+
+function makeAvd(pool: Partial<AvdHostPool>, root: Partial<Omit<AvdInputs, 'pools'>> = {}): AvdInputs {
+  return {
+    ...BASE_AVD,
+    ...root,
+    pools: [{ ...BASE_POOL, ...pool }],
+  }
 }
 
 describe('AVD parity — 12 golden scenarios', () => {
@@ -52,7 +66,7 @@ describe('AVD parity — 12 golden scenarios', () => {
   // vCPUs=7×2=14, memory=7×8=56 GB
   // OS=7×128/1024=0.875 TB, profile=100×40/1024=3.91 TB, total≈4.79 TB
   it('01 — light multi-session, 100 users, no concurrent override', () => {
-    const r = computeAvd({ ...BASE_AVD, workloadType: 'light', totalUsers: 100 })
+    const r = computeAvd(makeAvd({ workloadType: 'light', totalUsers: 100 }))
     expect(r.sessionHostCount).toBe(7)
     expect(r.totalVCpus).toBe(14)
     expect(r.totalMemoryGB).toBe(56)
@@ -63,7 +77,7 @@ describe('AVD parity — 12 golden scenarios', () => {
   // sizingUsers=200, sessionHostCount=ceil(200/16)=13
   // profile still uses totalUsers=1000: 1000×40/1024=39.06 TB
   it('02 — light multi-session, 1000 total users, 200 concurrent', () => {
-    const r = computeAvd({ ...BASE_AVD, workloadType: 'light', totalUsers: 1000, concurrentUsers: 200 })
+    const r = computeAvd(makeAvd({ workloadType: 'light', totalUsers: 1000, concurrentUsers: 200 }))
     expect(r.sessionHostCount).toBe(13)
     expect(r.sizingUsers).toBe(200)
     expect(near(r.totalProfileStorageTB, 39.06)).toBe(true)
@@ -74,7 +88,7 @@ describe('AVD parity — 12 golden scenarios', () => {
   // vCPUs=63×4=252, memory=63×16=1008 GB
   // OS=63×128/1024=7.88 TB, profile=500×40/1024=19.53 TB
   it('03 — medium multi-session, 500 users', () => {
-    const r = computeAvd({ ...BASE_AVD, workloadType: 'medium', totalUsers: 500 })
+    const r = computeAvd(makeAvd({ workloadType: 'medium', totalUsers: 500 }))
     expect(r.sessionHostCount).toBe(63)
     expect(r.totalVCpus).toBe(252)
     expect(r.totalMemoryGB).toBe(1008)
@@ -85,12 +99,13 @@ describe('AVD parity — 12 golden scenarios', () => {
   // effectiveProfile = (30×15 + 50×40 + 20×80) / 100 = (450+2000+1600)/100 = 40.5 → rounds to 41 GB
   // profile = 500×41/1024 = 20.02 TB
   it('04 — medium, 500 users, user type mix 30% task/50% knowledge/20% power', () => {
-    const r = computeAvd({
-      ...BASE_AVD,
-      totalUsers: 500,
-      userTypeMixEnabled: true,
-      userTypeMix: { taskPct: 30, taskProfileGB: 15, knowledgePct: 50, knowledgeProfileGB: 40, powerPct: 20, powerProfileGB: 80 },
-    })
+    const r = computeAvd(makeAvd(
+      { totalUsers: 500 },
+      {
+        userTypeMixEnabled: true,
+        userTypeMix: { taskPct: 30, taskProfileGB: 15, knowledgePct: 50, knowledgeProfileGB: 40, powerPct: 20, powerProfileGB: 80 },
+      }
+    ))
     expect(r.effectiveProfileSizeGB).toBe(41)
     expect(near(r.totalProfileStorageTB, 20.02)).toBe(true)
   })
@@ -99,7 +114,7 @@ describe('AVD parity — 12 golden scenarios', () => {
   // usersPerHost=4, sessionHostCount=ceil(200/4)=50
   // vCPUs=50×8=400, memory=50×32=1600 GB
   it('05 — heavy multi-session, 200 users', () => {
-    const r = computeAvd({ ...BASE_AVD, workloadType: 'heavy', totalUsers: 200 })
+    const r = computeAvd(makeAvd({ workloadType: 'heavy', totalUsers: 200 }))
     expect(r.sessionHostCount).toBe(50)
     expect(r.totalVCpus).toBe(400)
     expect(r.totalMemoryGB).toBe(1600)
@@ -110,7 +125,7 @@ describe('AVD parity — 12 golden scenarios', () => {
   // vCPUs=25×16=400, memory=25×64=1600 GB
   // OS=25×256/1024=6.25 TB
   it('06 — power multi-session, 50 users', () => {
-    const r = computeAvd({ ...BASE_AVD, workloadType: 'power', totalUsers: 50 })
+    const r = computeAvd(makeAvd({ workloadType: 'power', totalUsers: 50 }))
     expect(r.sessionHostCount).toBe(25)
     expect(r.totalVCpus).toBe(400)
     expect(near(r.totalOsStorageTB, 6.25)).toBe(true)
@@ -120,7 +135,7 @@ describe('AVD parity — 12 golden scenarios', () => {
   // usersPerHost=1 (single-session always 1), sessionHostCount=100
   // vCPUs=100×4=400, memory=100×16=1600 GB
   it('07 — single-session VDI, medium, 100 users', () => {
-    const r = computeAvd({ ...BASE_AVD, multiSession: false })
+    const r = computeAvd(makeAvd({ multiSession: false }))
     expect(r.usersPerHost).toBe(1)
     expect(r.sessionHostCount).toBe(100)
     expect(r.totalVCpus).toBe(400)
@@ -130,7 +145,7 @@ describe('AVD parity — 12 golden scenarios', () => {
   // profile base = 100×40/1024 = 3.906 TB
   // with 20% buffer: 3.906 × 1.20 = 4.69 TB
   it('08 — medium, 100 users, 20% growth buffer', () => {
-    const r = computeAvd({ ...BASE_AVD, growthBufferPct: 20 })
+    const r = computeAvd(makeAvd({}, { growthBufferPct: 20 }))
     expect(near(r.totalProfileStorageTB, 4.69)).toBe(true)
     expect(near(r.profileStorageWithGrowthTB, 4.69)).toBe(true)
   })
@@ -140,7 +155,7 @@ describe('AVD parity — 12 golden scenarios', () => {
   // office  = 100×20/1024 = 1.95 TB
   // total includes both
   it('09 — medium, 100 users, office container 20 GB enabled', () => {
-    const r = computeAvd({ ...BASE_AVD, officeContainerEnabled: true, officeContainerSizeGB: 20 })
+    const r = computeAvd(makeAvd({ officeContainerEnabled: true, officeContainerSizeGB: 20 }))
     expect(near(r.totalOfficeContainerStorageTB, 1.95)).toBe(true)
     expect(near(r.totalStorageTB, r.totalOsStorageTB + r.totalProfileStorageTB + 1.95)).toBe(true)
   })
@@ -157,7 +172,7 @@ describe('AVD parity — 12 golden scenarios', () => {
   // sessionHostCount=ceil(100/8)=13, dataDiskPerHostGB=100
   // dataDiskTB = 13×100/1024 = 1.27 TB
   it('11 — medium, 100 users, 100 GB data disk per host', () => {
-    const r = computeAvd({ ...BASE_AVD, dataDiskPerHostGB: 100 })
+    const r = computeAvd(makeAvd({ dataDiskPerHostGB: 100 }))
     expect(r.sessionHostCount).toBe(13)
     expect(near(r.totalDataDiskStorageTB, 13 * 100 / 1024)).toBe(true)
   })
@@ -166,7 +181,7 @@ describe('AVD parity — 12 golden scenarios', () => {
   // concurrentUsers=0 → sizingUsers=totalUsers=100
   // sessionHostCount=ceil(100/8)=13
   it('12 — concurrentUsers=0 falls back to totalUsers for host sizing', () => {
-    const r = computeAvd({ ...BASE_AVD, concurrentUsers: 0 })
+    const r = computeAvd(makeAvd({ concurrentUsers: 0 }))
     expect(r.sizingUsers).toBe(100)
     expect(r.sessionHostCount).toBe(13)
   })

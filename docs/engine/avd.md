@@ -4,19 +4,58 @@ The AVD engine lives in `src/engine/avd.ts`, with the main UI in `src/components
 
 ## Current behavior in Surveyor
 
+Surveyor now supports multiple AVD host pools in a single planning model. Each pool carries its own:
+
+- total users
+- concurrent users
+- workload type
+- session model
+- profile size override
+- Office Container settings
+- data disk per host
+- profile storage location
+
+Aggregate AVD results sum compute and Azure Local-hosted storage across all pools while keeping externally hosted profile and Office Container storage separate.
+
 Surveyor intentionally uses two different user counts for two different sizing jobs:
 
 - **Concurrent users** drive session host count, compute totals, and bandwidth.
 - **Total users** drive FSLogix profile storage and Office Container storage.
 
-The engine does this explicitly:
+The engine does this explicitly per pool:
 
 - `sizingUsers = concurrentUsers > 0 ? concurrentUsers : totalUsers`
 - `sessionHostCount = ceil(sizingUsers / usersPerHost)`
 - `totalProfileStorageTB = totalUsers * effectiveProfileSizeGB / 1024`
 - `totalOfficeContainerStorageTB = totalUsers * officeContainerSizeGB / 1024`
 
-That split is intentional and correct for Azure Virtual Desktop planning.
+That split is intentional and correct for Azure Virtual Desktop planning. Aggregate results then sum those per-pool outputs.
+
+## Profile storage location handling
+
+Surveyor now distinguishes between AVD storage that lives on the Azure Local cluster and storage that lives elsewhere:
+
+- `s2d` pools count profile and Office Container storage into AVD cluster totals
+- `sofs`, `azure-files`, and `external` pools keep that profile-related storage out of the Azure Local AVD storage total
+- externally hosted profile and Office Container demand is surfaced separately as `totalExternalStorageTB`
+
+This prevents Azure Files, SOFS-backed, or third-party NAS profile storage from being double-counted as local cluster capacity.
+
+## Profile size sync with SOFS
+
+When one or more AVD pools target SOFS for profile storage, Surveyor aggregates those SOFS-targeted pools into a shared SOFS input set:
+
+- linked user count = sum of users across SOFS-targeted pools
+- linked concurrency = sum of sizing users across SOFS-targeted pools
+- linked profile size = weighted average FSLogix profile size across SOFS-targeted pools
+
+When AVD is explicitly targeting SOFS for profile storage, the link is bidirectional:
+
+- changing SOFS-targeted AVD pool profile sizes updates the linked SOFS profile size
+- changing the SOFS FSLogix profile size pushes back into every SOFS-targeted AVD pool
+- both planner pages show whether the values are currently in sync
+
+User counts and concurrency are also part of the AVD-to-SOFS sync path now, but only for the pools that actually use SOFS.
 
 ## Microsoft guidance behind the split
 

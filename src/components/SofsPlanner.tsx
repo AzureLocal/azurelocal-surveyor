@@ -7,7 +7,9 @@
  */
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useSurveyorStore } from '../state/store'
+import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
 import type { SofsContainerType, SofsInternalMirror } from '../engine/types'
 
@@ -52,14 +54,16 @@ function num(e: React.ChangeEvent<HTMLInputElement>, current: number): number {
 export default function SofsPlanner() {
   const { sofs, setSofs, advanced, avd, avdEnabled } = useSurveyorStore()
   const result = computeSofs(sofs, advanced.overrides)
+  const avdResult = computeAvd(avd, advanced.overrides)
   const [checklistOpen, setChecklistOpen] = useState(false)
   const recommendedHostCsvCount = Math.max(1, sofs.sofsGuestVmCount)
 
-  const avdUsingSofs = avdEnabled && avd.profileStorageLocation === 'sofs'
+  const avdUsingSofs = avdEnabled && avdResult.sofsLinkedUserCount > 0
+  const profileSizeInSync = avdResult.sofsLinkedProfileSizeGB === sofs.profileSizeGB
   const avdInSync = avdUsingSofs &&
-    sofs.userCount === avd.totalUsers &&
-    sofs.concurrentUsers === avd.concurrentUsers &&
-    sofs.profileSizeGB === avd.profileSizeGB
+    sofs.userCount === avdResult.sofsLinkedUserCount &&
+    sofs.concurrentUsers === avdResult.sofsLinkedConcurrentUsers &&
+    profileSizeInSync
 
   return (
     <div className="space-y-8">
@@ -73,8 +77,11 @@ export default function SofsPlanner() {
           <p className="mt-0.5">
             {avdInSync
               ? `User count (${sofs.userCount}), concurrent users (${sofs.concurrentUsers}), and profile size (${sofs.profileSizeGB} GB) match AVD inputs. Adjust guest VM count, mirror type, and redirected folders here as needed.`
-              : `The AVD planner has SOFS selected as its profile storage location, but the user count or profile size here differs from AVD inputs. Use "Apply to SOFS planner" on the AVD page to sync, or set values manually below.`
+              : `One or more AVD host pools target SOFS, but the user count or profile size here differs from the aggregated AVD inputs. Use "Apply to SOFS planner" on the AVD page to sync, or set values manually below.`
             }
+          </p>
+          <p className="mt-1">
+            Open the <Link to="/avd" className="font-semibold underline">AVD planner</Link> to review the source host pools and linked FSLogix assumptions.
           </p>
         </div>
       )}
@@ -108,6 +115,15 @@ export default function SofsPlanner() {
           <Field label="FSLogix profile size (GB)">
             <input type="number" min={1} className="input" value={sofs.profileSizeGB}
               onChange={(e) => setSofs({ profileSizeGB: num(e, sofs.profileSizeGB) })} />
+            {avdEnabled && (
+              <p className={`text-xs mt-1 ${avdUsingSofs ? (profileSizeInSync ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400') : 'text-gray-500 dark:text-gray-400'}`}>
+                {avdUsingSofs
+                  ? profileSizeInSync
+                    ? `AVD-linked profile size is ${avdResult.sofsLinkedProfileSizeGB} GB.`
+                    : `AVD-linked profile size currently differs (${avdResult.sofsLinkedProfileSizeGB} GB). Editing this field updates every SOFS-targeted AVD host pool automatically.`
+                  : 'AVD is not currently targeting SOFS, so profile size changes here stay local to the SOFS planner.'}
+              </p>
+            )}
           </Field>
 
           <Field label="Redirected folders size (GB)">

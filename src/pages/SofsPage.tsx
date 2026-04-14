@@ -42,6 +42,11 @@ export default function SofsPage() {
           storage independent of any single VM. The SOFS guest VMs use S2D or Storage Spaces internally
           to mirror data, which compounds with the Azure Local cluster resiliency.
         </p>
+        <p className="text-xs text-gray-500">
+          When AVD host pools target SOFS for profile storage, Surveyor aggregates only those pools into the
+          SOFS-linked user count, concurrency, and profile-size values. The toggle above still controls whether
+          the SOFS guest cluster itself is included in cluster totals and health checks.
+        </p>
         <div className="flex flex-wrap gap-3 pt-1">
           <DocLink href="https://azurelocal.cloud/azurelocal-sofs-fslogix/" label="SOFS + FSLogix Guide" />
           <DocLink href="https://learn.microsoft.com/windows-server/failover-clustering/sofs-overview" label="Microsoft Learn: SOFS Overview" />

@@ -167,12 +167,23 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
     lines.push('')
     lines.push(`| Metric | Value |`)
     lines.push(`|---|---|`)
-    lines.push(`| Users | ${state.avd.totalUsers}${state.avd.concurrentUsers > 0 ? ` (${state.avd.concurrentUsers} concurrent)` : ''} |`)
-    lines.push(`| Workload type | ${state.avd.workloadType} |`)
+    lines.push(`| Host pools | ${state.avd.pools.length} |`)
+    lines.push(`| Users | ${avd.totalUsers}${avd.totalConcurrentUsers > 0 ? ` (${avd.totalConcurrentUsers} concurrent sizing)` : ''} |`)
+    lines.push(`| Workload model | ${state.avd.pools.length === 1 ? state.avd.pools[0].workloadType : 'Mixed across host pools'} |`)
     lines.push(`| Session hosts | ${avd.sessionHostCount} (${avd.usersPerHost} users/host) |`)
     lines.push(`| Limiting factor | ${avd.limitingFactor} |`)
     lines.push(`| Profile storage | ${round2(avd.profileStorageWithGrowthTB)} TB (${state.avd.growthBufferPct}% growth buffer) |`)
+    if (avd.totalExternalStorageTB > 0) lines.push(`| External storage | ${round2(avd.totalExternalStorageTB)} TB |`)
     lines.push('')
+
+    if (state.avd.pools.length > 1) {
+      lines.push('| Pool | Users | Hosts | Storage Location | Cluster Storage (TB) | External Storage (TB) |')
+      lines.push('|---|---:|---:|---|---:|---:|')
+      for (const pool of avd.pools) {
+        lines.push(`| ${pool.name} | ${pool.totalUsers}${pool.concurrentUsers > 0 ? ` (${pool.concurrentUsers} concurrent)` : ''} | ${pool.sessionHostCount} | ${pool.profileStorageLocation} | ${round2(pool.totalStorageTB)} | ${round2(pool.externalizedStorageTB)} |`)
+      }
+      lines.push('')
+    }
   }
 
   // ── SOFS Detail ──

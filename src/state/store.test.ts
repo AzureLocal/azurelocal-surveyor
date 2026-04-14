@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { normalizePersistedState } from './store'
+import {
+  applyAvdUpdatesWithLinkedSofs,
+  applySofsUpdatesWithLinkedAvd,
+  normalizePersistedState,
+} from './store'
 
 describe('normalizePersistedState', () => {
   it('fills in missing nested fields from older persisted snapshots', () => {
@@ -20,6 +24,9 @@ describe('normalizePersistedState', () => {
     expect(normalized.advanced.overrides).toEqual({})
     expect(normalized.aks.enabled).toBe(false)
     expect(normalized.virtualMachines.enabled).toBe(false)
+    expect(normalized.avd.pools).toHaveLength(1)
+    expect(normalized.avd.pools[0].totalUsers).toBe(250)
+    expect(normalized.avd.pools[0].profileStorageLocation).toBe('sofs')
     expect(normalized.avd.userTypeMix).toEqual({
       taskPct: 30,
       taskProfileGB: 15,
@@ -57,5 +64,51 @@ describe('normalizePersistedState', () => {
 
     expect(normalized.mabs.scratchResiliency).toBe('three-way-mirror')
     expect(normalized.mabs.backupResiliency).toBe('three-way-mirror')
+  })
+
+  it('syncs AVD profile size into SOFS when SOFS is enabled', () => {
+    const normalized = normalizePersistedState({
+      avdEnabled: true,
+      avd: {
+        profileStorageLocation: 'sofs',
+      },
+      sofsEnabled: true,
+    })
+
+    const next = applyAvdUpdatesWithLinkedSofs(
+      {
+        avd: normalized.avd,
+        avdEnabled: normalized.avdEnabled,
+        sofs: normalized.sofs,
+        sofsEnabled: normalized.sofsEnabled,
+      },
+      { pools: normalized.avd.pools.map((pool) => ({ ...pool, profileSizeGB: 55 })) }
+    )
+
+    expect(next.avd.pools[0].profileSizeGB).toBe(55)
+    expect(next.sofs.profileSizeGB).toBe(55)
+  })
+
+  it('syncs SOFS profile size back into AVD when AVD targets SOFS', () => {
+    const normalized = normalizePersistedState({
+      avdEnabled: true,
+      avd: {
+        profileStorageLocation: 'sofs',
+      },
+      sofsEnabled: true,
+    })
+
+    const next = applySofsUpdatesWithLinkedAvd(
+      {
+        avd: normalized.avd,
+        avdEnabled: normalized.avdEnabled,
+        sofs: normalized.sofs,
+        sofsEnabled: normalized.sofsEnabled,
+      },
+      { profileSizeGB: 72 }
+    )
+
+    expect(next.sofs.profileSizeGB).toBe(72)
+    expect(next.avd.pools[0].profileSizeGB).toBe(72)
   })
 })

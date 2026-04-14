@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { buildLinkedSofsInputsFromAvd, createDefaultAvdPool } from '../engine/avd-pools'
 import type {
   HardwareInputs,
   AdvancedSettings,
@@ -78,11 +79,7 @@ const DEFAULT_HARDWARE: HardwareInputs = {
 }
 
 const DEFAULT_AVD: AvdInputs = {
-  totalUsers: 100,
-  concurrentUsers: 0,
-  workloadType: 'medium',
-  multiSession: true,
-  profileSizeGB: 40,
+  pools: [createDefaultAvdPool(1)],
   userTypeMixEnabled: false,
   userTypeMix: {
     taskPct: 30,
@@ -93,10 +90,6 @@ const DEFAULT_AVD: AvdInputs = {
     powerProfileGB: 80,
   },
   growthBufferPct: 20,
-  officeContainerEnabled: true,
-  officeContainerSizeGB: 20,
-  dataDiskPerHostGB: 0,
-  profileStorageLocation: 's2d',
 }
 
 const DEFAULT_SOFS: SofsInputs = {
@@ -169,6 +162,8 @@ const DEFAULT_STATE = {
 
 type SurveyorPersistedSlice = typeof DEFAULT_STATE
 
+type AvdSofsLinkState = Pick<SurveyorPersistedSlice, 'avd' | 'avdEnabled' | 'sofs' | 'sofsEnabled'>
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
@@ -180,10 +175,82 @@ function mergeObject<T extends object>(defaults: T, value: unknown): T {
   } as T
 }
 
+function omitUndefined<T extends Record<string, unknown>>(value: T): Partial<T> {
+  return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as Partial<T>
+}
+
+export function applyAvdUpdatesWithLinkedSofs(state: AvdSofsLinkState, updates: Partial<AvdInputs>) {
+  const nextAvd = {
+    ...state.avd,
+    ...updates,
+    pools: updates.pools ?? state.avd.pools,
+  }
+  const linkedSofsInputs = state.sofsEnabled ? buildLinkedSofsInputsFromAvd(nextAvd) : null
+
+  return {
+    avd: nextAvd,
+    sofs: linkedSofsInputs
+      ? {
+          ...state.sofs,
+          userCount: linkedSofsInputs.userCount,
+          concurrentUsers: linkedSofsInputs.concurrentUsers,
+          profileSizeGB: linkedSofsInputs.profileSizeGB,
+        }
+      : state.sofs,
+  }
+}
+
+export function applySofsUpdatesWithLinkedAvd(state: AvdSofsLinkState, updates: Partial<SofsInputs>) {
+  const nextSofs = { ...state.sofs, ...updates }
+  const shouldSyncProfileSize =
+    updates.profileSizeGB !== undefined &&
+    state.avdEnabled &&
+    state.avd.pools.some((pool) => pool.profileStorageLocation === 'sofs')
+
+  return {
+    avd: shouldSyncProfileSize
+      ? {
+          ...state.avd,
+          pools: state.avd.pools.map((pool) => pool.profileStorageLocation === 'sofs'
+            ? { ...pool, profileSizeGB: updates.profileSizeGB as number }
+            : pool),
+        }
+      : state.avd,
+    sofs: nextSofs,
+  }
+}
+
+function normalizeAvd(rawAvd: unknown): AvdInputs {
+  const source = isRecord(rawAvd) ? rawAvd : {}
+  const poolsSource = Array.isArray(source.pools) ? source.pools : []
+
+  const pools = poolsSource.length > 0
+    ? poolsSource.map((pool, index) => mergeObject(createDefaultAvdPool(index + 1), pool))
+    : [mergeObject(createDefaultAvdPool(1), omitUndefined({
+        name: typeof source.name === 'string' ? source.name : 'Host Pool 1',
+        totalUsers: source.totalUsers,
+        concurrentUsers: source.concurrentUsers,
+        workloadType: source.workloadType,
+        multiSession: source.multiSession,
+        profileSizeGB: source.profileSizeGB,
+        officeContainerEnabled: source.officeContainerEnabled,
+        officeContainerSizeGB: source.officeContainerSizeGB,
+        dataDiskPerHostGB: source.dataDiskPerHostGB,
+        profileStorageLocation: source.profileStorageLocation,
+      }))]
+
+  return {
+    pools,
+    userTypeMixEnabled: source.userTypeMixEnabled === true,
+    userTypeMix: mergeObject(DEFAULT_AVD.userTypeMix, source.userTypeMix),
+    growthBufferPct: typeof source.growthBufferPct === 'number' ? source.growthBufferPct : DEFAULT_AVD.growthBufferPct,
+  }
+}
+
 export function normalizePersistedState(persisted: unknown): SurveyorPersistedSlice {
   const state = isRecord(persisted) ? persisted : {}
   const advanced = mergeObject(DEFAULT_ADVANCED_SETTINGS, state.advanced)
-  const avd = mergeObject(DEFAULT_AVD, state.avd)
+  const avd = normalizeAvd(state.avd)
   const rawMabs = isRecord(state.mabs) ? state.mabs : {}
   const mabs = mergeObject(DEFAULT_MABS, state.mabs)
   const legacyMabsResiliency = rawMabs.resiliency
@@ -199,10 +266,7 @@ export function normalizePersistedState(persisted: unknown): SurveyorPersistedSl
     volumes: Array.isArray(state.volumes) ? state.volumes as VolumeSpec[] : [],
     workloads: Array.isArray(state.workloads) ? state.workloads as WorkloadSpec[] : [],
     volumeMode: state.volumeMode === 'workload' ? ('workload' as VolumeMode) : ('generic' as VolumeMode),
-    avd: {
-      ...avd,
-      userTypeMix: mergeObject(DEFAULT_AVD.userTypeMix, avd.userTypeMix),
-    },
+    avd,
     avdEnabled: typeof state.avdEnabled === 'boolean' ? state.avdEnabled : false,
     sofs: mergeObject(DEFAULT_SOFS, state.sofs),
     sofsEnabled: typeof state.sofsEnabled === 'boolean' ? state.sofsEnabled : false,
@@ -261,16 +325,29 @@ export const useSurveyorStore = create<SurveyorState>()(
         set((s) => ({ workloads: s.workloads.filter((w) => w.id !== id) })),
 
       setAvd: (a) =>
-        set((s) => ({ avd: { ...s.avd, ...a } })),
+        set((s) => applyAvdUpdatesWithLinkedSofs(s, a)),
 
       setAvdEnabled: (enabled) =>
         set(() => ({ avdEnabled: enabled })),
 
       setSofs: (sf) =>
-        set((s) => ({ sofs: { ...s.sofs, ...sf } })),
+        set((s) => applySofsUpdatesWithLinkedAvd(s, sf)),
 
       setSofsEnabled: (enabled) =>
-        set(() => ({ sofsEnabled: enabled })),
+        set((s) => {
+          const linkedSofsInputs = enabled && s.avdEnabled ? buildLinkedSofsInputsFromAvd(s.avd) : null
+          return {
+            sofsEnabled: enabled,
+            sofs: linkedSofsInputs
+              ? {
+                  ...s.sofs,
+                  userCount: linkedSofsInputs.userCount,
+                  concurrentUsers: linkedSofsInputs.concurrentUsers,
+                  profileSizeGB: linkedSofsInputs.profileSizeGB,
+                }
+              : s.sofs,
+          }
+        }),
 
       setMabs: (m) =>
         set((s) => ({ mabs: { ...s.mabs, ...m } })),
@@ -314,9 +391,27 @@ export const useSurveyorStore = create<SurveyorState>()(
     }),
     {
       name: 'surveyor-state',
-      version: 7,
+      version: 8,
       migrate: (persisted: unknown, version: number) => {
         const state = isRecord(persisted) ? { ...persisted } : {}
+        if (version < 8) {
+          if (state.avd && typeof state.avd === 'object') {
+            const avd = state.avd as Record<string, unknown>
+            if (!Array.isArray(avd.pools)) {
+              avd.pools = [mergeObject(createDefaultAvdPool(1), omitUndefined({
+                totalUsers: avd.totalUsers,
+                concurrentUsers: avd.concurrentUsers,
+                workloadType: avd.workloadType,
+                multiSession: avd.multiSession,
+                profileSizeGB: avd.profileSizeGB,
+                officeContainerEnabled: avd.officeContainerEnabled,
+                officeContainerSizeGB: avd.officeContainerSizeGB,
+                dataDiskPerHostGB: avd.dataDiskPerHostGB,
+                profileStorageLocation: avd.profileStorageLocation,
+              }))]
+            }
+          }
+        }
         if (version < 7) {
           if (state.mabs && typeof state.mabs === 'object') {
             const m = state.mabs as Record<string, unknown>

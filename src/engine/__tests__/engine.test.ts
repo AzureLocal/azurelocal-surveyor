@@ -6,30 +6,48 @@ import { runHealthCheck } from '../healthcheck'
 import { computeVolumeSummary } from '../volumes'
 import { generateWorkloadVolumes } from '../workload-volumes'
 import { DEFAULT_ADVANCED_SETTINGS } from '../types'
-import type { HardwareInputs, VolumeSpec } from '../types'
+import type { AvdHostPool, HardwareInputs, VolumeSpec } from '../types'
 
 // ─── AVD Tests ────────────────────────────────────────────────────────────────
 
 describe('AVD engine', () => {
-  const BASE_AVD = {
+  const BASE_POOL: AvdHostPool = {
+    id: 'pool-1',
+    name: 'Host Pool 1',
+    totalUsers: 100,
     concurrentUsers: 0,
-    growthBufferPct: 0,
+    workloadType: 'medium',
+    multiSession: true,
+    profileSizeGB: 40,
+    officeContainerEnabled: false,
+    officeContainerSizeGB: 0,
     dataDiskPerHostGB: 0,
     profileStorageLocation: 's2d' as const,
+  }
+
+  const BASE_AVD = {
+    pools: [BASE_POOL],
+    growthBufferPct: 0,
     userTypeMixEnabled: false,
     userTypeMix: { taskPct: 30, taskProfileGB: 15, knowledgePct: 50, knowledgeProfileGB: 40, powerPct: 20, powerProfileGB: 80 },
   }
 
-  it('light workload multi-session: 100 users → 7 hosts', () => {
-    const result = computeAvd({
+  function makeAvd(pool: Partial<AvdHostPool>) {
+    return {
       ...BASE_AVD,
+      pools: [{ ...BASE_POOL, ...pool }],
+    }
+  }
+
+  it('light workload multi-session: 100 users → 7 hosts', () => {
+    const result = computeAvd(makeAvd({
       totalUsers: 100,
       workloadType: 'light',
       multiSession: true,
       profileSizeGB: 40,
       officeContainerEnabled: false,
       officeContainerSizeGB: 0,
-    })
+    }))
     expect(result.sessionHostCount).toBe(7)   // ceil(100/16) = 7
     expect(result.usersPerHost).toBe(16)
     expect(result.vCpusPerHost).toBe(2)
@@ -39,30 +57,28 @@ describe('AVD engine', () => {
   })
 
   it('medium workload multi-session: 500 users → 63 hosts', () => {
-    const result = computeAvd({
-      ...BASE_AVD,
+    const result = computeAvd(makeAvd({
       totalUsers: 500,
       workloadType: 'medium',
       multiSession: true,
       profileSizeGB: 60,
       officeContainerEnabled: true,
       officeContainerSizeGB: 30,
-    })
+    }))
     expect(result.sessionHostCount).toBe(63)  // ceil(500/8) = 63
     expect(result.totalProfileStorageTB).toBeCloseTo(500 * 60 / 1024, 2)
     expect(result.totalOfficeContainerStorageTB).toBeCloseTo(500 * 30 / 1024, 2)
   })
 
   it('heavy workload single-session VDI: each user gets own VM', () => {
-    const result = computeAvd({
-      ...BASE_AVD,
+    const result = computeAvd(makeAvd({
       totalUsers: 50,
       workloadType: 'heavy',
       multiSession: false,
       profileSizeGB: 60,
       officeContainerEnabled: false,
       officeContainerSizeGB: 0,
-    })
+    }))
     expect(result.usersPerHost).toBe(1)
     expect(result.sessionHostCount).toBe(50)
   })
@@ -208,18 +224,22 @@ describe('Workload volume suggestions', () => {
       advanced: DEFAULT_ADVANCED_SETTINGS,
       avdEnabled: false,
       avdResult: computeAvd({
-        totalUsers: 1,
-        concurrentUsers: 0,
-        workloadType: 'light',
-        multiSession: true,
-        profileSizeGB: 10,
+        pools: [{
+          id: 'pool-1',
+          name: 'Host Pool 1',
+          totalUsers: 1,
+          concurrentUsers: 0,
+          workloadType: 'light',
+          multiSession: true,
+          profileSizeGB: 10,
+          officeContainerEnabled: false,
+          officeContainerSizeGB: 0,
+          dataDiskPerHostGB: 0,
+          profileStorageLocation: 's2d',
+        }],
         userTypeMixEnabled: false,
         userTypeMix: { taskPct: 30, taskProfileGB: 15, knowledgePct: 50, knowledgeProfileGB: 40, powerPct: 20, powerProfileGB: 80 },
         growthBufferPct: 0,
-        officeContainerEnabled: false,
-        officeContainerSizeGB: 0,
-        dataDiskPerHostGB: 0,
-        profileStorageLocation: 's2d',
       }),
       aksEnabled: false,
       aksResult: { totalNodes: 0, totalControlPlaneVCpus: 0, totalWorkerVCpus: 0, totalVCpus: 0, totalControlPlaneMemoryGB: 0, totalWorkerMemoryGB: 0, totalMemoryGB: 0, osDiskTB: 0, totalStorageTB: 0 },

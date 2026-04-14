@@ -1,4 +1,5 @@
-import type { AdvancedSettingsOverrides, AvdInputs, AvdResult, AvdWorkloadType } from './types'
+import { buildLinkedSofsInputsFromAvd, getEffectiveAvdProfileSizeGB, getSizingUsers } from './avd-pools'
+import type { AdvancedSettingsOverrides, AvdInputs, AvdPoolResult, AvdResult, AvdWorkloadType } from './types'
 
 /**
  * Per-session-host specs indexed by workload type.
@@ -74,110 +75,162 @@ function safe(n: number, fallback = 0): number {
 }
 
 export function computeAvd(inputs: AvdInputs, overrides?: AdvancedSettingsOverrides): AvdResult {
-  const profile = HOST_PROFILES[inputs.workloadType] ?? HOST_PROFILES.medium
-  const totalUsers      = Math.max(0, safe(inputs.totalUsers, 0))
-  const concurrentUsers = Math.max(0, safe(inputs.concurrentUsers, 0))
-  const profileSizeGB   = Math.max(0, safe(inputs.profileSizeGB, 40))
   const growthBufferPct  = Math.max(0, safe(inputs.growthBufferPct, 0))
-  const officeContainerSizeGB = Math.max(0, safe(inputs.officeContainerSizeGB, 0))
-  const dataDiskPerHostGB = Math.max(0, safe(inputs.dataDiskPerHostGB, 0))
-
-  const usersPerHost = inputs.multiSession
-    ? profile.usersPerHostMulti
-    : profile.usersPerHostSingle
-
-  // #26: use concurrentUsers for session host sizing when set
-  const sizingUsers = concurrentUsers > 0 ? concurrentUsers : totalUsers
-  // #64: override session host count if set
-  const sessionHostCount =
-    overrides?.avdSessionHostsNeeded && overrides.avdSessionHostsNeeded > 0
-      ? overrides.avdSessionHostsNeeded
-      : usersPerHost > 0 ? Math.ceil(sizingUsers / usersPerHost) : 0
-
-  // #59: user type mix weighted average profile size
-  let effectiveProfileSizeGB = profileSizeGB
-  if (inputs.userTypeMixEnabled && inputs.userTypeMix) {
-    const taskPct = safe(inputs.userTypeMix.taskPct, 0)
-    const taskProfileGB = safe(inputs.userTypeMix.taskProfileGB, 15)
-    const knowledgePct = safe(inputs.userTypeMix.knowledgePct, 0)
-    const knowledgeProfileGB = safe(inputs.userTypeMix.knowledgeProfileGB, 40)
-    const powerPct = safe(inputs.userTypeMix.powerPct, 0)
-    const powerProfileGB = safe(inputs.userTypeMix.powerProfileGB, 80)
-    const totalPct = taskPct + knowledgePct + powerPct
-    if (totalPct > 0) {
-      effectiveProfileSizeGB = Math.round(
-        (taskPct * taskProfileGB + knowledgePct * knowledgeProfileGB + powerPct * powerProfileGB) / totalPct
-      )
-    }
-  }
-
-  const totalVCpus = sessionHostCount * profile.vCpus
-  const totalMemoryGB = sessionHostCount * profile.memoryGB
-
-  // #29: density analysis — CPU-limited vs RAM-limited
-  const cpuLimitedUsersPerHost = profile.vCpusPerUser > 0
-    ? Math.floor(profile.vCpus / profile.vCpusPerUser)
-    : usersPerHost
-  const ramLimitedUsersPerHost = profile.memGBPerUser > 0
-    ? Math.floor(profile.memoryGB / profile.memGBPerUser)
-    : usersPerHost
-  let limitingFactor: 'cpu' | 'ram' | 'preset' = 'preset'
-  if (cpuLimitedUsersPerHost < usersPerHost) limitingFactor = 'cpu'
-  else if (ramLimitedUsersPerHost < usersPerHost) limitingFactor = 'ram'
-
-  // Storage
-  const totalOsStorageTB = round2((sessionHostCount * profile.osDiskGB) / 1024)
-
-  // #31: data/temp disk per host
-  const dataDiskTB = dataDiskPerHostGB > 0
-    ? round2((sessionHostCount * dataDiskPerHostGB) / 1024)
-    : 0
-
-  // Profile storage uses totalUsers (not sizingUsers) — profiles are always allocated for all users
-  // #64: override profile logical TB if set
-  const baseProfileStorageTB =
-    overrides?.avdProfileLogicalTb && overrides.avdProfileLogicalTb > 0
-      ? overrides.avdProfileLogicalTb
-      : (totalUsers * effectiveProfileSizeGB) / 1024
-  // #27: apply growth buffer to profile storage
+  const pools = inputs.pools.length > 0 ? inputs.pools : []
   const growthMultiplier = 1 + (growthBufferPct / 100)
-  const totalProfileStorageTB = round2(baseProfileStorageTB * growthMultiplier)
-  const profileStorageWithGrowthTB = totalProfileStorageTB
+  const singlePool = pools.length === 1
 
-  const totalOfficeContainerStorageTB = inputs.officeContainerEnabled
-    ? round2((totalUsers * officeContainerSizeGB) / 1024)
-    : 0
+  const poolResults: AvdPoolResult[] = pools.map((pool) => {
+    const profile = HOST_PROFILES[pool.workloadType] ?? HOST_PROFILES.medium
+    const totalUsers = Math.max(0, safe(pool.totalUsers, 0))
+    const concurrentUsers = Math.max(0, safe(pool.concurrentUsers, 0))
+    const officeContainerSizeGB = Math.max(0, safe(pool.officeContainerSizeGB, 0))
+    const dataDiskPerHostGB = Math.max(0, safe(pool.dataDiskPerHostGB, 0))
+    const usersPerHost = pool.multiSession ? profile.usersPerHostMulti : profile.usersPerHostSingle
+    const sizingUsers = getSizingUsers(pool)
+    const sessionHostCount =
+      singlePool && overrides?.avdSessionHostsNeeded && overrides.avdSessionHostsNeeded > 0
+        ? overrides.avdSessionHostsNeeded
+        : usersPerHost > 0 ? Math.ceil(sizingUsers / usersPerHost) : 0
 
-  const totalStorageTB = round2(
-    totalOsStorageTB + dataDiskTB + totalProfileStorageTB + totalOfficeContainerStorageTB
+    const effectiveProfileSizeGB = Math.max(0, safe(getEffectiveAvdProfileSizeGB(inputs, pool), 40))
+    const cpuLimitedUsersPerHost = profile.vCpusPerUser > 0
+      ? Math.floor(profile.vCpus / profile.vCpusPerUser)
+      : usersPerHost
+    const ramLimitedUsersPerHost = profile.memGBPerUser > 0
+      ? Math.floor(profile.memoryGB / profile.memGBPerUser)
+      : usersPerHost
+    let limitingFactor: 'cpu' | 'ram' | 'preset' = 'preset'
+    if (cpuLimitedUsersPerHost < usersPerHost) limitingFactor = 'cpu'
+    else if (ramLimitedUsersPerHost < usersPerHost) limitingFactor = 'ram'
+
+    const totalVCpus = sessionHostCount * profile.vCpus
+    const totalMemoryGB = sessionHostCount * profile.memoryGB
+    const totalOsStorageTB = round2((sessionHostCount * profile.osDiskGB) / 1024)
+    const totalDataDiskStorageTB = dataDiskPerHostGB > 0
+      ? round2((sessionHostCount * dataDiskPerHostGB) / 1024)
+      : 0
+
+    const baseProfileStorageTB =
+      singlePool && overrides?.avdProfileLogicalTb && overrides.avdProfileLogicalTb > 0
+        ? overrides.avdProfileLogicalTb
+        : (totalUsers * effectiveProfileSizeGB) / 1024
+    const totalProfileStorageTB = round2(baseProfileStorageTB * growthMultiplier)
+    const profileStorageWithGrowthTB = totalProfileStorageTB
+    const totalOfficeContainerStorageTB = pool.officeContainerEnabled
+      ? round2((totalUsers * officeContainerSizeGB) / 1024)
+      : 0
+    const profileAndOfficeTB = round2(totalProfileStorageTB + totalOfficeContainerStorageTB)
+    const totalStorageTB = round2(
+      totalOsStorageTB + totalDataDiskStorageTB + (pool.profileStorageLocation === 's2d' ? profileAndOfficeTB : 0)
+    )
+    const externalizedStorageTB = pool.profileStorageLocation === 's2d' ? 0 : profileAndOfficeTB
+    const bandwidthPerUserMbps = profile.bandwidthMbps
+    const totalBandwidthMbps = round2(sizingUsers * bandwidthPerUserMbps)
+
+    return {
+      id: pool.id,
+      name: pool.name,
+      totalUsers,
+      concurrentUsers,
+      workloadType: pool.workloadType,
+      multiSession: pool.multiSession,
+      profileStorageLocation: pool.profileStorageLocation,
+      usersPerHost,
+      sessionHostCount,
+      sizingUsers,
+      vCpusPerHost: profile.vCpus,
+      memoryPerHostGB: profile.memoryGB,
+      cpuLimitedUsersPerHost,
+      ramLimitedUsersPerHost,
+      limitingFactor,
+      effectiveProfileSizeGB,
+      osDiskPerHostGB: profile.osDiskGB,
+      dataDiskPerHostGB,
+      totalVCpus,
+      totalMemoryGB,
+      totalOsStorageTB,
+      totalDataDiskStorageTB,
+      totalProfileStorageTB,
+      profileStorageWithGrowthTB,
+      totalOfficeContainerStorageTB,
+      totalStorageTB,
+      externalizedStorageTB,
+      bandwidthPerUserMbps,
+      totalBandwidthMbps,
+    }
+  })
+
+  const totals = poolResults.reduce(
+    (aggregate, pool) => ({
+      totalUsers: aggregate.totalUsers + pool.totalUsers,
+      totalConcurrentUsers: aggregate.totalConcurrentUsers + pool.concurrentUsers,
+      sessionHostCount: aggregate.sessionHostCount + pool.sessionHostCount,
+      sizingUsers: aggregate.sizingUsers + pool.sizingUsers,
+      totalVCpus: aggregate.totalVCpus + pool.totalVCpus,
+      totalMemoryGB: aggregate.totalMemoryGB + pool.totalMemoryGB,
+      totalOsStorageTB: aggregate.totalOsStorageTB + pool.totalOsStorageTB,
+      totalDataDiskStorageTB: aggregate.totalDataDiskStorageTB + pool.totalDataDiskStorageTB,
+      totalProfileStorageTB: aggregate.totalProfileStorageTB + pool.totalProfileStorageTB,
+      totalOfficeContainerStorageTB: aggregate.totalOfficeContainerStorageTB + pool.totalOfficeContainerStorageTB,
+      totalStorageTB: aggregate.totalStorageTB + pool.totalStorageTB,
+      totalExternalStorageTB: aggregate.totalExternalStorageTB + pool.externalizedStorageTB,
+      totalBandwidthMbps: aggregate.totalBandwidthMbps + pool.totalBandwidthMbps,
+    }),
+    {
+      totalUsers: 0,
+      totalConcurrentUsers: 0,
+      sessionHostCount: 0,
+      sizingUsers: 0,
+      totalVCpus: 0,
+      totalMemoryGB: 0,
+      totalOsStorageTB: 0,
+      totalDataDiskStorageTB: 0,
+      totalProfileStorageTB: 0,
+      totalOfficeContainerStorageTB: 0,
+      totalStorageTB: 0,
+      totalExternalStorageTB: 0,
+      totalBandwidthMbps: 0,
+    }
   )
 
-  // #35: network bandwidth
-  const bandwidthPerUserMbps = profile.bandwidthMbps
-  const totalBandwidthMbps = round2(sizingUsers * bandwidthPerUserMbps)
+  const sofsLink = buildLinkedSofsInputsFromAvd(inputs)
+  const firstPool = poolResults[0]
+  const weightedBandwidthPerUser = totals.sizingUsers > 0 ? round2(totals.totalBandwidthMbps / totals.sizingUsers) : 0
+  const weightedProfileSize = totals.totalUsers > 0
+    ? Math.round(poolResults.reduce((sum, pool) => sum + (pool.totalUsers * pool.effectiveProfileSizeGB), 0) / totals.totalUsers)
+    : 0
 
   return {
-    usersPerHost,
-    sessionHostCount,
-    sizingUsers,
-    vCpusPerHost: profile.vCpus,
-    memoryPerHostGB: profile.memoryGB,
-    cpuLimitedUsersPerHost,
-    ramLimitedUsersPerHost,
-    limitingFactor,
-    totalVCpus,
-    totalMemoryGB,
-    effectiveProfileSizeGB,
-    osDiskPerHostGB: profile.osDiskGB,
-    dataDiskPerHostGB,
-    totalOsStorageTB,
-    totalDataDiskStorageTB: dataDiskTB,
-    totalProfileStorageTB,
-    profileStorageWithGrowthTB,
-    totalOfficeContainerStorageTB,
-    totalStorageTB,
-    bandwidthPerUserMbps,
-    totalBandwidthMbps,
+    poolCount: poolResults.length,
+    totalUsers: totals.totalUsers,
+    totalConcurrentUsers: totals.totalConcurrentUsers,
+    pools: poolResults,
+    usersPerHost: poolResults.length === 1 && firstPool ? firstPool.usersPerHost : 0,
+    sessionHostCount: totals.sessionHostCount,
+    sizingUsers: totals.sizingUsers,
+    vCpusPerHost: poolResults.length === 1 && firstPool ? firstPool.vCpusPerHost : 0,
+    memoryPerHostGB: poolResults.length === 1 && firstPool ? firstPool.memoryPerHostGB : 0,
+    cpuLimitedUsersPerHost: poolResults.length === 1 && firstPool ? firstPool.cpuLimitedUsersPerHost : 0,
+    ramLimitedUsersPerHost: poolResults.length === 1 && firstPool ? firstPool.ramLimitedUsersPerHost : 0,
+    limitingFactor: poolResults.length === 1 && firstPool ? firstPool.limitingFactor : 'preset',
+    totalVCpus: totals.totalVCpus,
+    totalMemoryGB: totals.totalMemoryGB,
+    effectiveProfileSizeGB: poolResults.length === 1 && firstPool ? firstPool.effectiveProfileSizeGB : weightedProfileSize,
+    osDiskPerHostGB: poolResults.length === 1 && firstPool ? firstPool.osDiskPerHostGB : 0,
+    dataDiskPerHostGB: poolResults.length === 1 && firstPool ? firstPool.dataDiskPerHostGB : 0,
+    totalOsStorageTB: round2(totals.totalOsStorageTB),
+    totalDataDiskStorageTB: round2(totals.totalDataDiskStorageTB),
+    totalProfileStorageTB: round2(totals.totalProfileStorageTB),
+    profileStorageWithGrowthTB: round2(totals.totalProfileStorageTB),
+    totalOfficeContainerStorageTB: round2(totals.totalOfficeContainerStorageTB),
+    totalStorageTB: round2(totals.totalStorageTB),
+    totalExternalStorageTB: round2(totals.totalExternalStorageTB),
+    bandwidthPerUserMbps: poolResults.length === 1 && firstPool ? firstPool.bandwidthPerUserMbps : weightedBandwidthPerUser,
+    totalBandwidthMbps: round2(totals.totalBandwidthMbps),
+    sofsLinkedUserCount: sofsLink?.userCount ?? 0,
+    sofsLinkedConcurrentUsers: sofsLink?.concurrentUsers ?? 0,
+    sofsLinkedProfileSizeGB: sofsLink?.profileSizeGB ?? 0,
   }
 }
 

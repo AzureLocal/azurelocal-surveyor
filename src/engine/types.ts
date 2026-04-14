@@ -237,23 +237,65 @@ export interface AvdUserTypeMix {
   powerProfileGB: number
 }
 
-export interface AvdInputs {
+export interface AvdHostPool {
+  id: string
+  name: string
   totalUsers: number
   concurrentUsers: number         // #26: 0 = use totalUsers for sizing; > 0 = size session hosts for this peak
   workloadType: AvdWorkloadType
   multiSession: boolean           // true = Windows 11 multi-session; false = single-session VDI
   profileSizeGB: number           // FSLogix VHD(X) size per user (overridden by mix when enabled)
-  // #59: user type mix for weighted profile size
-  userTypeMixEnabled: boolean
-  userTypeMix: AvdUserTypeMix
-  growthBufferPct: number         // #27: percent growth buffer applied to profile storage (0–50)
   officeContainerEnabled: boolean
   officeContainerSizeGB: number   // additional FSLogix Office Container per user
   dataDiskPerHostGB: number       // #31: additional data/temp disk per session host (0 if none)
   profileStorageLocation: AvdProfileStorageLocation  // #33
 }
 
+export interface AvdInputs {
+  pools: AvdHostPool[]
+  // #59: user type mix for weighted profile size
+  userTypeMixEnabled: boolean
+  userTypeMix: AvdUserTypeMix
+  growthBufferPct: number         // #27: percent growth buffer applied to profile storage (0–50)
+}
+
+export interface AvdPoolResult {
+  id: string
+  name: string
+  totalUsers: number
+  concurrentUsers: number
+  workloadType: AvdWorkloadType
+  multiSession: boolean
+  profileStorageLocation: AvdProfileStorageLocation
+  usersPerHost: number
+  sessionHostCount: number
+  sizingUsers: number
+  vCpusPerHost: number
+  memoryPerHostGB: number
+  cpuLimitedUsersPerHost: number
+  ramLimitedUsersPerHost: number
+  limitingFactor: 'cpu' | 'ram' | 'preset'
+  effectiveProfileSizeGB: number
+  osDiskPerHostGB: number
+  dataDiskPerHostGB: number
+  totalVCpus: number
+  totalMemoryGB: number
+  totalOsStorageTB: number
+  totalDataDiskStorageTB: number
+  totalProfileStorageTB: number
+  profileStorageWithGrowthTB: number
+  totalOfficeContainerStorageTB: number
+  totalStorageTB: number
+  externalizedStorageTB: number
+  bandwidthPerUserMbps: number
+  totalBandwidthMbps: number
+}
+
 export interface AvdResult {
+  poolCount: number
+  totalUsers: number
+  totalConcurrentUsers: number
+  pools: AvdPoolResult[]
   usersPerHost: number
   sessionHostCount: number        // ceil(sizingUsers / usersPerHost)
   sizingUsers: number             // concurrentUsers if set, else totalUsers
@@ -276,9 +318,13 @@ export interface AvdResult {
   profileStorageWithGrowthTB: number   // #27: profile storage × (1 + growthBuffer%)
   totalOfficeContainerStorageTB: number
   totalStorageTB: number          // all AVD storage combined
+  totalExternalStorageTB: number  // profile + Office container storage hosted outside the Azure Local cluster
   // #35: network bandwidth estimates
   bandwidthPerUserMbps: number
   totalBandwidthMbps: number
+  sofsLinkedUserCount: number
+  sofsLinkedConcurrentUsers: number
+  sofsLinkedProfileSizeGB: number
 }
 
 // ─── SOFS (Sheet: "SOFS Planner") ────────────────────────────────────────────
