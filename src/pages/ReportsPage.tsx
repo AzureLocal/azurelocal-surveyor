@@ -17,8 +17,8 @@ import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
+import { computeAllCustomWorkloads } from '../engine/custom-workloads'
 import { computeAllServicePresets } from '../engine/service-presets'
-import { computeAllCustomWorkloads } from '../components/CustomWorkloads'
 
 type Tab = 'capacity' | 'compute' | 'sofs' | 'final'
 

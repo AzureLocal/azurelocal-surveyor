@@ -10,6 +10,7 @@
  * Schema versioning: schemaVersion "1.0" — Ranger checks the major version only.
  */
 
+import { version } from '../../package.json'
 import type { SurveyorState, VolumeMode } from '../state/store'
 import type {
   HardwareInputs,
@@ -157,7 +158,7 @@ export function exportJson(state: ExportState, options?: ExportJsonOptions): voi
   // ── Assemble manifest ────────────────────────────────────────────────────
   const plan: SurveyorPlan = {
     schemaVersion:   '1.0',
-    surveyorVersion: '1.3.0',
+    surveyorVersion: version,
     generatedAt:     new Date().toISOString(),
 
     provenance: {

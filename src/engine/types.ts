@@ -170,7 +170,8 @@ export interface MabsInputs {
   mabsVCpus: number                 // MABS VM vCPUs (default 8)
   mabsMemoryGB: number              // MABS VM RAM (default 32)
   mabsOsDiskGB: number              // MABS VM OS disk (default 200)
-  resiliency: ResiliencyType        // backup volume resiliency (typically dual-parity)
+  scratchResiliency: ResiliencyType // Azure Local volume resiliency for scratch/cache storage
+  backupResiliency: ResiliencyType  // Azure Local volume resiliency for retained backup data
   // #70: internal Storage Spaces mirror inside the MABS VM
   internalMirror: MabsInternalMirror
 }
@@ -344,10 +345,22 @@ export interface ComputeResult {
 
 export type HealthSeverity = 'error' | 'warning' | 'info'
 
+export type HealthDetailStatus = 'pass' | 'warning' | 'fail' | 'info'
+
+export interface HealthDetail {
+  label: string
+  status: HealthDetailStatus
+  calculation: string
+  threshold: string
+  outcome: string
+  ruleSource?: string
+}
+
 export interface HealthIssue {
   code: string
   severity: HealthSeverity
   message: string
+  details?: HealthDetail[]
 }
 
 export interface VolumeHealthDetail {
@@ -357,6 +370,7 @@ export interface VolumeHealthDetail {
   poolFootprintTB: number
   status: 'pass' | 'fail'
   failReason?: string
+  checks: HealthDetail[]
 }
 
 export interface HealthCheckResult {

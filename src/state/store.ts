@@ -109,7 +109,7 @@ const DEFAULT_SOFS: SofsInputs = {
   sofsVCpusPerVm: 4,
   sofsMemoryPerVmGB: 16,
   internalMirror: 'three-way',
-  autoSizeDrivesPerNode: 0,
+  autoSizeDrivesPerNode: 4,
   autoSizeNodes: 2,
 }
 
@@ -144,7 +144,8 @@ const DEFAULT_MABS: MabsInputs = {
   mabsVCpus: 8,
   mabsMemoryGB: 32,
   mabsOsDiskGB: 200,
-  resiliency: 'dual-parity',
+  scratchResiliency: 'two-way-mirror',
+  backupResiliency: 'dual-parity',
   internalMirror: 'two-way',
 }
 
@@ -183,6 +184,11 @@ export function normalizePersistedState(persisted: unknown): SurveyorPersistedSl
   const state = isRecord(persisted) ? persisted : {}
   const advanced = mergeObject(DEFAULT_ADVANCED_SETTINGS, state.advanced)
   const avd = mergeObject(DEFAULT_AVD, state.avd)
+  const rawMabs = isRecord(state.mabs) ? state.mabs : {}
+  const mabs = mergeObject(DEFAULT_MABS, state.mabs)
+  const legacyMabsResiliency = rawMabs.resiliency
+  const hasScratchResiliency = rawMabs.scratchResiliency !== undefined
+  const hasBackupResiliency = rawMabs.backupResiliency !== undefined
 
   return {
     hardware: mergeObject(DEFAULT_HARDWARE, state.hardware),
@@ -200,7 +206,15 @@ export function normalizePersistedState(persisted: unknown): SurveyorPersistedSl
     avdEnabled: typeof state.avdEnabled === 'boolean' ? state.avdEnabled : false,
     sofs: mergeObject(DEFAULT_SOFS, state.sofs),
     sofsEnabled: typeof state.sofsEnabled === 'boolean' ? state.sofsEnabled : false,
-    mabs: mergeObject(DEFAULT_MABS, state.mabs),
+    mabs: {
+      ...mabs,
+      scratchResiliency: hasScratchResiliency
+        ? mabs.scratchResiliency
+        : (legacyMabsResiliency as MabsInputs['scratchResiliency'] | undefined) ?? DEFAULT_MABS.scratchResiliency,
+      backupResiliency: hasBackupResiliency
+        ? mabs.backupResiliency
+        : (legacyMabsResiliency as MabsInputs['backupResiliency'] | undefined) ?? DEFAULT_MABS.backupResiliency,
+    },
     mabsEnabled: typeof state.mabsEnabled === 'boolean' ? state.mabsEnabled : false,
     aks: mergeObject(DEFAULT_AKS, state.aks),
     virtualMachines: mergeObject(DEFAULT_VIRTUAL_MACHINES, state.virtualMachines),
@@ -300,9 +314,21 @@ export const useSurveyorStore = create<SurveyorState>()(
     }),
     {
       name: 'surveyor-state',
-      version: 6,
+      version: 7,
       migrate: (persisted: unknown, version: number) => {
         const state = isRecord(persisted) ? { ...persisted } : {}
+        if (version < 7) {
+          if (state.mabs && typeof state.mabs === 'object') {
+            const m = state.mabs as Record<string, unknown>
+            const legacyResiliency = m.resiliency
+            if (m.scratchResiliency === undefined) {
+              m.scratchResiliency = legacyResiliency ?? DEFAULT_MABS.scratchResiliency
+            }
+            if (m.backupResiliency === undefined) {
+              m.backupResiliency = legacyResiliency ?? DEFAULT_MABS.backupResiliency
+            }
+          }
+        }
         if (version < 6) {
           // v6: add customWorkloads
           if (!Array.isArray(state.customWorkloads)) state.customWorkloads = []
@@ -326,13 +352,15 @@ export const useSurveyorStore = create<SurveyorState>()(
             const s = state.sofs as Record<string, unknown>
             if (s.containerType === undefined) s.containerType = 'split'
             if (s.internalMirror === undefined) s.internalMirror = 'three-way'
-            if (s.autoSizeDrivesPerNode === undefined) s.autoSizeDrivesPerNode = 0
+            if (s.autoSizeDrivesPerNode === undefined) s.autoSizeDrivesPerNode = 4
             if (s.autoSizeNodes === undefined) s.autoSizeNodes = 2
           }
           // Ensure mabs has internalMirror
           if (state.mabs && typeof state.mabs === 'object') {
             const m = state.mabs as Record<string, unknown>
             if (m.internalMirror === undefined) m.internalMirror = 'two-way'
+            if (m.scratchResiliency === undefined) m.scratchResiliency = m.resiliency ?? DEFAULT_MABS.scratchResiliency
+            if (m.backupResiliency === undefined) m.backupResiliency = m.resiliency ?? DEFAULT_MABS.backupResiliency
           }
           // Ensure advanced has overrides
           if (state.advanced && typeof state.advanced === 'object') {

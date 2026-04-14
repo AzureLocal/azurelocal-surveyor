@@ -24,7 +24,7 @@ The current version is `"1.0"`.
 ```json
 {
   "schemaVersion": "1.0",
-  "surveyorVersion": "1.3.0",
+  "surveyorVersion": "1.4.0",
   "generatedAt": "2026-04-14T12:00:00.000Z",
   "provenance": { ... },
   "inputs": { ... },

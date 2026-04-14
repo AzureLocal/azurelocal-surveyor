@@ -17,8 +17,8 @@ import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
+import { computeAllCustomWorkloads } from '../engine/custom-workloads'
 import { computeAllServicePresets, getCatalogEntry } from '../engine/service-presets'
-import { computeAllCustomWorkloads } from '../components/CustomWorkloads'
 import { runHealthCheck } from '../engine/healthcheck'
 
 export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled' | 'servicePresets' | 'customWorkloads'>): string {
@@ -197,6 +197,9 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
     lines.push(`|---|---|`)
     lines.push(`| Protected data | ${state.mabs.protectedDataTB} TB |`)
     lines.push(`| Retention | ${state.mabs.onPremRetentionDays} days |`)
+    lines.push(`| Scratch volume resiliency | ${state.mabs.scratchResiliency} |`)
+    lines.push(`| Backup volume resiliency | ${state.mabs.backupResiliency} |`)
+    lines.push(`| Scratch volume | ${mabsResult.scratchVolumeTB} TB |`)
     lines.push(`| Backup volume | ${mabsResult.backupDataVolumeTB} TB |`)
     lines.push(`| Internal mirror | ${state.mabs.internalMirror} (${mabsResult.internalMirrorFactor}×) |`)
     lines.push(`| Internal footprint | ${mabsResult.internalFootprintTB} TB |`)

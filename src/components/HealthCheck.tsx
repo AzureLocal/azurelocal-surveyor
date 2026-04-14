@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { CheckCircle, XCircle, AlertTriangle, Info, ChevronDown, ChevronRight } from 'lucide-react'
-import type { HealthCheckResult, HealthIssue } from '../engine/types'
+import type { HealthCheckResult, HealthDetail, HealthIssue } from '../engine/types'
 
 const RESILIENCY_LABELS: Record<string, string> = {
   'two-way-mirror':   'Two-Way Mirror',
@@ -38,6 +38,8 @@ function humanName(code: string): string {
 
 export default function HealthCheck({ result }: { result: HealthCheckResult }) {
   const [expanded, setExpanded] = useState(!result.passed)
+  const [expandedVolumes, setExpandedVolumes] = useState<Record<string, boolean>>({})
+  const [expandedIssues, setExpandedIssues] = useState<Record<string, boolean>>({})
 
   const summaryParts: string[] = []
   if (result.volumeDetails.length > 0) {
@@ -55,6 +57,14 @@ export default function HealthCheck({ result }: { result: HealthCheckResult }) {
     const list = grouped.get(cat) ?? []
     list.push(issue)
     grouped.set(cat, list)
+  }
+
+  function toggleVolume(key: string) {
+    setExpandedVolumes((current) => ({ ...current, [key]: !current[key] }))
+  }
+
+  function toggleIssue(key: string) {
+    setExpandedIssues((current) => ({ ...current, [key]: !current[key] }))
   }
 
   return (
@@ -111,20 +121,46 @@ export default function HealthCheck({ result }: { result: HealthCheckResult }) {
                   </tr>
                 </thead>
                 <tbody>
-                  {result.volumeDetails.map((v, i) => (
-                    <tr key={i} className="border-t border-gray-100 dark:border-gray-800">
-                      <td className="px-4 py-1.5 font-medium">{v.name}</td>
-                      <td className="px-4 py-1.5 text-xs text-gray-500">{RESILIENCY_LABELS[v.resiliency] ?? v.resiliency}</td>
-                      <td className="px-4 py-1.5 text-right font-mono">{v.plannedSizeTiB.toFixed(2)}</td>
-                      <td className="px-4 py-1.5 text-right font-mono">{v.poolFootprintTB.toFixed(2)}</td>
-                      <td className="px-4 py-1.5 text-center">
-                        {v.status === 'pass'
-                          ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400"><CheckCircle className="w-3.5 h-3.5" /> PASS</span>
-                          : <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400"><XCircle className="w-3.5 h-3.5" /> {v.failReason}</span>
-                        }
-                      </td>
-                    </tr>
-                  ))}
+                  {result.volumeDetails.map((v, i) => {
+                    const rowKey = `${v.name}-${i}`
+                    const isOpen = !!expandedVolumes[rowKey]
+
+                    return (
+                      <Fragment key={rowKey}>
+                        <tr
+                          className="border-t border-gray-100 dark:border-gray-800 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800/40"
+                          onClick={() => toggleVolume(rowKey)}
+                        >
+                          <td className="px-4 py-1.5 font-medium">
+                            <span className="inline-flex items-center gap-2">
+                              {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
+                              {v.name}
+                            </span>
+                          </td>
+                          <td className="px-4 py-1.5 text-xs text-gray-500">{RESILIENCY_LABELS[v.resiliency] ?? v.resiliency}</td>
+                          <td className="px-4 py-1.5 text-right font-mono">{v.plannedSizeTiB.toFixed(2)}</td>
+                          <td className="px-4 py-1.5 text-right font-mono">{v.poolFootprintTB.toFixed(2)}</td>
+                          <td className="px-4 py-1.5 text-center">
+                            {v.status === 'pass'
+                              ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400"><CheckCircle className="w-3.5 h-3.5" /> PASS</span>
+                              : <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400"><XCircle className="w-3.5 h-3.5" /> {v.failReason}</span>
+                            }
+                          </td>
+                        </tr>
+                        {isOpen && (
+                          <tr className="border-t border-gray-100 dark:border-gray-800 bg-gray-50/70 dark:bg-gray-900/40">
+                            <td className="px-4 py-3" colSpan={5}>
+                              <DetailPanel
+                                title={`${v.name} validation checks`}
+                                subtitle="Every check that ran against this volume, including calculations, thresholds, and rule sources."
+                                details={v.checks}
+                              />
+                            </td>
+                          </tr>
+                        )}
+                      </Fragment>
+                    )
+                  })}
                 </tbody>
                 <tfoot>
                   <tr className="border-t-2 border-gray-200 dark:border-gray-700 font-semibold">
@@ -172,21 +208,45 @@ export default function HealthCheck({ result }: { result: HealthCheckResult }) {
                 </div>
                 <ul className="divide-y divide-gray-100 dark:divide-gray-800">
                   {grouped.get(cat)!.map((issue, i) => (
-                    <li key={i} className="flex items-start gap-3 px-4 py-3">
-                      {issue.severity === 'error' && <XCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />}
-                      {issue.severity === 'warning' && <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />}
-                      {issue.severity === 'info' && <Info className="w-4 h-4 shrink-0 mt-0.5 text-blue-500" />}
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-semibold text-gray-400">{humanName(issue.code)}</span>
-                          <span className={`text-xs px-1.5 py-0.5 rounded ${
-                            issue.severity === 'error' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
-                            : issue.severity === 'warning' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
-                            : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
-                          }`}>{issue.severity}</span>
-                        </div>
-                        <div className="text-sm mt-0.5">{issue.message}</div>
-                      </div>
+                    <li key={i} className="px-4 py-3">
+                      {(() => {
+                        const issueKey = `${issue.code}-${i}`
+                        const isOpen = !!expandedIssues[issueKey]
+
+                        return (
+                          <>
+                            <button
+                              className="flex items-start gap-3 w-full text-left"
+                              onClick={() => toggleIssue(issueKey)}
+                            >
+                              {issue.severity === 'error' && <XCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />}
+                              {issue.severity === 'warning' && <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />}
+                              {issue.severity === 'info' && <Info className="w-4 h-4 shrink-0 mt-0.5 text-blue-500" />}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-semibold text-gray-400">{humanName(issue.code)}</span>
+                                  <span className={`text-xs px-1.5 py-0.5 rounded ${
+                                    issue.severity === 'error' ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+                                    : issue.severity === 'warning' ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+                                    : 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                                  }`}>{issue.severity}</span>
+                                  {isOpen ? <ChevronDown className="w-3.5 h-3.5 text-gray-400" /> : <ChevronRight className="w-3.5 h-3.5 text-gray-400" />}
+                                </div>
+                                <div className="text-sm mt-0.5">{issue.message}</div>
+                              </div>
+                            </button>
+                            {isOpen && issue.details && issue.details.length > 0 && (
+                              <div className="mt-3 pl-7">
+                                <DetailPanel
+                                  title="Underlying evaluation"
+                                  subtitle="The checks and thresholds that produced this grouped issue."
+                                  details={issue.details}
+                                />
+                              </div>
+                            )}
+                          </>
+                        )
+                      })()}
                     </li>
                   ))}
                 </ul>
@@ -195,6 +255,56 @@ export default function HealthCheck({ result }: { result: HealthCheckResult }) {
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function DetailPanel({ title, subtitle, details }: { title: string; subtitle?: string; details: HealthDetail[] }) {
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 overflow-hidden">
+      <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-800">
+        <div className="text-sm font-semibold text-gray-800 dark:text-gray-200">{title}</div>
+        {subtitle && <div className="text-xs text-gray-500 mt-0.5">{subtitle}</div>}
+      </div>
+      <div className="divide-y divide-gray-100 dark:divide-gray-800">
+        {details.map((item, index) => (
+          <div key={index} className="px-4 py-3 space-y-2">
+            <div className="flex items-center gap-2">
+              <StatusBadge status={item.status} />
+              <span className="text-sm font-semibold text-gray-800 dark:text-gray-200">{item.label}</span>
+            </div>
+            <div className="grid gap-2 text-xs text-gray-600 dark:text-gray-400 sm:grid-cols-3">
+              <DetailField label="Calculation" value={item.calculation} />
+              <DetailField label="Threshold" value={item.threshold} />
+              <DetailField label="Outcome" value={item.outcome} />
+            </div>
+            {item.ruleSource && (
+              <div className="text-[11px] text-gray-400">Rule source: {item.ruleSource}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function StatusBadge({ status }: { status: HealthDetail['status'] }) {
+  const classes = status === 'fail'
+    ? 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300'
+    : status === 'warning'
+      ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300'
+      : status === 'info'
+        ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+        : 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300'
+
+  return <span className={`inline-flex items-center rounded px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${classes}`}>{status}</span>
+}
+
+function DetailField({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div className="font-semibold text-gray-500">{label}</div>
+      <div className="mt-0.5">{value}</div>
     </div>
   )
 }

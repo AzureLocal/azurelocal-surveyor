@@ -15,8 +15,8 @@ import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
+import { computeAllCustomWorkloads } from '../engine/custom-workloads'
 import { computeAllServicePresets, getCatalogEntry, computeServicePreset } from '../engine/service-presets'
-import { computeAllCustomWorkloads } from '../components/CustomWorkloads'
 import { runHealthCheck } from '../engine/healthcheck'
 
 type Row = (string | number | boolean | null)[]
@@ -358,7 +358,8 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
         ['MABS VM vCPUs', state.mabs.mabsVCpus],
         ['MABS VM Memory (GB)', state.mabs.mabsMemoryGB],
         ['MABS VM OS Disk (GB)', state.mabs.mabsOsDiskGB],
-        ['Resiliency', state.mabs.resiliency],
+        ['Scratch Volume Resiliency', state.mabs.scratchResiliency],
+        ['Backup Volume Resiliency', state.mabs.backupResiliency],
         ['Internal Mirror', state.mabs.internalMirror],
         [],
         ['--- Results ---', ''],

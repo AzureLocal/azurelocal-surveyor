@@ -4,6 +4,7 @@ import { computeSofs } from '../sofs'
 import { computeCompute } from '../compute'
 import { runHealthCheck } from '../healthcheck'
 import { computeVolumeSummary } from '../volumes'
+import { generateWorkloadVolumes } from '../workload-volumes'
 import { DEFAULT_ADVANCED_SETTINGS } from '../types'
 import type { HardwareInputs, VolumeSpec } from '../types'
 
@@ -175,6 +176,9 @@ describe('Health check engine', () => {
     })
     expect(result.passed).toBe(false)
     expect(result.issues.some(i => i.code === 'HC_OVER_CAPACITY')).toBe(true)
+    expect(result.issues.find(i => i.code === 'HC_OVER_CAPACITY')?.details?.[0].status).toBe('fail')
+    expect(result.volumeDetails[0].checks.length).toBeGreaterThan(0)
+    expect(result.volumeDetails[0].checks.some((check) => check.label === 'Per-volume size limit')).toBe(true)
   })
 
   it('healthy config passes with no errors', () => {
@@ -194,6 +198,65 @@ describe('Health check engine', () => {
       workloadSummary: { totalVCpus: 100, totalMemoryGB: 400, totalStorageTB: 10 },
     })
     expect(result.passed).toBe(true)
+    expect(result.volumeDetails[0].checks.every((check) => check.status === 'pass')).toBe(true)
+  })
+})
+
+describe('Workload volume suggestions', () => {
+  it('uses separate MABS resiliency values for scratch and backup suggestions', () => {
+    const suggestions = generateWorkloadVolumes({
+      advanced: DEFAULT_ADVANCED_SETTINGS,
+      avdEnabled: false,
+      avdResult: computeAvd({
+        totalUsers: 1,
+        concurrentUsers: 0,
+        workloadType: 'light',
+        multiSession: true,
+        profileSizeGB: 10,
+        userTypeMixEnabled: false,
+        userTypeMix: { taskPct: 30, taskProfileGB: 15, knowledgePct: 50, knowledgeProfileGB: 40, powerPct: 20, powerProfileGB: 80 },
+        growthBufferPct: 0,
+        officeContainerEnabled: false,
+        officeContainerSizeGB: 0,
+        dataDiskPerHostGB: 0,
+        profileStorageLocation: 's2d',
+      }),
+      aksEnabled: false,
+      aksResult: { totalNodes: 0, totalControlPlaneVCpus: 0, totalWorkerVCpus: 0, totalVCpus: 0, totalControlPlaneMemoryGB: 0, totalWorkerMemoryGB: 0, totalMemoryGB: 0, osDiskTB: 0, totalStorageTB: 0 },
+      aksResiliency: 'three-way-mirror',
+      virtualMachines: { enabled: false, vmCount: 0, vCpusPerVm: 0, memoryPerVmGB: 0, storagePerVmGB: 0, resiliency: 'three-way-mirror', vCpuOvercommitRatio: 1 },
+      sofsEnabled: false,
+      sofsInputs: { userCount: 0, concurrentUsers: 0, profileSizeGB: 0, redirectedFolderSizeGB: 0, containerType: 'split', sofsGuestVmCount: 2, sofsVCpusPerVm: 4, sofsMemoryPerVmGB: 16, internalMirror: 'three-way', autoSizeDrivesPerNode: 4, autoSizeNodes: 2 },
+      sofsResult: { totalProfileStorageTB: 0, totalRedirectedStorageTB: 0, totalStorageTB: 0, sofsVCpusTotal: 0, sofsMemoryTotalGB: 0, internalMirrorFactor: 3, internalFootprintTB: 0, steadyStateIopsPerUser: 10, loginStormIopsPerUser: 50, totalSteadyStateIops: 0, totalLoginStormIops: 0, autoSizeDriveSizeTB: 0 },
+      mabsEnabled: true,
+      mabsInputs: {
+        protectedDataTB: 10,
+        dailyChangeRatePct: 10,
+        onPremRetentionDays: 14,
+        scratchCachePct: 15,
+        mabsVCpus: 8,
+        mabsMemoryGB: 32,
+        mabsOsDiskGB: 200,
+        scratchResiliency: 'two-way-mirror',
+        backupResiliency: 'dual-parity',
+        internalMirror: 'two-way',
+      },
+      mabsResult: {
+        scratchVolumeTB: 1.5,
+        backupDataVolumeTB: 24,
+        totalStorageTB: 25.5,
+        internalMirrorFactor: 2,
+        internalFootprintTB: 51,
+        mabsVCpus: 8,
+        mabsMemoryGB: 32,
+        mabsOsDiskTB: 0.2,
+      },
+      servicePresets: [],
+      customWorkloads: [],
+    })
+
+    expect(suggestions.find((s) => s.name === 'MABS-Scratch')?.resiliency).toBe('two-way-mirror')
+    expect(suggestions.find((s) => s.name === 'MABS-BackupData')?.resiliency).toBe('dual-parity')
   })
 })
 

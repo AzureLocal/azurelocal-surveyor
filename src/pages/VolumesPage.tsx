@@ -9,10 +9,10 @@ import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
+import { computeAllCustomWorkloads } from '../engine/custom-workloads'
 import { runHealthCheck } from '../engine/healthcheck'
 import { generateWorkloadVolumes, type SuggestedVolume } from '../engine/workload-volumes'
 import { computeAllServicePresets } from '../engine/service-presets'
-import { computeAllCustomWorkloads } from '../components/CustomWorkloads'
 import { toWacSize, computeQuickStart, generateGenericVolumes, type GenericSuggestion } from '../engine/volumes'
 
 export default function VolumesPage() {

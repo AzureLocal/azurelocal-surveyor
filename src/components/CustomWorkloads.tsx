@@ -8,6 +8,7 @@
 import { useState, useRef } from 'react'
 import { Trash2, Plus, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
+import { computeAllCustomWorkloads } from '../engine/custom-workloads'
 import type { CustomWorkload } from '../engine/types'
 import type { ResiliencyType } from '../engine/types'
 
@@ -59,22 +60,6 @@ function computeTotals(w: CustomWorkload) {
   return { totalVCpus, totalMemGB, osDiskTB, storageTB, totalStorageTB }
 }
 
-export function computeAllCustomWorkloads(workloads: CustomWorkload[]) {
-  let totalVCpus = 0, totalMemoryGB = 0, totalStorageTB = 0
-  for (const w of workloads) {
-    if (!w.enabled) continue
-    const t = computeTotals(w)
-    totalVCpus    += t.totalVCpus
-    totalMemoryGB += t.totalMemGB
-    totalStorageTB += t.totalStorageTB
-  }
-  return {
-    totalVCpus,
-    totalMemoryGB,
-    totalStorageTB: Math.round(totalStorageTB * 100) / 100,
-  }
-}
-
 export default function CustomWorkloads() {
   const { customWorkloads, addCustomWorkload, updateCustomWorkload, removeCustomWorkload } = useSurveyorStore()
   const [expandedId, setExpandedId] = useState<string | null>(null)
@@ -85,7 +70,8 @@ export default function CustomWorkloads() {
   const enabledCount = customWorkloads.filter((w) => w.enabled).length
 
   function handleDownloadTemplate() {
-    const { id: _id, ...template } = JSON_TEMPLATE
+    const { id, ...template } = JSON_TEMPLATE
+    void id
     const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')

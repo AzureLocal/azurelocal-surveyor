@@ -7,13 +7,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [1.4.0] — Stability and UX Clarity
 
+> This release absorbs the unreleased v1.2.0 research and documentation work.
+
 ### Added
 
 - Landing page at the app root (`/`) for first-run orientation, including a simple explanation of what Surveyor is, what the left-hand menu does, and where to start
+- Engine and docs coverage for changelog, plan manifest, and missing MkDocs navigation pages
 
 ### Changed
 
 - Hardware page moved to `/hardware`; the sidebar logo/title and new Home nav item now return users to the landing page
+- AVD guidance now separates concurrent-user sizing from total-user profile storage sizing and documents RemoteApp planning assumptions
+- Surveyor docs were audited, repaired, and cross-linked with S2DCartographer and related Azure Local references
 
 ---
 

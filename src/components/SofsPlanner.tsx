@@ -53,6 +53,7 @@ export default function SofsPlanner() {
   const { sofs, setSofs, advanced, avd, avdEnabled } = useSurveyorStore()
   const result = computeSofs(sofs, advanced.overrides)
   const [checklistOpen, setChecklistOpen] = useState(false)
+  const recommendedHostCsvCount = Math.max(1, sofs.sofsGuestVmCount)
 
   const avdUsingSofs = avdEnabled && avd.profileStorageLocation === 'sofs'
   const avdInSync = avdUsingSofs &&
@@ -186,6 +187,11 @@ export default function SofsPlanner() {
               value={`${result.internalFootprintTB} TB`}
               highlight
             />
+            <Row
+              label="Recommended Azure Local CSV volume count"
+              sub={`Production guidance: ${recommendedHostCsvCount} host CSV volume${recommendedHostCsvCount > 1 ? 's' : ''} — one per SOFS VM for fault isolation`}
+              value={String(recommendedHostCsvCount)}
+            />
             <Row label="Total SOFS vCPUs" sub={`${sofs.sofsGuestVmCount} VMs × ${sofs.sofsVCpusPerVm} vCPUs`}
               value={String(result.sofsVCpusTotal)} />
             <Row label="Total SOFS RAM" sub={`${sofs.sofsGuestVmCount} VMs × ${sofs.sofsMemoryPerVmGB} GB`}
@@ -208,6 +214,25 @@ export default function SofsPlanner() {
           </p>
         </div>
       )}
+
+      <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm space-y-1.5">
+        <p className="font-semibold text-blue-900 dark:text-blue-200">Recommended Azure Local host volume layout</p>
+        <p className="text-blue-800 dark:text-blue-300 text-xs">
+          For production, create <strong>{recommendedHostCsvCount} Azure Local CSV volume{recommendedHostCsvCount > 1 ? 's' : ''}</strong> and place
+          <strong> one SOFS VM per host CSV</strong>. This isolates failures and maintenance events to a single SOFS VM instead of giving the whole guest cluster shared fate on one host volume.
+        </p>
+        <p className="text-blue-800 dark:text-blue-300 text-xs">
+          A single shared host CSV is simpler, but it is better suited to dev/test or very small deployments. This recommendation is aligned with the Azure Local SOFS for FSLogix guide.
+        </p>
+        <a
+          href="https://azurelocal.cloud/azurelocal-sofs-fslogix/getting-started/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center text-xs font-medium text-brand-700 dark:text-brand-300 hover:underline"
+        >
+          Open SOFS deployment guide
+        </a>
+      </div>
 
       {/* ── IOPS Estimate ── */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -237,7 +262,7 @@ export default function SofsPlanner() {
 
       {/* ── Guest Cluster Drive Sizing ── */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">Guest Cluster Drive Sizing</div>
+        <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">SOFS Guest Cluster Auto-Sizing</div>
         <div className="px-4 py-4 space-y-3">
           <p className="text-sm text-gray-500">
             Enter the SOFS guest cluster node and drive count to calculate the required capacity drive size.
@@ -245,16 +270,17 @@ export default function SofsPlanner() {
             drives on the Azure Local host. Those virtual drives are VHD/VHDX files stored on an Azure Local CSV.
           </p>
           <p className="text-xs text-gray-400">
-            Drive size = guest cluster footprint ÷ (nodes × drives per node). If demand grows, prefer adding drives
-            or nodes before only increasing drive sizes.
+            Auto-sizing computes <strong>required virtual drive size = guest cluster footprint ÷ (nodes × drives per node)</strong>.
+            Keep the default at <strong>4 drives per node</strong> as the baseline and prefer adding more drives before only making them larger.
+            More drives usually improve balance, reserve behavior, and rebuild characteristics.
           </p>
           <div className="grid grid-cols-2 gap-4">
             <Field label="SOFS guest cluster nodes">
               <input type="number" min={2} className="input" value={sofs.autoSizeNodes}
                 onChange={(e) => setSofs({ autoSizeNodes: num(e, sofs.autoSizeNodes) })} />
             </Field>
-            <Field label="Virtual drives per node (0 = disable)">
-              <input type="number" min={0} className="input" value={sofs.autoSizeDrivesPerNode}
+            <Field label="Virtual drives per node" hint="default 4; add drives before only enlarging them">
+              <input type="number" min={1} className="input" value={sofs.autoSizeDrivesPerNode}
                 onChange={(e) => setSofs({ autoSizeDrivesPerNode: num(e, sofs.autoSizeDrivesPerNode) })} />
             </Field>
           </div>
@@ -271,7 +297,7 @@ export default function SofsPlanner() {
               </div>
             </div>
           ) : (
-            <p className="text-sm text-gray-400 italic">Set virtual drives per node above 0 to enable sizing.</p>
+            <p className="text-sm text-gray-400 italic">Set guest-cluster node and drive counts to calculate the required virtual drive size.</p>
           )}
         </div>
       </div>

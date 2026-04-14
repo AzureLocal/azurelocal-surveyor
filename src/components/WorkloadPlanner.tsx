@@ -14,9 +14,10 @@ import { computeAvd } from '../engine/avd'
 import { computeAks } from '../engine/aks'
 import { computeSofs } from '../engine/sofs'
 import { computeMabs } from '../engine/mabs'
+import { computeAllCustomWorkloads } from '../engine/custom-workloads'
 import { computeAllServicePresets } from '../engine/service-presets'
 import ServicePresets from './ServicePresets'
-import CustomWorkloads, { computeAllCustomWorkloads } from './CustomWorkloads'
+import CustomWorkloads from './CustomWorkloads'
 import type { ResiliencyType, VmScenario } from '../engine/types'
 
 /** Parse numeric input — returns current value if input is empty or NaN. */

@@ -71,6 +71,18 @@ export default function MabsPage() {
         </div>
       </div>
 
+      <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 p-4 text-sm space-y-1.5">
+        <p className="font-semibold text-blue-900 dark:text-blue-200">Recommended Azure Local volume layout for MABS</p>
+        <p className="text-blue-800 dark:text-blue-300 text-xs">
+          Microsoft documents that MABS needs a local scratch location for Azure operations and a separate attached-disk backup storage pool for operational recovery.
+          Surveyor therefore models <strong>two Azure Local CSV-backed volume roles</strong>: a scratch/cache volume for high-churn staging and a backup-data volume for retained recovery points.
+        </p>
+        <p className="text-blue-800 dark:text-blue-300 text-xs">
+          The resiliency selections below apply to the <strong>Azure Local cluster volumes</strong> that host those attached disks. They are separate from the
+          <strong> Storage Spaces mirror inside the MABS VM</strong>, which is configured independently.
+        </p>
+      </div>
+
       {/* ── Inputs ── */}
       <div className="grid grid-cols-2 gap-4">
         <Field label="Protected data (TB)" hint="total data being backed up">
@@ -93,16 +105,25 @@ export default function MabsPage() {
             onChange={(e) => setMabs({ scratchCachePct: num(e, mabs.scratchCachePct) })} />
         </Field>
 
-        <Field label="Backup volume resiliency" hint="Azure Local cluster volume">
-          <select className="input" value={mabs.resiliency}
-            onChange={(e) => setMabs({ resiliency: e.target.value as ResiliencyType })}>
+        <Field label="Scratch/cache volume resiliency" hint="Azure Local cluster volume for staging and cache">
+          <select className="input" value={mabs.scratchResiliency}
+            onChange={(e) => setMabs({ scratchResiliency: e.target.value as ResiliencyType })}>
+            <option value="two-way-mirror">Two-Way Mirror (50%)</option>
+            <option value="three-way-mirror">Three-Way Mirror (33%)</option>
+            <option value="dual-parity">Dual Parity (50–80%)</option>
+          </select>
+        </Field>
+
+        <Field label="Backup data volume resiliency" hint="Azure Local cluster volume for retained recovery points">
+          <select className="input" value={mabs.backupResiliency}
+            onChange={(e) => setMabs({ backupResiliency: e.target.value as ResiliencyType })}>
             <option value="dual-parity">Dual Parity (50–80%)</option>
             <option value="three-way-mirror">Three-Way Mirror (33%)</option>
             <option value="two-way-mirror">Two-Way Mirror (50%)</option>
           </select>
         </Field>
 
-        <Field label="Storage Spaces mirror (#70)" hint="inside MABS VM">
+        <Field label="Storage Spaces mirror" hint="inside the MABS VM">
           <select className="input" value={mabs.internalMirror}
             onChange={(e) => setMabs({ internalMirror: e.target.value as MabsInternalMirror })}>
             <option value="two-way">Two-Way Mirror (2× footprint)</option>
@@ -142,9 +163,9 @@ export default function MabsPage() {
         <table className="w-full text-sm">
           <tbody>
             <Row label="Scratch/cache volume" value={`${result.scratchVolumeTB} TB`}
-              detail={`${mabs.scratchCachePct}% of ${mabs.protectedDataTB} TB protected`} />
+              detail={`${mabs.scratchCachePct}% of ${mabs.protectedDataTB} TB protected • Azure Local resiliency: ${formatResiliency(mabs.scratchResiliency)}`} />
             <Row label="Backup data volume" value={`${result.backupDataVolumeTB} TB`}
-              detail={`Full copy + ${mabs.dailyChangeRatePct}% daily change × ${mabs.onPremRetentionDays} days`} />
+              detail={`Full copy + ${mabs.dailyChangeRatePct}% daily change × ${mabs.onPremRetentionDays} days • Azure Local resiliency: ${formatResiliency(mabs.backupResiliency)}`} />
             <Row label="Total logical storage" value={`${result.totalStorageTB} TB`} highlight />
             <Row label={`Storage Spaces mirror (${mabs.internalMirror === 'simple' ? '1×' : mabs.internalMirror === 'two-way' ? '2×' : '3×'})`}
               value={`${result.internalFootprintTB} TB`}
@@ -256,4 +277,11 @@ function Row({ label, value, detail, highlight }: { label: string; value: string
       <td className="px-4 py-2 text-right">{value}</td>
     </tr>
   )
+}
+
+function formatResiliency(resiliency: ResiliencyType) {
+  if (resiliency === 'two-way-mirror') return 'Two-Way Mirror'
+  if (resiliency === 'three-way-mirror') return 'Three-Way Mirror'
+  if (resiliency === 'dual-parity') return 'Dual Parity'
+  return 'Nested Two-Way Mirror'
 }

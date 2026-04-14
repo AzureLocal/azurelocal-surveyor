@@ -143,6 +143,18 @@ export default function DocsPage() {
           </div>
         </div>
       </section>
+
+      <section>
+        <h2 className="text-xl font-semibold mb-3">Browser Validation</h2>
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-5 space-y-3 text-sm text-gray-700 dark:text-gray-300">
+          <p>
+            Use the browser smoke checklist when validating rendering fixes, especially for Edge-specific blank-page reports on AVD, SOFS, Volumes, and Reports.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <DocLink href="https://github.com/AzureLocal/azurelocal-surveyor/blob/main/docs/reference/browser-smoke-checklist.md" label="Open browser smoke checklist" />
+          </div>
+        </div>
+      </section>
     </div>
   )
 }

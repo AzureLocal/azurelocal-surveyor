@@ -11,6 +11,16 @@ interface State {
 export class ErrorBoundary extends Component<Props, State> {
   state: State = { error: null }
 
+  componentDidMount() {
+    window.addEventListener('error', this.handleWindowError)
+    window.addEventListener('unhandledrejection', this.handleUnhandledRejection)
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('error', this.handleWindowError)
+    window.removeEventListener('unhandledrejection', this.handleUnhandledRejection)
+  }
+
   static getDerivedStateFromError(error: Error): State {
     return { error }
   }
@@ -19,10 +29,34 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error('[Surveyor] Render error:', error, info.componentStack)
   }
 
+  handleWindowError = (event: ErrorEvent) => {
+    if (event.error instanceof Error) {
+      console.error('[Surveyor] Window error:', event.error)
+      this.setState({ error: event.error })
+      return
+    }
+
+    if (event.message) {
+      const error = new Error(event.message)
+      console.error('[Surveyor] Window error:', error)
+      this.setState({ error })
+    }
+  }
+
+  handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+    const reason = event.reason instanceof Error
+      ? event.reason
+      : new Error(typeof event.reason === 'string' ? event.reason : 'Unhandled promise rejection')
+
+    console.error('[Surveyor] Unhandled promise rejection:', reason)
+    this.setState({ error: reason })
+  }
+
   handleReset = () => {
     // Clear persisted state so the next load starts clean
     try {
       localStorage.removeItem('surveyor-state')
+      sessionStorage.clear()
     } catch {
       // ignore
     }
@@ -37,7 +71,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <h1 className="text-lg font-semibold text-red-700 dark:text-red-400 mb-2">Something went wrong</h1>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
               A page failed to render. This is usually caused by saved settings from an older version
-              that are no longer compatible. Resetting will restore all defaults.
+              that are no longer compatible, or by a browser/runtime error that interrupted page load. Resetting will restore defaults and reload the app.
             </p>
             <pre className="text-xs text-gray-400 dark:text-gray-600 bg-gray-50 dark:bg-gray-800 rounded p-3 overflow-auto mb-4 max-h-32">
               {this.state.error.message}

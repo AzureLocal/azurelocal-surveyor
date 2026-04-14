@@ -28,6 +28,7 @@ describe('normalizePersistedState', () => {
       powerPct: 20,
       powerProfileGB: 80,
     })
+    expect(normalized.sofs.autoSizeDrivesPerNode).toBe(4)
     expect(normalized.volumeMode).toBe('workload')
   })
 
@@ -45,5 +46,16 @@ describe('normalizePersistedState', () => {
     expect(normalized.workloads).toEqual([])
     expect(normalized.avdEnabled).toBe(false)
     expect(normalized.mabsEnabled).toBe(false)
+  })
+
+  it('maps legacy MABS resiliency into the new split volume fields', () => {
+    const normalized = normalizePersistedState({
+      mabs: {
+        resiliency: 'three-way-mirror',
+      },
+    })
+
+    expect(normalized.mabs.scratchResiliency).toBe('three-way-mirror')
+    expect(normalized.mabs.backupResiliency).toBe('three-way-mirror')
   })
 })

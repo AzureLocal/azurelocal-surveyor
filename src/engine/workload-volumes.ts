@@ -170,14 +170,13 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
   if (inputs.mabsEnabled) {
     const mabs = inputs.mabsResult
     const mirrorFactor = mabs.internalMirrorFactor
-    const mabsRes = inputs.mabsInputs.resiliency
 
     if (mabs.scratchVolumeTB > 0) {
       const scratchDisk = round2(mabs.scratchVolumeTB * mirrorFactor)
       suggestions.push({
         id: `sug-${_sugId++}`,
         name: 'MABS-Scratch',
-        resiliency: mabsRes,
+        resiliency: inputs.mabsInputs.scratchResiliency,
         plannedSizeTB: scratchDisk,
         source: 'MABS',
         description: `Scratch/cache ${mabs.scratchVolumeTB} TB × ${mirrorFactor} mirror`,
@@ -188,7 +187,7 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
       suggestions.push({
         id: `sug-${_sugId++}`,
         name: 'MABS-BackupData',
-        resiliency: mabsRes,
+        resiliency: inputs.mabsInputs.backupResiliency,
         plannedSizeTB: backupDisk,
         source: 'MABS',
         description: `Backup data ${mabs.backupDataVolumeTB} TB × ${mirrorFactor} mirror`,

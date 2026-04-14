@@ -2,6 +2,16 @@ import { version } from '../../package.json'
 
 const RELEASE_HISTORY = [
   {
+    version: '1.4.0',
+    label: 'Stability and UX Clarity',
+    items: [
+      'Landing page and home navigation for first-run orientation',
+      'Absorbed the unreleased v1.2.0 research and documentation work into the shipped release track',
+      'AVD guidance updated for concurrent users, total users, and RemoteApp planning',
+      'Docs audit, MkDocs repairs, and Surveyor to S2DCartographer cross-links',
+    ],
+  },
+  {
     version: '1.3.0',
     label: 'Workload Intelligence',
     items: [
