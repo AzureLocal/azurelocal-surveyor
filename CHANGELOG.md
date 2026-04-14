@@ -5,6 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.7.0] — Architecture Documentation
+
+### Added
+
+- Architecture docs: new `docs/architecture/overview.md` — app layer diagram (Mermaid), page-to-engine map, state structure, export layer table, OEM preset overview (#90)
+- Architecture docs: new `docs/architecture/engine-flow.md` — end-to-end pipeline flowchart (Mermaid), capacity computation chain, workload aggregation flow, health-check evaluation diagram, volume suggestion flow, override handling table, Advanced Settings impact reference (#90)
+- Formula map: `deferred` and `implemented-with-enhancements` statuses added to the status key; AVD/SOFS/Compute parity test counts populated (12/8/6 scenarios); app-added modules table (AKS, MABS, service presets, custom workloads, json.ts, powershell.ts, avd-pools.ts, workload-volumes.ts); links to architecture docs (#90, #118)
+- Engine spec: `surveyorVersion` updated to `1.7.0`; Final Report entry updated to `implemented-with-enhancements` with all five exporters listed; `implemented-with-enhancements` status added to `statusValues` (#118)
+
+### Architecture notes
+
+- Plan manifest (`SurveyorPlan` JSON export) and its Ranger integration contract are fully documented in `docs/reference/plan-manifest.md` (#118)
+- Workbook coverage artifact (`engine-spec.json`) and formula map (`docs/reference/formula-map.md`) serve as the machine-readable and human-readable lineage references respectively (#118)
+
+---
+
 ## [1.6.0] — AKS Dependencies, Terminology Clarity
 
 ### Added

@@ -3,7 +3,7 @@
   "$id": "engine-spec",
   "title": "Azure Local Surveyor — Engine Specification",
   "version": "1.0.0",
-  "surveyorVersion": "1.4.0",
+  "surveyorVersion": "1.7.0",
   "lastUpdated": "2026-04-14",
   "typeNamingNote": "src/engine uses kebab-case enums (e.g. 'three-way-mirror'). reference/temp uses title-case (e.g. 'Three-Way Mirror'). These are the same concepts. All manifest and spec files use kebab-case exclusively.",
   "overrideGap": {
@@ -19,6 +19,7 @@
   },
   "statusValues": {
     "implemented": "Full formula coverage — output matches workbook to parity-test tolerance.",
+    "implemented-with-enhancements": "Full formula coverage plus app-specific additions beyond the workbook scope.",
     "partial": "Some formulas implemented; known gaps documented in the sheet entry.",
     "re-expressed": "Logic is equivalent but the app has evolved beyond the workbook (e.g. new fields, consolidated types). The workbook is the baseline reference, not the ceiling.",
     "deferred": "Not yet implemented.",
@@ -130,9 +131,9 @@
       "notes": "Core logical vCPU, usable RAM, and system reserved calculations match the workbook."
     },
     "Final Report": {
-      "engineModule": "src/components/FinalReport.tsx (composite)",
-      "engineFunction": "FinalReport()",
-      "status": "partial",
+      "engineModule": "src/components/FinalReport.tsx (composite), src/exporters/",
+      "engineFunction": "FinalReport(), exportJson(), exportPdf(), exportXlsx(), exportMarkdown(), exportPowershell()",
+      "status": "implemented-with-enhancements",
       "parityTestFile": null,
       "parityScenarioCount": 0,
       "divergences": [
@@ -142,7 +143,7 @@
         "App adds PowerShell script generation — beyond workbook.",
         "App adds Markdown export — beyond workbook."
       ],
-      "notes": "The report surface is implemented. 'Partial' reflects that not every workbook display formula has a direct equivalent; the app's output is structurally equivalent but not formula-for-formula identical."
+      "notes": "The report surface is fully implemented. JSON manifest export (SurveyorPlan schemaVersion 1.0) is the primary machine-readable handoff artifact for Ranger. The app's output is structurally equivalent to the workbook Final Report but not formula-for-formula identical."
     },
     "Drive Layout Comparison": {
       "engineModule": "src/pages/DriveLayoutPage.tsx",
