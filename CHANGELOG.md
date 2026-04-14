@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.4.0] — Stability and UX Clarity
+
+### Added
+
+- Landing page at the app root (`/`) for first-run orientation, including a simple explanation of what Surveyor is, what the left-hand menu does, and where to start
+
+### Changed
+
+- Hardware page moved to `/hardware`; the sidebar logo/title and new Home nav item now return users to the landing page
+
+---
+
 ## [1.3.0] — Workload Intelligence
 
 > Commits: `1f3c0dc` → `974b73a`

@@ -51,6 +51,8 @@ nav:
       - SOFS: engine/sofs.md
       - Compute: engine/compute.md
       - Health Check: engine/healthcheck.md
+  - Changelog: changelog.md
   - Reference:
       - Formula Map: reference/formula-map.md
       - Parity Tests: reference/parity-tests.md
+      - Plan Manifest: reference/plan-manifest.md

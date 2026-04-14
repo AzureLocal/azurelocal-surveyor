@@ -1,4 +1,5 @@
 import { Routes, Route } from 'react-router-dom'
+import HomePage from './pages/HomePage'
 import HardwarePage from './pages/HardwarePage'
 import WorkloadsPage from './pages/WorkloadsPage'
 import AvdPage from './pages/AvdPage'
@@ -18,7 +19,8 @@ export default function App() {
   return (
     <Layout>
       <Routes>
-        <Route path="/" element={<HardwarePage />} />
+        <Route path="/" element={<HomePage />} />
+        <Route path="/hardware" element={<HardwarePage />} />
         <Route path="/workloads" element={<WorkloadsPage />} />
         <Route path="/avd" element={<AvdPage />} />
         <Route path="/sofs" element={<SofsPage />} />

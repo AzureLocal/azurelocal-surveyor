@@ -91,6 +91,16 @@ const REFERENCES: RefCategory[] = [
         description: 'Architecture and sizing guidance for AVD session hosts on Azure Local.',
       },
       {
+        title: 'Publish applications with RemoteApp',
+        url: 'https://learn.microsoft.com/azure/virtual-desktop/publish-applications-stream-remoteapp',
+        description: 'How RemoteApp application groups, published apps, and host-pool assignments work in Azure Virtual Desktop.',
+      },
+      {
+        title: 'Preferred application group type',
+        url: 'https://learn.microsoft.com/azure/virtual-desktop/preferred-application-group-type',
+        description: 'Explains Desktop vs RemoteApp behavior when both application group types are assigned to the same pooled host pool.',
+      },
+      {
         title: 'FSLogix profile container configuration',
         url: 'https://learn.microsoft.com/fslogix/concepts-container-types',
         description: 'Profile Container vs Office Container types, sizing, and storage location guidance.',
@@ -112,8 +122,8 @@ const REFERENCES: RefCategory[] = [
       },
       {
         title: 'FSLogix with Scale-Out File Server',
-        url: 'https://learn.microsoft.com/fslogix/tutorial-cache-rule-sets',
-        description: 'Configuring FSLogix profile containers on a SOFS share for AVD scale-out.',
+        url: 'https://learn.microsoft.com/azure/virtual-desktop/azure-local-overview#fslogix-profile-containers-storage',
+        description: 'Microsoft guidance for hosting FSLogix profile containers on SMB storage for Azure Virtual Desktop on Azure Local.',
       },
     ],
   },

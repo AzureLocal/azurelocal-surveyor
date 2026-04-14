@@ -2,6 +2,36 @@ import { version } from '../../package.json'
 
 const RELEASE_HISTORY = [
   {
+    version: '1.3.0',
+    label: 'Workload Intelligence',
+    items: [
+      'AKS resiliency wiring fix and clearer AKS scope note',
+      'Arc-enabled service presets for SQL MI, IoT Operations, AI Foundry Local, and Container Apps',
+      'Custom workload builder with JSON import and export integration',
+      'AVD page note clarifying single-pool scope and RemoteApp mention',
+    ],
+  },
+  {
+    version: '1.1.0',
+    label: 'Planner Features',
+    items: [
+      'SOFS planner architecture guidance and dedicated SOFS report tab',
+      'AVD to SOFS sync workflow and in-sync indicator',
+      'Burst-headroom warning for low concurrency assumptions',
+      'AVD wording updates clarifying concurrent users vs total users semantics',
+    ],
+  },
+  {
+    version: '1.0.1',
+    label: 'Stability and UX Clarity',
+    items: [
+      'About page, changelog, version display, and ErrorBoundary',
+      'State hydration fixes for stale persisted data',
+      'Preset verification and resiliency wording cleanup',
+      'Milestone structure updated to break out research and docs work',
+    ],
+  },
+  {
     version: '1.0.0',
     label: 'Quick-Start Volumes and Report Alignment',
     items: [
@@ -82,6 +112,11 @@ const LINKS = [
     href: 'https://azurelocal.cloud/azurelocal-surveyor/',
     description: 'Feature overview, usage guide, and methodology',
   },
+  {
+    label: 'S2DCartographer',
+    href: 'https://github.com/AzureLocal/azurelocal-s2d-cartographer',
+    description: 'Post-deployment S2D inventory, diagrams, and reporting for running clusters',
+  },
 ]
 
 export default function AboutPage() {
@@ -147,6 +182,11 @@ export default function AboutPage() {
           <div>
             <span className="font-semibold text-gray-800 dark:text-gray-200">Built with </span>
             React, Vite, TypeScript, Tailwind CSS, Radix UI, Zustand, jsPDF, and SheetJS.
+          </div>
+          <div>
+            <span className="font-semibold text-gray-800 dark:text-gray-200">Related project </span>
+            <a href="https://github.com/AzureLocal/azurelocal-s2d-cartographer" target="_blank" rel="noopener noreferrer" className="text-brand-600 dark:text-brand-400 hover:underline">S2DCartographer</a>
+            {' '}provides post-deployment inventory, health analysis, and reporting for running Azure Local clusters. Surveyor plans; S2DCartographer verifies.
           </div>
           <div className="pt-2 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-400">
             &copy; 2026 Azure Local Cloud. Released under the{' '}

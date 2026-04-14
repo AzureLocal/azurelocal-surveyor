@@ -1,7 +1,7 @@
 # Formula Map — Workbook Coverage Status
 
 This page maps each Excel sheet to its TypeScript engine counterpart and documents the implementation status.
-The machine-readable version of this data lives in [`engine-spec.json`](../../engine-spec.json) at the repo root.
+The machine-readable version of this data lives in [`engine-spec.json`](https://github.com/AzureLocal/azurelocal-surveyor/blob/main/engine-spec.json) at the repo root.
 
 ## Status key
 
@@ -49,7 +49,7 @@ The machine-readable version of this data lives in [`engine-spec.json`](../../en
 
 - App adds: user type mix (#59), Office Container (#59), data disk per host (#31), profile storage location selector (#33).
 - `growthBuffer` scale: workbook uses decimal (0.3), app uses integer percent (30).
-- Profile storage uses `totalUsers`, not `concurrentUsers` — correct per FSLogix guidance. Documented in `avd.ts:136`.
+- Profile storage uses `totalUsers`, not `concurrentUsers` — correct per FSLogix guidance. Documented in `computeAvd()` and the AVD docs page.
 
 ### SOFS Planner (re-expressed)
 

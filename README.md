@@ -4,6 +4,10 @@
 
 **Live app:** [surveyor.azurelocal.cloud](https://surveyor.azurelocal.cloud)
 
+## Related tool
+
+Already deployed your cluster? Use [Azure Local S2DCartographer](https://github.com/AzureLocal/azurelocal-s2d-cartographer) to inventory disks, pools, and volumes on a running Azure Local cluster; generate HTML, Word, PDF, and Excel reports; and validate what was actually built. Surveyor plans before deployment; S2DCartographer verifies after deployment.
+
 ---
 
 ## What it does

@@ -6,10 +6,11 @@ The capacity engine lives in [`src/engine/capacity.ts`](https://github.com/Azure
 
 ```
 Raw Pool TB
-  └─ subtract reserve drives     (reserveDrives × driveCapacityTB)
-       └─ apply efficiency factor (default 0.77)
-            └─ apply resiliency   (2-way = ×0.5, 3-way = ×1/3, MAP = ×2/3)
-                 └─ effectiveUsableTB
+  └─ apply per-drive efficiency   (driveSizeTB × 0.92 by default)
+       └─ subtract reserve drives (min(nodeCount, 4) × usablePerDriveTB)
+            └─ subtract infra CSV footprint
+                 └─ apply resiliency factor
+                      └─ effectiveUsableTB
 ```
 
 ## Resiliency factors
@@ -17,18 +18,24 @@ Raw Pool TB
 | Mode | Factor | Min nodes |
 |---|---|---|
 | Two-way mirror | 0.5 | 2 |
-| Three-way mirror | 0.333… | 3 |
-| Mirror-accelerated parity (MAP) | 0.666… | 4 |
+| Three-way mirror | 0.333... | 3 |
+| Dual parity | 0.5 to 0.8 depending on node count | 4 |
+| Nested two-way mirror | 0.25 | 2 |
 
 ## Key outputs
 
 | Field | Description |
 |---|---|
 | `rawPoolTB` | Total physical capacity before any deduction |
-| `reservedTB` | Capacity held by reserve drives |
+| `usablePerDriveTB` | Per-drive usable capacity after the efficiency factor |
+| `reserveTB` | Capacity held back by reserve drives |
+| `infraVolumeTB` | Pool footprint of the cluster infrastructure volume |
+| `availableForVolumesTB` | Pool space available for user volumes before resiliency |
 | `netPoolTB` | After reserve deduction |
-| `resiliencyFactor` | Fraction of net pool that becomes usable storage |
+| `resiliencyFactor` | Fraction of available pool that becomes usable storage |
 | `effectiveUsableTB` | Final usable TB; feed into volume planner |
+
+The default efficiency factor in Surveyor is `0.92`, matching the current engine default in `src/engine/types.ts`.
 
 ## Calculator TB vs WAC GB
 

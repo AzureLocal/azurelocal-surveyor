@@ -237,6 +237,22 @@ export default function FinalReport() {
           workloadSummary={workloadSummary}
         />
       </section>
+
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Related Tools</h2>
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+          Once the cluster is deployed, validate the live disk, pool, and volume layout with{' '}
+          <a
+            href="https://github.com/AzureLocal/azurelocal-s2d-cartographer"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-brand-700 dark:text-brand-300 hover:underline"
+          >
+            Azure Local S2DCartographer
+          </a>
+          . Surveyor is the planning baseline; S2DCartographer shows what is actually on the hardware.
+        </div>
+      </section>
     </div>
   )
 }

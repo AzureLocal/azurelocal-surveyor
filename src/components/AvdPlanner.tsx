@@ -83,12 +83,12 @@ export default function AvdPlanner() {
     <div className="space-y-8">
       {/* ── Inputs ── */}
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Total users" hint="All licensed users, including non-concurrent">
+        <Field label="Total users" hint="Drives profile storage and overall capacity">
           <input type="number" min={1} className="input" value={avd.totalUsers}
             onChange={(e) => setAvd({ totalUsers: num(e, avd.totalUsers) })} />
         </Field>
 
-        <Field label="Concurrent users (peak)" hint="0 = size for all users">
+        <Field label="Concurrent users (peak)" hint="Drives session hosts, compute, and bandwidth">
           <input type="number" min={0} className="input" value={avd.concurrentUsers}
             onChange={(e) => setAvd({ concurrentUsers: num(e, avd.concurrentUsers) })} />
           <p className="text-xs text-gray-400 mt-1">
@@ -99,7 +99,8 @@ export default function AvdPlanner() {
           {avd.concurrentUsers > 0 && avd.concurrentUsers < avd.totalUsers && (
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
               Sizing for {avd.concurrentUsers} concurrent ({Math.round(avd.concurrentUsers / avd.totalUsers * 100)}% of {avd.totalUsers} total).
-              {avd.concurrentUsers < avd.totalUsers * 0.7 && ' If actual peak exceeds this, session hosts will be overloaded — build in headroom or use the total user count.'}
+              {' '}If actual peaks exceed this assumption, compute and session hosts will run out of headroom first.
+              {avd.concurrentUsers < avd.totalUsers * 0.7 && ' Build in burst headroom or size against total users for a conservative plan.'}
             </p>
           )}
         </Field>

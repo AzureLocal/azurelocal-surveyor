@@ -12,7 +12,7 @@
 2. **Capacity** — Review the storage report. The "Effective Usable" row is your planning number.
 3. **Workloads** — Enable the scenarios that apply (AVD, AKS, VMs, backup) to check utilization against available capacity.
 
-That's it. Use the **Export** button to download an Excel workbook, PDF report, or PowerShell deployment script.
+That's it. Use the **Export** button to download an Excel workbook, PDF report, Markdown summary, JSON plan manifest, or PowerShell deployment script.
 
 ---
 
@@ -84,8 +84,9 @@ Six toggleable scenario cards match the Excel "Workload Planner" sheet:
 | **AKS on Azure Local** | Arc-enabled AKS control-plane nodes + worker pools |
 | **Infrastructure VMs** | Always-on VMs (AD, DNS, WSUS, monitoring, etc.) |
 | **Dev / Test VMs** | Non-production, generally lower density |
-| **Backup / Archive** | Storage-only estimate for backup target capacity |
-| **Custom VMs** | Any other workload not covered above |
+| **MABS** | Microsoft Azure Backup Server storage and guest VM sizing |
+| **Service presets** | Arc-enabled platform workloads such as SQL MI, IoT Operations, AI Foundry Local, and Container Apps |
+| **Custom workloads** | Any other workload not covered by the built-in planners |
 
 Enable only the scenarios that apply. Disabled scenarios contribute zero to utilization.
 
@@ -101,6 +102,13 @@ Sizes [Azure Virtual Desktop](https://learn.microsoft.com/azure/virtual-desktop/
 | Power / VDI (single-session) | 1 | 8 | 32 GB |
 
 Profile storage (FSLogix containers) is calculated separately and added to storage totals.
+
+Important sizing semantics:
+
+- **Concurrent users** drive session host count, compute sizing, and bandwidth.
+- **Total users** drive FSLogix profile storage and Office Container capacity.
+- If real-world peaks exceed your planned concurrency, session hosts run out of headroom first; profile storage is already sized for the full user population.
+- RemoteApp is supported on Azure Local through Azure Virtual Desktop application groups, but Surveyor does not yet model a dedicated RemoteApp density curve. Use the current AVD model as a conservative session-host baseline and validate with pilot or simulated load testing.
 
 ### SOFS
 
@@ -130,6 +138,26 @@ The final report page assembles a single-page summary. Export options:
 | **PDF** | Printable report with tables |
 | **Markdown** | Copy-paste into GitHub/Confluence/ADO wiki |
 | **PowerShell** | `New-Volume` commands ready to run against the cluster |
+| **JSON** | Machine-readable plan manifest for Ranger and downstream automation |
+
+---
+
+## Related Tools
+
+**Already deployed?** Use [S2DCartographer](https://github.com/AzureLocal/azurelocal-s2d-cartographer) to inventory disks, pools, and volumes on a running Azure Local cluster; generate HTML, Word, PDF, and Excel reports; and visualize the capacity waterfall of what is actually on the hardware you planned with Surveyor.
+
+Surveyor plans before deployment. S2DCartographer validates after deployment.
+
+---
+
+## Changelog and Release History
+
+The canonical release history lives in [CHANGELOG.md](https://github.com/AzureLocal/azurelocal-surveyor/blob/main/CHANGELOG.md). Use it to verify when planner behavior changed, including:
+
+- AVD concurrent vs total user clarification
+- SOFS sync and architecture guidance
+- AKS scope clarifications
+- service presets and custom workloads
 
 ---
 
@@ -180,15 +208,17 @@ docs/
   index.md               ← This page — How to use the app
   engine/
     capacity.md          ← Capacity model formula walk-through
-    volumes.md           ← Volume sizing and WAC GB explanation
-    workloads.md         ← Generic VM workload planner
-    avd.md               ← AVD session host sizing
-    sofs.md              ← SOFS guest cluster sizing
-    compute.md           ← CPU / memory model
-    healthcheck.md       ← Validation rules
+    volumes.md           ← Volume sizing, pool footprint, and WAC GB explanation
+    workloads.md         ← Workload roll-up model and scenario coverage
+    avd.md               ← AVD session host, FSLogix, and RemoteApp semantics
+    sofs.md              ← SOFS guest cluster sizing and storage layering
+    compute.md           ← CPU / memory model and N+1 failover
+    healthcheck.md       ← Validation rules and severity model
+  changelog.md           ← Pointer to the canonical project changelog
   reference/
     formula-map.md       ← Excel sheet ↔ TypeScript function mapping
     parity-tests.md      ← 20 golden scenario descriptions
+    plan-manifest.md     ← Export JSON schema for downstream automation
 ```
 
 ## Serving locally

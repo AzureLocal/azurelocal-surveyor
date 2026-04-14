@@ -196,7 +196,7 @@ export default function AdvancedSettings() {
                 onClick={() => {
                   resetAll()
                   setConfirmReset(false)
-                  navigate('/')
+                  navigate('/hardware')
                 }}
               >
                 Yes, reset

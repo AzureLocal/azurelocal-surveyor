@@ -3,6 +3,8 @@
  * Covers tool purpose, workflow, and each planning area (#3).
  */
 
+import { ExternalLink } from 'lucide-react'
+
 interface DocSection {
   title: string
   content: string[]
@@ -22,10 +24,10 @@ const DOCS: DocSection[] = [
     content: [
       '1. Hardware — Start by entering your node count, drive configuration (capacity drives per node, drive size, drive media), CPU cores, and memory. This establishes the raw foundation for all downstream calculations.',
       '2. Advanced Settings — Review and adjust formula parameters (efficiency factor, overcommit ratios, system reservations). Defaults match Microsoft recommendations.',
-      '3. Workloads — Enable the scenarios you plan to deploy (AVD, AKS, Infrastructure VMs, Dev/Test VMs, Backup/Archive, Custom VMs, SOFS). Each scenario contributes to compute and storage demand.',
+      '3. Workloads — Enable the scenarios you plan to deploy (AVD, AKS, VM workloads, MABS, service presets, custom workloads, and optionally SOFS). Each enabled scenario contributes to compute and storage demand.',
       '4. AVD / SOFS pages — If you enabled those workloads, configure the detailed parameters for Azure Virtual Desktop or Scale-Out File Server.',
       '5. Volumes — Plan your Cluster Shared Volumes (CSVs). Set volume names, sizes, and resiliency types. Use the WAC GB column values when creating volumes in Windows Admin Center.',
-      '6. Reports — Review the final capacity report, compute report, health checks, and best practice notes. Export to PDF, Excel, PowerShell, or Markdown.',
+      '6. Reports — Review the final capacity report, compute report, health checks, and best practice notes. Export to PDF, Excel, PowerShell, Markdown, or JSON.',
     ],
   },
   {
@@ -76,12 +78,21 @@ const DOCS: DocSection[] = [
     ],
   },
   {
+    title: 'AVD Planning Semantics',
+    content: [
+      'The AVD planner intentionally separates concurrency from user population. Concurrent users drive session host count, compute sizing, and bandwidth sizing. Total users drive FSLogix profile storage, Office Container storage, and overall profile capacity because each assigned user has a profile container whether they are logged in or not.',
+      'If actual peaks exceed your planned concurrent user count, the first failure mode is host saturation: slower sign-ins, overloaded session hosts, and reduced user experience. Profile storage does not suddenly resize at runtime because it is already sized against total users.',
+      'RemoteApp is supported on Azure Local through Azure Virtual Desktop application groups, but Surveyor does not yet model a dedicated RemoteApp density preset. Treat the current AVD model as the host-pool baseline and validate higher density assumptions with pilot or simulated load testing.',
+    ],
+  },
+  {
     title: 'Exports',
     content: [
       'PDF: full planning report suitable for review meetings and customer deliverables.',
       'Excel (XLSX): structured export matching the input/output layout for further analysis.',
       'PowerShell: ready-to-run commands for creating volumes, pools, and validating the configuration.',
       'Markdown: copy-paste ready summary for wikis, runbooks, and GitHub issues.',
+      'JSON: machine-readable plan manifest for Ranger and other downstream automation.',
     ],
   },
 ]
@@ -106,6 +117,46 @@ export default function DocsPage() {
           </div>
         </section>
       ))}
+
+      <section>
+        <h2 className="text-xl font-semibold mb-3">Related Tools</h2>
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-5 space-y-3 text-sm text-gray-700 dark:text-gray-300">
+          <p>
+            Surveyor is the pre-deployment planning tool in this toolchain. Once the cluster is built, use S2DCartographer to inventory the live Storage Spaces Direct stack, generate customer-facing reports, and compare the real cluster against the plan.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <DocLink href="https://github.com/AzureLocal/azurelocal-s2d-cartographer" label="Azure Local S2DCartographer repo" />
+            <DocLink href="https://azurelocal.github.io/azurelocal-s2d-cartographer/" label="S2DCartographer docs" />
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2 className="text-xl font-semibold mb-3">Release History</h2>
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-5 space-y-3 text-sm text-gray-700 dark:text-gray-300">
+          <p>
+            The canonical release history lives in the project changelog. Use it to verify when planner behavior changed, including the AVD concurrency clarifications, SOFS sync work, and service preset additions.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <DocLink href="https://github.com/AzureLocal/azurelocal-surveyor/blob/main/CHANGELOG.md" label="Open changelog" />
+            <DocLink href="https://github.com/AzureLocal/azurelocal-surveyor/milestones" label="View milestones" />
+          </div>
+        </div>
+      </section>
     </div>
+  )
+}
+
+function DocLink({ href, label }: { href: string; label: string }) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-brand-700 dark:text-brand-300 bg-white dark:bg-gray-900 border border-brand-200 dark:border-brand-800 rounded-md hover:bg-brand-50 dark:hover:bg-brand-900/50 transition-colors"
+    >
+      <ExternalLink className="w-3 h-3" />
+      {label}
+    </a>
   )
 }

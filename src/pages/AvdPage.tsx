@@ -25,9 +25,15 @@ export default function AvdPage() {
           types (e.g., Light for task workers and Heavy for power users), size each pool separately and sum
           the results — multi-pool planning will be supported natively in a future release.
         </p>
+        <p className="text-xs text-gray-500">
+          RemoteApp is supported on Azure Local through standard Azure Virtual Desktop RemoteApp application groups.
+          Surveyor currently models the shared session-host footprint, not a separate RemoteApp density curve, so use
+          these numbers as a conservative baseline and validate with pilot or simulation testing.
+        </p>
         <div className="flex flex-wrap gap-3 pt-1">
           <DocLink href="https://azurelocal.cloud/azurelocal-avd/" label="AVD on Azure Local Guide" />
           <DocLink href="https://learn.microsoft.com/azure/virtual-desktop/azure-local-overview" label="Microsoft Learn: AVD on Azure Local" />
+          <DocLink href="https://learn.microsoft.com/azure/virtual-desktop/publish-applications-stream-remoteapp" label="Microsoft Learn: RemoteApp" />
         </div>
       </div>
 

@@ -1,7 +1,7 @@
 import { useState } from 'react'
-import { NavLink } from 'react-router-dom'
+import { Link, NavLink } from 'react-router-dom'
 import {
-  Server, Cpu, Monitor, HardDrive, BarChart3,
+  Home, Server, Cpu, Monitor, HardDrive, BarChart3,
   Settings, BookOpen, Link2, FileText, Container, X, Layers, ShieldCheck, Info,
 } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
@@ -19,7 +19,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       <aside className="w-56 shrink-0 flex flex-col" style={{ backgroundColor: '#0f3057' }}>
         <div className="px-4 py-4 border-b border-white/10">
           {/* Azure Local logo mark — hexagon with circuit styling */}
-          <div className="flex items-center gap-2.5 mb-1">
+          <Link to="/" className="flex items-center gap-2.5 mb-1 rounded-md hover:bg-white/5 transition-colors -mx-2 px-2 py-1">
             <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className="shrink-0">
               <polygon points="14,2 25,8 25,20 14,26 3,20 3,8" fill="#0078d4" stroke="#66aee4" strokeWidth="1.5"/>
               <circle cx="14" cy="14" r="4" fill="white" opacity="0.9"/>
@@ -32,12 +32,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <div className="text-xs font-semibold text-blue-200 uppercase tracking-widest leading-none">Azure Local</div>
               <div className="text-base font-bold leading-tight text-white">Surveyor</div>
             </div>
-          </div>
+          </Link>
           <div className="text-xs text-blue-300/60 mt-1">Capacity Planning Tool</div>
           <div className="text-xs text-blue-300/40 mt-0.5 font-mono">v{version}</div>
         </div>
         <nav className="flex-1 py-4 space-y-0.5 px-2">
-          <NavItem to="/" label="Hardware" icon={Server} end />
+          <NavItem to="/" label="Home" icon={Home} end />
+          <NavItem to="/hardware" label="Hardware" icon={Server} end />
           <NavItem to="/workloads" label="Workloads" icon={Cpu} />
           {avdEnabled   && <NavItem to="/avd"  label="AVD"  icon={Monitor}    />}
           {sofsEnabled  && <NavItem to="/sofs" label="SOFS" icon={HardDrive}  />}
