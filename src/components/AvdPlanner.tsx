@@ -116,14 +116,14 @@ export default function AvdPlanner() {
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="flex items-center justify-between gap-4 bg-gray-50 dark:bg-gray-800 px-4 py-3">
           <div>
-            <div className="text-sm font-semibold">Host Pools</div>
-            <div className="text-xs text-gray-500">Model one or more AVD host pools, then review aggregate cluster demand below.</div>
+            <div className="text-sm font-semibold">Session Host Groups</div>
+            <div className="text-xs text-gray-500">Model one or more session host groups. Each group maps to a host pool in Azure and its own set of session host VMs on Azure Local.</div>
           </div>
           <button
             onClick={addPool}
             className="px-3 py-1.5 text-xs font-semibold rounded-md bg-brand-600 hover:bg-brand-700 text-white transition-colors"
           >
-            Add host pool
+            Add session host group
           </button>
         </div>
         <div className="grid gap-3 p-4 md:grid-cols-2 xl:grid-cols-3">
@@ -156,20 +156,20 @@ export default function AvdPlanner() {
       <div className="flex items-center justify-between gap-4">
         <div>
           <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Editing {selectedPool.name}</h3>
-          <p className="text-xs text-gray-500">Pool-specific sizing lives here. User type mix and growth buffer remain shared across all pools.</p>
+          <p className="text-xs text-gray-500">Session host group sizing lives here. User type mix and growth buffer remain shared across all groups.</p>
         </div>
         {avd.pools.length > 1 && (
           <button
             onClick={removeSelectedPool}
             className="px-3 py-1.5 text-xs font-semibold rounded-md border border-red-300 text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/20 transition-colors"
           >
-            Remove selected pool
+            Remove selected group
           </button>
         )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Host pool name">
+        <Field label="Session host group name">
           <input
             type="text"
             className="input"
@@ -348,8 +348,8 @@ export default function AvdPlanner() {
               </p>
               <p className={`text-xs mt-0.5 ${sofsInSync ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
                 {sofsInSync
-                  ? `SOFS is enabled and sized for ${result.sofsLinkedUserCount} users with ${result.sofsLinkedProfileSizeGB} GB profiles across ${sofsPoolCount} SOFS-targeted host pool${sofsPoolCount === 1 ? '' : 's'}. Configure additional SOFS settings on the SOFS page.`
-                  : `You have ${sofsPoolCount} host pool${sofsPoolCount === 1 ? '' : 's'} targeting SOFS. Applying sync pushes aggregated user counts and weighted profile size into the SOFS planner.`}
+                  ? `SOFS is enabled and sized for ${result.sofsLinkedUserCount} users with ${result.sofsLinkedProfileSizeGB} GB profiles across ${sofsPoolCount} SOFS-targeted session host group${sofsPoolCount === 1 ? '' : 's'}. Configure additional SOFS settings on the SOFS page.`
+                  : `You have ${sofsPoolCount} session host group${sofsPoolCount === 1 ? '' : 's'} targeting SOFS. Applying sync pushes aggregated user counts and weighted profile size into the SOFS planner.`}
               </p>
             </div>
             {!sofsInSync && (
@@ -379,7 +379,7 @@ export default function AvdPlanner() {
         <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">AVD Sizing Results</div>
         <table className="w-full text-sm">
           <tbody>
-            <Row label="Host pools" value={String(result.poolCount)} />
+            <Row label="Session host groups" value={String(result.poolCount)} />
             <Row label="Total users" value={String(result.totalUsers)} />
             <Row label="Sizing users" value={String(result.sizingUsers)} sub="Concurrent users where provided, otherwise total users" />
             <Row label="Session host count" value={String(result.sessionHostCount)} highlight />

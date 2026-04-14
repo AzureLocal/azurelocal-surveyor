@@ -22,6 +22,7 @@ export interface ServicePresetCatalogEntry {
   category: 'data-services' | 'iot' | 'ai' | 'containers'
   lastVerified: string
   learnUrl: string
+  requiresAks: boolean
   defaultVCpusPerInstance: number
   defaultMemoryGBPerInstance: number
   defaultStorageTBPerInstance: number
@@ -39,6 +40,7 @@ export const SERVICE_PRESET_CATALOG: ServicePresetCatalogEntry[] = [
     category: 'data-services',
     lastVerified: 'April 2026',
     learnUrl: 'https://learn.microsoft.com/azure/azure-arc/data/create-sql-managed-instance',
+    requiresAks: true,
     defaultVCpusPerInstance: 16,
     defaultMemoryGBPerInstance: 64,
     defaultStorageTBPerInstance: 0.5,
@@ -53,6 +55,7 @@ export const SERVICE_PRESET_CATALOG: ServicePresetCatalogEntry[] = [
     category: 'data-services',
     lastVerified: 'April 2026',
     learnUrl: 'https://learn.microsoft.com/azure/azure-arc/data/create-sql-managed-instance',
+    requiresAks: true,
     defaultVCpusPerInstance: 32,
     defaultMemoryGBPerInstance: 128,
     defaultStorageTBPerInstance: 1,
@@ -67,6 +70,7 @@ export const SERVICE_PRESET_CATALOG: ServicePresetCatalogEntry[] = [
     category: 'iot',
     lastVerified: 'April 2026',
     learnUrl: 'https://learn.microsoft.com/azure/iot-operations/overview-iot-operations',
+    requiresAks: true,
     defaultVCpusPerInstance: 12,
     defaultMemoryGBPerInstance: 32,
     defaultStorageTBPerInstance: 0.1,
@@ -81,6 +85,7 @@ export const SERVICE_PRESET_CATALOG: ServicePresetCatalogEntry[] = [
     category: 'ai',
     lastVerified: 'April 2026',
     learnUrl: 'https://learn.microsoft.com/azure/ai-foundry/overview',
+    requiresAks: true,
     defaultVCpusPerInstance: 32,
     defaultMemoryGBPerInstance: 128,
     defaultStorageTBPerInstance: 0.5,
@@ -95,6 +100,7 @@ export const SERVICE_PRESET_CATALOG: ServicePresetCatalogEntry[] = [
     category: 'containers',
     lastVerified: 'April 2026',
     learnUrl: 'https://learn.microsoft.com/azure/container-apps/azure-local-overview',
+    requiresAks: true,
     defaultVCpusPerInstance: 8,
     defaultMemoryGBPerInstance: 32,
     defaultStorageTBPerInstance: 0.05,

@@ -223,7 +223,7 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   // ── Sheet 6: AVD Planning ─────────────────────────────────────────────────
   if (state.avdEnabled) {
     const avdRows = [
-      ['Host Pools', state.avd.pools.length],
+      ['Session Host Groups', state.avd.pools.length],
       ['Total Users', avd.totalUsers],
       ['Concurrent Users (sizing)', avd.totalConcurrentUsers || 'Use total users'],
       ['Growth Buffer (%)', state.avd.growthBufferPct],

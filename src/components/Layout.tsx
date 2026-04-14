@@ -39,11 +39,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 py-4 space-y-0.5 px-2">
           <NavItem to="/" label="Home" icon={Home} end />
           <NavItem to="/hardware" label="Hardware" icon={Server} end />
-          <NavItem to="/workloads" label="Workloads" icon={Cpu} />
-          {avdEnabled   && <NavItem to="/avd"  label="AVD"  icon={Monitor}    />}
-          {sofsEnabled  && <NavItem to="/sofs" label="SOFS" icon={HardDrive}  />}
-          {aks.enabled  && <NavItem to="/aks"  label="AKS"  icon={Container}  />}
-          {mabsEnabled  && <NavItem to="/mabs" label="MABS" icon={ShieldCheck} />}
+          <NavItem to="/workloads" label="Workloads" subtitle="Virtual Machines" icon={Cpu} />
+          {avdEnabled   && <NavItem to="/avd"  label="AVD"  subtitle="Azure Virtual Desktop" icon={Monitor}    />}
+          {aks.enabled  && <NavItem to="/aks"  label="AKS"  subtitle="Kubernetes" icon={Container}  />}
+          {sofsEnabled  && <NavItem to="/sofs" label="SOFS" subtitle="Scale-Out File Server" icon={HardDrive}  />}
+          {mabsEnabled  && <NavItem to="/mabs" label="MABS" subtitle="Azure Backup Server" icon={ShieldCheck} />}
           <NavItem to="/volumes" label="Volumes" icon={HardDrive} />
           <NavItem to="/drive-layout" label="Drive Layout" icon={Layers} />
           <NavItem to="/reports" label="Reports" icon={BarChart3} />
@@ -104,9 +104,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 }
 
 function NavItem({
-  to, label, icon: Icon, end,
+  to, label, subtitle, icon: Icon, end,
 }: {
-  to: string; label: string; icon: React.ElementType; end?: boolean
+  to: string; label: string; subtitle?: string; icon: React.ElementType; end?: boolean
 }) {
   return (
     <NavLink
@@ -120,7 +120,10 @@ function NavItem({
       }
     >
       <Icon className="w-4 h-4 shrink-0" />
-      {label}
+      <span>
+        {label}
+        {subtitle && <span className="block text-[10px] font-normal text-blue-300/50 leading-none mt-0.5">{subtitle}</span>}
+      </span>
     </NavLink>
   )
 }

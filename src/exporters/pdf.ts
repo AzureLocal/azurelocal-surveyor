@@ -302,6 +302,47 @@ export function exportPdf(state: Pick<SurveyorState, 'hardware' | 'advanced' | '
     y = doc.lastAutoTable.finalY + 6
   }
 
+  // ── SOFS Detail ──────────────────────────────────────────────────────────
+  if (state.sofsEnabled) {
+    if (y > pageH - 80) { doc.addPage(); y = 20 }
+    y = section(doc, 'SOFS Solution Report', y)
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [['Parameter', 'Value']],
+      body: [
+        ['Total users', String(state.sofs.userCount)],
+        ['FSLogix profile size / user', `${state.sofs.profileSizeGB} GB`],
+        ['Redirected folder size / user', `${state.sofs.redirectedFolderSizeGB} GB`],
+        ['Total logical storage', `${sofs.totalStorageTB} TB`],
+        ['Guest cluster internal mirror', `${state.sofs.internalMirror} (${sofs.internalMirrorFactor}×)`],
+        ['Internal footprint (virtual disks)', `${sofs.internalFootprintTB} TB`],
+        ['SOFS guest VMs', String(state.sofs.sofsGuestVmCount)],
+        ['Total SOFS vCPUs', String(sofs.sofsVCpusTotal)],
+        ['Total SOFS memory', `${sofs.sofsMemoryTotalGB} GB`],
+        ['Steady-state IOPS', sofs.totalSteadyStateIops.toLocaleString()],
+        ['Login storm peak IOPS', sofs.totalLoginStormIops.toLocaleString()],
+        ['Min. Azure Local CSV capacity needed', `${sofs.internalFootprintTB} TB`],
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: BRAND_BLUE, textColor: [255, 255, 255], fontSize: 9 },
+      styles: { fontSize: 9 },
+      alternateRowStyles: { fillColor: [245, 248, 255] },
+    })
+    y = doc.lastAutoTable.finalY + 4
+    if (sofs.internalMirrorFactor > 1) {
+      doc.setFontSize(8)
+      doc.setTextColor(180, 100, 0)
+      const note = `Resiliency compounding: ${sofs.totalStorageTB} TB logical x ${sofs.internalMirrorFactor}x guest mirror = ${sofs.internalFootprintTB} TB virtual disk footprint. ` +
+        `Apply the Azure Local host resiliency factor on top (e.g. 3x for three-way mirror = up to ${(sofs.internalFootprintTB * 3).toFixed(2)} TB raw pool consumption).`
+      const lines = doc.splitTextToSize(note, pageW - margin * 2)
+      doc.text(lines, margin, y + 3)
+      doc.setTextColor(0, 0, 0)
+      y += lines.length * 4 + 4
+    }
+    y += 2
+  }
+
   // ── Health Check — always last page ──────────────────────────────────────
   if (y > pageH - 70) { doc.addPage(); y = 20 }
   y = section(doc, `Health Check — ${health.passed ? '✓ PASSED' : '✗ FAILED'} (${health.errorCount}E/${health.warningCount}W/${health.infoCount}I)`, y)

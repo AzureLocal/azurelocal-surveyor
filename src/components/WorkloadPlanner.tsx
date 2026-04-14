@@ -15,7 +15,7 @@ import { computeAks } from '../engine/aks'
 import { computeSofs } from '../engine/sofs'
 import { computeMabs } from '../engine/mabs'
 import { computeAllCustomWorkloads } from '../engine/custom-workloads'
-import { computeAllServicePresets } from '../engine/service-presets'
+import { computeAllServicePresets, getCatalogEntry } from '../engine/service-presets'
 import ServicePresets from './ServicePresets'
 import CustomWorkloads from './CustomWorkloads'
 import type { ResiliencyType, VmScenario } from '../engine/types'
@@ -154,6 +154,11 @@ export default function WorkloadPlanner() {
   const presetTotals = computeAllServicePresets(servicePresets)
   const customTotals = computeAllCustomWorkloads(customWorkloads)
 
+  // True when any enabled service preset requires AKS
+  const aksDependentPresetsEnabled = servicePresets.some(
+    (p) => p.enabled && (getCatalogEntry(p.catalogId)?.requiresAks ?? false)
+  )
+
   // Aggregate totals across all enabled scenarios
   let totalVCpus = 0
   let totalMemoryGB = 0
@@ -213,7 +218,12 @@ export default function WorkloadPlanner() {
       </ScenarioCard>
 
       {/* ── 2. AKS ── */}
-      <ScenarioCard label="AKS on Azure Local" enabled={aks.enabled} onToggle={() => setAks({ enabled: !aks.enabled })}>
+      <ScenarioCard label="AKS on Azure Local" enabled={aks.enabled} onToggle={() => {
+        if (aks.enabled && aksDependentPresetsEnabled) {
+          if (!window.confirm('One or more Arc-enabled services (SQL MI, IoT Operations, etc.) require AKS. Disabling AKS will leave those presets without a runtime. Disable anyway?')) return
+        }
+        setAks({ enabled: !aks.enabled })
+      }}>
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <SmallField label="Clusters">
             <input type="number" min={1} className="input w-full" value={aks.clusterCount}
@@ -305,6 +315,19 @@ export default function WorkloadPlanner() {
           </div>
         </div>
         <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700">
+          {aksDependentPresetsEnabled && !aks.enabled && (
+            <div className="mb-3 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-3 py-2.5 flex items-start justify-between gap-3">
+              <p className="text-xs text-amber-800 dark:text-amber-300">
+                <strong>AKS required:</strong> one or more enabled Arc-enabled services (SQL MI, IoT Operations, etc.) run on AKS on Azure Local. Enable AKS to include the runtime infrastructure in your plan.
+              </p>
+              <button
+                onClick={() => setAks({ enabled: true })}
+                className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-md bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+              >
+                Enable AKS
+              </button>
+            </div>
+          )}
           <p className="text-xs text-gray-500 mb-3">
             Pre-built resource templates for Arc-enabled services (SQL MI, IoT Operations, AI Foundry Local, Container Apps).
             Each enabled instance is included in the workload totals.

@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [1.6.0] — AKS Dependencies, Terminology Clarity
+
+### Added
+
+- Navigation: subtitle labels added under each workload nav item — "Virtual Machines", "Azure Virtual Desktop", "Kubernetes", "Scale-Out File Server", "Azure Backup Server" (#120)
+- Arc-enabled service presets: `requiresAks` flag on all 5 catalog entries (SQL MI GP/BC, IoT Operations, AI Foundry Local, Container Apps); Workload Planner shows amber dependency banner with one-click **Enable AKS** when any such preset is enabled and AKS is off (#103)
+- AKS disable-protection: confirmation dialog when user tries to disable AKS while an AKS-dependent preset is enabled (#103)
+- PDF export: full SOFS Solution Report section added (12-row parameter table covering users, storage footprint, VM sizing, IOPS, CSV capacity, and resiliency compounding warning) (#115)
+- Docs: new `docs/engine/aks.md` covering AKS engine inputs, computation, storage resiliency field scope, Arc-enabled service dependency model, and integration points (#103)
+
+### Changed
+
+- Navigation: AKS moved before SOFS in the sidebar (order: Workloads → AVD → AKS → SOFS → MABS) (#120)
+- AVD: "Host Pools" planning concept renamed to **Session Host Groups** throughout UI, exports (Markdown, XLSX), and page copy — distinguishes session hosts on Azure Local from the host pool resource in Azure (#121)
+
+---
+
 ## [1.5.0] — AVD Maturity
 
 > Commits: `8e190af`
