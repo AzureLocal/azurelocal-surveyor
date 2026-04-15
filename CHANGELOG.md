@@ -5,6 +5,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.0.0] — Comprehensive Quality Overhaul (Epic #122)
+
+This release delivers a full-stack v2.0 overhaul across 14 phases. Every workload planner now
+generates structured volume suggestions, per-volume resiliency and provisioning are independently
+configurable, and a Reports page with conditional tabs shows a detailed solution summary for each
+enabled workload.
+
+### Added
+
+- **AKS Multi-Cluster** (#105): plan multiple independent AKS clusters; each cluster generates its own OS-disk CSV and PVC volume suggestions; `computeAks()` aggregates across all clusters
+- **VM Storage Groups** (#106): organize virtual machines into named storage groups; one volume suggestion per group; groups replace flat VM scenario inputs from v1
+- **SOFS Volume Layout** (#108): `shared` mode generates 1 data + 1 OS-disk volume; `per-vm` mode generates N data + N OS-disk volumes (one pair per SOFS guest VM); layout stored in `sofsInputs.volumeLayout`
+- **Per-Volume Resiliency** (#100): each `VolumeSpec` carries its own `resiliency` type; pool footprint calculation uses the per-volume factor, not the global default
+- **Per-Volume Provisioning** (#101): each `VolumeSpec` carries `provisioning: 'fixed' | 'thin'`; health check enforces fixed-only capacity constraint (HC_OVER_CAPACITY); thin over-provisioning fires HC_THIN_OVER_PROVISIONED as info only
+- **Quick Start Reference** (#75, Phase 12 rewrite): hardware-only two-row reference (three-way-mirror + two-way-mirror); 1 GiB safety margin applied after TiB floor; NO FAIL status; PowerShell `New-Volume` snippet auto-generated
+- **Compute Health Check** (#132, Phase 13): `runComputeHealthCheck()` emits HC_VCPU_HIGH, HC_VCPU_OVER_SUBSCRIBED, HC_MEMORY_HIGH, HC_MEMORY_EXCEEDED; displayed in a dedicated Compute section on the Reports page
+- **AVD Report Tab** (#133): per-pool session host breakdown, FSLogix storage per pool, OS disk sizes, office container totals
+- **AKS Report Tab** (#134): per-cluster control-plane and worker node breakdown with resource totals
+- **MABS Report Tab** (#135): backup sizing, internal mirror impact, VM specs, volume suggestions table
+- **SOFS Report Tab** (Phase 13 update): guest cluster sizing, IOPS at steady-state and login storm, internal mirror compounding explanation
+- **Arc → AKS Integration** (#103, Phase 6): Arc-enabled service preset storage folds into `AKS-ArcServices-PVC` when AKS is enabled; standalone `Svc-*` volume generated when AKS is off
+- **Custom Workloads** (#107): `internalMirrorFactor` applied to data volume size; OS disk volume (`{Name}-OsDisk`) generated when `osDiskPerVmGB > 0`; disabled workloads excluded from totals and volumes
+- **Store Migration v9** (#130): `migratePersistedState()` exported for direct testing; v8 → v9 wraps flat AKS → clusters array, flat VMs → groups array, converts AVD `profileStorageLocation: 's2d'` → `'sofs'`, adds `provisioning: 'fixed'` to existing volumes, adds SOFS v2.0 defaults, removes per-workload CSV-resiliency fields
+- **Test Coverage** (Phase 14, #139): 115 automated tests (up from 63); new tests cover AKS multi-cluster, VM storage groups, SOFS per-vm layout (2 and 3 VMs), Quick Start rounding, per-volume mixed resiliency pool footprint, Arc → AKS integration, custom workload mirror factor and OS disk generation, health check mixed fixed+thin, store migration v2→v9
+
+### Changed
+
+- `VolumeSpec`: added `provisioning: 'fixed' | 'thin'` (required); existing volumes migrated to `fixed` in v9
+- `SofsInputs`: added `volumeLayout: 'shared' | 'per-vm'` and `sofsOsDiskPerVmGB: number`; both defaulted in v9 migration
+- `AksInputs.clusters`: flat AKS inputs replaced by `clusters: AksCluster[]` array in v9 (breaking schema, migration provided)
+- `VmScenario.groups`: flat VM inputs replaced by `groups: VmStorageGroup[]` array in v9 (breaking schema, migration provided)
+- `MabsInputs`: removed `scratchResiliency` / `backupResiliency` (v9); resiliency now per-volume on Volumes page
+- Health check: split into volume health check (`runHealthCheck`) and compute health check (`runComputeHealthCheck`) — compute codes (HC_VCPU_*, HC_MEMORY_*) no longer emitted by volume HC
+
+### Removed
+
+- `hardware.volumeProvisioning` field removed in v9 (now per-volume via `VolumeSpec.provisioning`)
+- `customWorkloads[].resiliency` field removed in v9 (now per-volume on Volumes page)
+
+---
+
 ## [1.7.0] — Architecture Documentation
 
 ### Added

@@ -10,6 +10,27 @@ Already deployed your cluster? Use [Azure Local S2DCartographer](https://github.
 
 ---
 
+## What's new in v2.0
+
+**v2.0** is a comprehensive quality overhaul that delivers multi-workload planning end-to-end:
+
+| Area | What changed |
+|---|---|
+| **AKS Multi-Cluster** | Plan multiple independent AKS clusters; each gets its own OS-disk and PVC volumes |
+| **VM Storage Groups** | Organize VMs into named groups; one volume suggestion per group |
+| **SOFS Volume Layout** | Choose `shared` (1+1 volumes) or `per-vm` (N+N volumes); OS disk per VM sized separately |
+| **Per-Volume Resiliency** | Each volume carries its own resiliency type; pool footprint reflects per-volume resiliency |
+| **Per-Volume Provisioning** | Each volume is `fixed` or `thin`; health check enforces fixed-only capacity constraint |
+| **Quick Start Reference** | Two-row hardware reference (three-way + two-way); 1 GiB safety margin on WAC sizes |
+| **Compute Health Check** | Dedicated compute-tier checks: HC_VCPU_HIGH, HC_VCPU_OVER_SUBSCRIBED, HC_MEMORY_HIGH, HC_MEMORY_EXCEEDED |
+| **Reports Page** | Conditional tabs for AVD, AKS, MABS, and SOFS; each tab shows a full solution summary |
+| **Arc → AKS Integration** | Arc-enabled service preset storage folds into AKS-ArcServices-PVC when AKS is enabled |
+| **Custom Workloads** | Internal mirror factor applied to data volume sizing; OS disk volume generated per VM |
+| **Store Migration** | Full v2→v9 migration chain; exports `migratePersistedState` for direct testing |
+| **Test Coverage** | 115 automated tests (up from 63) covering all engine functions and migration logic |
+
+---
+
 ## What it does
 
 Azure Local Surveyor gives you a browser-based, shareable version of the S2D capacity calculator. You enter your hardware inputs once and the engine computes:
@@ -38,15 +59,25 @@ npm run dev
 
 Open `http://localhost:5173`.
 
-## Parity tests
+## Tests
 
-The engine ships with 20 golden scenarios validated against the source Excel workbook:
+The engine ships with 115 automated tests, including 20+ golden-scenario parity tests validated against the source Excel workbook and 39 new Phase 14 verification tests:
 
 ```bash
 npm test
 ```
 
-Tests live in `src/engine/__tests__/`. All must pass before any UI change is merged.
+Tests live in `src/engine/__tests__/` and `src/state/`. All must pass before any change is merged.
+
+**Test scope:**
+- Capacity parity — 20 golden scenarios vs Excel
+- AVD parity — 12 golden scenarios
+- SOFS parity — 8 golden scenarios
+- Compute parity — 6 golden scenarios
+- Engine tests — volume suggestions, health checks, AKS, SOFS layouts, Arc integration
+- Custom workloads — mirror factor, OS disk generation, disabled exclusion
+- Quick Start Reference — rounding, 1 GiB margin, volume count cap
+- Store migration — full v2→v9 chain, each transformation individually tested
 
 ## Sharing scenarios
 

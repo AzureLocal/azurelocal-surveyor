@@ -422,7 +422,17 @@ export const useSurveyorStore = create<SurveyorState>()(
     {
       name: 'surveyor-state',
       version: 9,
-      migrate: (persisted: unknown, version: number) => {
+      migrate: migratePersistedState,
+      merge: (persisted: unknown, current: SurveyorState) => ({
+        ...current,
+        ...normalizePersistedState(persisted),
+      }),
+    }
+  )
+)
+
+/** @internal — exported for testing only */
+export function migratePersistedState(persisted: unknown, version: number): unknown {
         const state = isRecord(persisted) ? { ...persisted } : {}
 
         if (version < 9) {
@@ -584,12 +594,5 @@ export const useSurveyorStore = create<SurveyorState>()(
           delete state.backupArchive
         }
 
-        return normalizePersistedState(state) as unknown as SurveyorState
-      },
-      merge: (persisted: unknown, current: SurveyorState) => ({
-        ...current,
-        ...normalizePersistedState(persisted),
-      }),
-    }
-  )
-)
+  return normalizePersistedState(state)
+}
