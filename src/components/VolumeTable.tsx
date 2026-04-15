@@ -60,7 +60,11 @@ export default function VolumeTable() {
 
   function cancelEdit() { setEditId(null) }
 
-  const utilizationColor = summary.utilizationPct > 80 ? 'bg-red-500'
+  // #146: only go red when the pool is genuinely over-capacity (≥100%).
+  // At exactly 100% (all suggested volumes added) use amber — this is expected, not an error.
+  // Clamp display percentage to 100 to avoid showing "101%" from floating-point accumulation.
+  const displayUtilizationPct = Math.min(100, summary.utilizationPct)
+  const utilizationColor = summary.utilizationPct >= 100 ? 'bg-red-500'
     : summary.utilizationPct > 70 ? 'bg-amber-500'
     : 'bg-brand-500'
 
@@ -86,7 +90,7 @@ export default function VolumeTable() {
         <div className="flex justify-between text-xs text-gray-500 mb-1">
           <span>Pool utilization</span>
           <span>
-            {summary.totalPoolFootprintTB.toFixed(2)} TB pool footprint — {summary.utilizationPct}% of {capacity.availableForVolumesTB.toFixed(2)} TB available
+            {summary.totalPoolFootprintTB.toFixed(2)} TB pool footprint — {displayUtilizationPct}% of {capacity.availableForVolumesTB.toFixed(2)} TB available
           </span>
         </div>
         <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700">

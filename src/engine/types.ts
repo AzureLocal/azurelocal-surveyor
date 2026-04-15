@@ -182,6 +182,9 @@ export interface MabsInputs {
   // #70: internal Storage Spaces mirror inside the MABS VM
   // Volume resiliency (scratchResiliency, backupResiliency) moved to per-volume on Volumes page
   internalMirror: MabsInternalMirror
+  // #150: whether MABS VM OS disk gets a dedicated volume or shares an existing VM volume
+  // optional — defaults to 'dedicated' when not present (backward compatible with persisted state)
+  mabsOsDiskPlacement?: 'dedicated' | 'shared'
 }
 
 export interface MabsResult {

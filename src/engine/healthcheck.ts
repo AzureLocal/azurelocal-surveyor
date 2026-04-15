@@ -113,18 +113,20 @@ export function runHealthCheck(params: {
     })
   } else if (utilizationPct > 70) {
     // S2D needs rebuild headroom (#58)
+    // #147: updated message to distinguish reserve drives (physical spare disks) from
+    // rebuild headroom (free space inside the pool for block shuffling during repair).
     addIssue({
       code: 'HC_HIGH_UTILIZATION',
       severity: 'warning',
-      message: `Pool utilization is ${utilizationPct.toFixed(1)}%. Microsoft recommends staying below 70% to maintain rebuild headroom after a drive failure.`,
+      message: `Pool utilization is ${utilizationPct.toFixed(1)}% of available pool space. Reserve drives (configured on the Hardware page) provide physical destination disks for rebuild — but S2D also needs free space inside the pool to shuffle blocks during the repair process. Microsoft recommends keeping pool utilization below 70% so a rebuild can complete without stalling. Consider reducing volume sizes or adding more drives to leave rebuild headroom.`,
       details: [
         detail({
           label: 'Rebuild headroom guardrail',
           status: 'warning',
           calculation: `${aggPoolFootprintTB.toFixed(2)} TB pool footprint ÷ ${capacity.availableForVolumesTB.toFixed(2)} TB available pool = ${utilizationPct.toFixed(1)}% utilization.`,
-          threshold: 'Stay at or below 70% pool utilization for healthier rebuild headroom.',
-          outcome: `The plan is ${(utilizationPct - 70).toFixed(1)} percentage points above the recommended headroom threshold.`,
-          ruleSource: 'Microsoft Azure Local rebuild-headroom guidance',
+          threshold: 'Stay at or below 70% pool utilization for healthier rebuild headroom. Note: reserve drives handle physical spare capacity; the 70% guideline covers free space S2D needs inside the pool during the repair shuffle.',
+          outcome: `The plan is ${(utilizationPct - 70).toFixed(1)} percentage points above the recommended headroom threshold. Both reserve drives and pool free-space headroom are required — one does not substitute for the other.`,
+          ruleSource: 'Plan volumes — Azure Local (Microsoft Learn): https://learn.microsoft.com/azure-stack/hci/concepts/plan-volumes',
         }),
       ],
     })

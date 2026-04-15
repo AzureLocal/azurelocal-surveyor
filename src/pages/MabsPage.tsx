@@ -135,6 +135,47 @@ export default function MabsPage() {
                 onChange={(e) => setMabs({ mabsOsDiskGB: num(e, mabs.mabsOsDiskGB) })} />
             </Field>
           </div>
+
+          {/* #150: OS disk placement toggle */}
+          <div className="mt-4">
+            <p className="text-sm font-medium mb-2">MABS VM OS disk placement</p>
+            <div className="flex flex-col gap-2">
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="mabsOsDiskPlacement"
+                  value="dedicated"
+                  checked={(mabs.mabsOsDiskPlacement ?? 'dedicated') !== 'shared'}
+                  onChange={() => setMabs({ mabsOsDiskPlacement: 'dedicated' })}
+                  className="mt-0.5"
+                />
+                <span className="text-sm">
+                  <span className="font-medium">Dedicated volume</span>
+                  <span className="block text-xs text-gray-500">Generate a separate <code>MABS-OsDisk</code> volume suggestion on the Volumes page (default).</span>
+                </span>
+              </label>
+              <label className="flex items-start gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="mabsOsDiskPlacement"
+                  value="shared"
+                  checked={mabs.mabsOsDiskPlacement === 'shared'}
+                  onChange={() => setMabs({ mabsOsDiskPlacement: 'shared' })}
+                  className="mt-0.5"
+                />
+                <span className="text-sm">
+                  <span className="font-medium">Shared with other VMs</span>
+                  <span className="block text-xs text-gray-500">No dedicated volume suggested — include {mabs.mabsOsDiskGB} GB in your shared VM OS volume sizing.</span>
+                </span>
+              </label>
+            </div>
+            {(mabs.mabsOsDiskPlacement ?? 'dedicated') === 'shared' && (
+              <div className="mt-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-3 py-2 text-xs text-amber-800 dark:text-amber-300">
+                MABS VM OS disk (<strong>{mabs.mabsOsDiskGB} GB</strong>) will not generate a dedicated volume suggestion.
+                Include this capacity in your shared VM OS volume sizing.
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

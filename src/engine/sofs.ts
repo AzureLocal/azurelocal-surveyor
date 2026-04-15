@@ -34,7 +34,8 @@ export function computeSofs(inputs: SofsInputs, overrides?: AdvancedSettingsOver
   const sofsVCpusPerVm       = Math.max(1, safe(inputs.sofsVCpusPerVm, 4))
   const sofsMemoryPerVmGB    = Math.max(1, safe(inputs.sofsMemoryPerVmGB, 16))
   const autoSizeDrivesPerNode = Math.max(0, safe(inputs.autoSizeDrivesPerNode, 0))
-  const autoSizeNodes        = Math.max(0, safe(inputs.autoSizeNodes, 0))
+  // #149: use sofsGuestVmCount directly — autoSizeNodes was a duplicate input causing UX confusion
+  const autoSizeNodes        = sofsGuestVmCount
 
   // #64: override SOFS profile demand when set
   const totalProfileStorageTB =

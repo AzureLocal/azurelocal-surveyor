@@ -192,7 +192,29 @@ export default function SofsPlanner() {
               <option value="per-vm">One volume per SOFS VM</option>
             </select>
           </Field>
+
+          <Field label="Virtual drives per node" hint="default 4; add drives before only enlarging them" className="col-span-2">
+            <input type="number" min={1} className="input" value={sofs.autoSizeDrivesPerNode}
+              onChange={(e) => setSofs({ autoSizeDrivesPerNode: num(e, sofs.autoSizeDrivesPerNode) })} />
+          </Field>
         </div>
+
+        {/* #149: Auto-sizing result — reads sofsGuestVmCount directly, no separate node input */}
+        {result.autoSizeDriveSizeTB > 0 ? (
+          <div className="mt-4 rounded-lg bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 px-4 py-3">
+            <div className="text-xs text-gray-500 mb-1">Required virtual drive size (includes {result.internalMirrorFactor}× guest mirror overhead)</div>
+            <div className="text-2xl font-bold text-brand-700 dark:text-brand-300">
+              {result.autoSizeDriveSizeTB} TB
+              <span className="text-sm font-normal text-gray-500 ml-2">per virtual drive</span>
+            </div>
+            <div className="text-xs text-gray-400 mt-1">
+              {sofs.autoSizeDrivesPerNode} drives × {sofs.sofsGuestVmCount} nodes = {sofs.autoSizeDrivesPerNode * sofs.sofsGuestVmCount} total virtual drives
+              to store {result.internalFootprintTB} TB of guest-mirrored data on the Azure Local CSV
+            </div>
+          </div>
+        ) : (
+          <p className="mt-4 text-sm text-gray-400 italic">Set virtual drives per node (above) to calculate the required virtual drive size.</p>
+        )}
       </div>
 
       {/* ── Sizing Results ── */}
@@ -287,48 +309,6 @@ export default function SofsPlanner() {
           Based on FSLogix guidance — steady-state ~10 IOPS/user, login storm ~50 IOPS/user.
           Validate with actual workload profiling. Size SOFS guest cluster drives for login storm headroom.
         </p>
-      </div>
-
-      {/* ── Guest Cluster Drive Sizing ── */}
-      <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-        <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">SOFS Guest Cluster Auto-Sizing</div>
-        <div className="px-4 py-4 space-y-3">
-          <p className="text-sm text-gray-500">
-            Enter the SOFS guest cluster node and drive count to calculate the required capacity drive size.
-            This sizes the <strong>virtual drives inside the SOFS guest Storage Spaces pool</strong> — not physical
-            drives on the Azure Local host. Those virtual drives are VHD/VHDX files stored on an Azure Local CSV.
-          </p>
-          <p className="text-xs text-gray-400">
-            Auto-sizing computes <strong>required virtual drive size = guest cluster footprint ÷ (nodes × drives per node)</strong>.
-            Keep the default at <strong>4 drives per node</strong> as the baseline and prefer adding more drives before only making them larger.
-            More drives usually improve balance, reserve behavior, and rebuild characteristics.
-          </p>
-          <div className="grid grid-cols-2 gap-4">
-            <Field label="SOFS guest cluster nodes">
-              <input type="number" min={2} className="input" value={sofs.autoSizeNodes}
-                onChange={(e) => setSofs({ autoSizeNodes: num(e, sofs.autoSizeNodes) })} />
-            </Field>
-            <Field label="Virtual drives per node" hint="default 4; add drives before only enlarging them">
-              <input type="number" min={1} className="input" value={sofs.autoSizeDrivesPerNode}
-                onChange={(e) => setSofs({ autoSizeDrivesPerNode: num(e, sofs.autoSizeDrivesPerNode) })} />
-            </Field>
-          </div>
-          {result.autoSizeDriveSizeTB > 0 ? (
-            <div className="rounded-lg bg-brand-50 dark:bg-brand-900/20 border border-brand-200 dark:border-brand-800 px-4 py-3">
-              <div className="text-xs text-gray-500">Required virtual drive size (includes {result.internalMirrorFactor}× guest mirror overhead)</div>
-              <div className="text-2xl font-bold text-brand-700 dark:text-brand-300 mt-1">
-                {result.autoSizeDriveSizeTB} TB
-                <span className="text-sm font-normal text-gray-500 ml-2">per virtual drive</span>
-              </div>
-              <div className="text-xs text-gray-400 mt-1">
-                {sofs.autoSizeDrivesPerNode} drives × {sofs.autoSizeNodes} nodes = {sofs.autoSizeDrivesPerNode * sofs.autoSizeNodes} total virtual drives
-                to store {result.internalFootprintTB} TB of guest-mirrored data on the Azure Local CSV
-              </div>
-            </div>
-          ) : (
-            <p className="text-sm text-gray-400 italic">Set guest-cluster node and drive counts to calculate the required virtual drive size.</p>
-          )}
-        </div>
       </div>
 
       {/* ── Readiness Checklist ── */}

@@ -74,7 +74,7 @@ const GLOSSARY = [
   { term: 'Footprint',         def: 'Physical pool space a volume actually consumes. A 1 TB Three-Way Mirror volume uses 3 TB of pool footprint.' },
   { term: 'Efficiency',        def: 'Ratio of logical to physical storage. Two-Way = 50%, Three-Way = 33%, Dual Parity = 50–80% (node-count dependent).' },
   { term: 'TB vs TiB',         def: 'TB = decimal (10¹² bytes). TiB = binary (2⁴⁰ bytes). Windows Admin Center shows TiB. 1 TB ≈ 0.909 TiB. This tool uses TB.' },
-  { term: 'Effective Usable',  def: 'The planning number — how much data fits with your default resiliency. = Available Pool × resiliency efficiency.' },
+  { term: 'Effective Usable',  def: 'The planning number — how much data fits with a given resiliency type. = Available Pool × resiliency efficiency. Two-Way = 50%, Three-Way ≈ 33.3% of available pool. Both values are shown in the Planning Number section above.' },
 ]
 
 export default function CapacityReport({
@@ -85,7 +85,13 @@ export default function CapacityReport({
   volumesUsedTB?: number
 }) {
   const [glossaryOpen, setGlossaryOpen] = useState(false)
-  const resiliencyPct = (result.resiliencyFactor * 100).toFixed(1)
+
+  // #145: compute both Two-Way and Three-Way effective usable for side-by-side comparison.
+  // These are the two most common choices; show both regardless of current default selection.
+  const twoWayEffectiveTB = round2(result.availableForVolumesTB * 0.5)
+  const threeWayEffectiveTB = round2(result.availableForVolumesTB * (1 / 3))
+  const isDefaultTwoWay = result.resiliencyType === 'two-way-mirror'
+  const isDefaultThreeWay = result.resiliencyType === 'three-way-mirror'
 
   return (
     <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -109,8 +115,13 @@ export default function CapacityReport({
           <Row label="Available for volumes (OS-visible)" value={`${round2(result.availableForVolumesTiB)} TiB`} sub="1 TB = 0.9091 TiB — value shown in WAC and PowerShell" />
 
           <Section label="Planning Number" />
-          <Row label={`Default resiliency: ${RESILIENCY_LABELS[result.resiliencyType] ?? result.resiliencyType}`} value={`${resiliencyPct}% efficiency`} />
-          <Row label="Effective usable (plan workloads against this)" value={`${round2(result.effectiveUsableTB)} TB`} highlight bold />
+          <Row label="Three-Way Mirror" value="33.3% efficiency" highlight={isDefaultThreeWay} bold={isDefaultThreeWay} sub={isDefaultThreeWay ? 'current default resiliency' : undefined} />
+          <Row label="Two-Way Mirror" value="50.0% efficiency" highlight={isDefaultTwoWay} bold={isDefaultTwoWay} sub={isDefaultTwoWay ? 'current default resiliency' : undefined} />
+          <Row label="Effective usable — Three-Way" value={`${threeWayEffectiveTB} TB`} highlight={isDefaultThreeWay} bold={isDefaultThreeWay} sub={isDefaultThreeWay ? 'plan workloads against this' : undefined} />
+          <Row label="Effective usable — Two-Way" value={`${twoWayEffectiveTB} TB`} highlight={isDefaultTwoWay} bold={isDefaultTwoWay} sub={isDefaultTwoWay ? 'plan workloads against this' : undefined} />
+          {!isDefaultTwoWay && !isDefaultThreeWay && (
+            <Row label={`Effective usable — ${RESILIENCY_LABELS[result.resiliencyType] ?? result.resiliencyType} (default)`} value={`${round2(result.effectiveUsableTB)} TB`} highlight bold sub="plan workloads against this" />
+          )}
         </tbody>
       </table>
 

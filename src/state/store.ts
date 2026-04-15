@@ -149,6 +149,7 @@ const DEFAULT_MABS: MabsInputs = {
   mabsMemoryGB: 32,
   mabsOsDiskGB: 200,
   internalMirror: 'two-way',
+  mabsOsDiskPlacement: 'dedicated',
 }
 
 const DEFAULT_STATE = {
@@ -304,9 +305,13 @@ export function normalizePersistedState(persisted: unknown): SurveyorPersistedSl
     sofsEnabled: typeof state.sofsEnabled === 'boolean' ? state.sofsEnabled : false,
     mabs: (() => {
       // Strip legacy fields removed in v9 (scratchResiliency, backupResiliency)
+      // Backfill mabsOsDiskPlacement added in v2.1.0 (#150)
       const m = mergeObject(DEFAULT_MABS, state.mabs) as unknown as Record<string, unknown>
       delete m.scratchResiliency
       delete m.backupResiliency
+      if (m.mabsOsDiskPlacement !== 'dedicated' && m.mabsOsDiskPlacement !== 'shared') {
+        m.mabsOsDiskPlacement = 'dedicated'
+      }
       return m as unknown as MabsInputs
     })(),
     mabsEnabled: typeof state.mabsEnabled === 'boolean' ? state.mabsEnabled : false,
