@@ -619,26 +619,14 @@ describe('SOFS per-VM mode with 3 VMs', () => {
     }))
 
     const sofsVols = suggestions.filter((s) => s.source === 'SOFS')
-    expect(sofsVols).toHaveLength(6)  // 3 data + 3 OS disk
+    expect(sofsVols).toHaveLength(3)
+    expect(sofsVols.some((v) => v.name === 'SOFS-VM1')).toBe(true)
+    expect(sofsVols.some((v) => v.name === 'SOFS-VM2')).toBe(true)
+    expect(sofsVols.some((v) => v.name === 'SOFS-VM3')).toBe(true)
 
-    // Each VM gets a data volume
-    expect(sofsVols.some((v) => v.name === 'SOFS-VM1-Data')).toBe(true)
-    expect(sofsVols.some((v) => v.name === 'SOFS-VM2-Data')).toBe(true)
-    expect(sofsVols.some((v) => v.name === 'SOFS-VM3-Data')).toBe(true)
-    // Each VM gets an OS disk volume
-    expect(sofsVols.some((v) => v.name === 'SOFS-VM1-OsDisk')).toBe(true)
-    expect(sofsVols.some((v) => v.name === 'SOFS-VM2-OsDisk')).toBe(true)
-    expect(sofsVols.some((v) => v.name === 'SOFS-VM3-OsDisk')).toBe(true)
-
-    // Total data volumes sum = internalFootprintTB = 17.58 TB
-    const dataTotal = sofsVols
-      .filter((v) => v.name.endsWith('-Data'))
-      .reduce((sum, v) => sum + v.plannedSizeTB, 0)
-    expect(Math.abs(dataTotal - 17.58)).toBeLessThan(0.1)
-
-    // OS disk: each VM = 127 GB = 0.12 TB
-    const osVols = sofsVols.filter((v) => v.name.endsWith('-OsDisk'))
-    expect(osVols.every((v) => v.resiliency === 'three-way-mirror')).toBe(true)
-    expect(Math.abs(osVols[0].plannedSizeTB - 0.12)).toBeLessThan(0.02)
+    // Total combined volumes sum = internalFootprintTB + total OS disk TB
+    const combinedTotal = sofsVols.reduce((sum, v) => sum + v.plannedSizeTB, 0)
+    expect(Math.abs(combinedTotal - (17.58 + 0.37))).toBeLessThan(0.1)
+    expect(sofsVols.every((v) => v.resiliency === 'three-way-mirror')).toBe(true)
   })
 })

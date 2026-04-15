@@ -161,6 +161,13 @@ const RELEASE_HISTORY = [
 
 const ROADMAP = [
   {
+    version: '2.1.1',
+    status: 'Planned',
+    items: [
+      { type: 'bug', text: 'SOFS host volume suggestions should combine each guest VM OS disk and data on the same Azure Local volume (#152)' },
+    ],
+  },
+  {
     version: '2.5.0',
     status: 'Planned',
     items: [
@@ -193,12 +200,12 @@ const LINKS = [
   },
   {
     label: 'Azure Local Surveyor Docs',
-    href: 'https://azurelocal.cloud/azurelocal-surveyor/',
+    href: 'https://azurelocal.cloud/azurelocal-surveyor/#/docs',
     description: 'Feature overview, usage guide, and methodology',
   },
   {
     label: 'S2DCartographer',
-    href: 'https://github.com/AzureLocal/azurelocal-s2d-cartographer',
+    href: 'https://azurelocal.cloud/azurelocal-s2d-cartographer/',
     description: 'Post-deployment S2D inventory, diagrams, and reporting for running clusters',
   },
 ]
@@ -269,7 +276,7 @@ export default function AboutPage() {
           </div>
           <div>
             <span className="font-semibold text-gray-800 dark:text-gray-200">Related project </span>
-            <a href="https://github.com/AzureLocal/azurelocal-s2d-cartographer" target="_blank" rel="noopener noreferrer" className="text-brand-600 dark:text-brand-400 hover:underline">S2DCartographer</a>
+            <a href="https://azurelocal.cloud/azurelocal-s2d-cartographer/" target="_blank" rel="noopener noreferrer" className="text-brand-600 dark:text-brand-400 hover:underline">S2DCartographer</a>
             {' '}provides post-deployment inventory, health analysis, and reporting for running Azure Local clusters. Surveyor plans; S2DCartographer verifies.
           </div>
           <div className="pt-2 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-400">

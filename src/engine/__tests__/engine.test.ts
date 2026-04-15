@@ -355,7 +355,7 @@ describe('Workload volume suggestions', () => {
     expect(suggestions.find((s) => s.name === 'MABS-OsDisk')).toBeDefined()
   })
 
-  it('SOFS shared mode generates 1 SOFS-ProfileData + 1 SOFS-OsDisk volume', () => {
+  it('SOFS shared mode generates 1 combined SOFS volume', () => {
     const suggestions = generateWorkloadVolumes({
       advanced: DEFAULT_ADVANCED_SETTINGS,
       avdEnabled: false,
@@ -374,15 +374,15 @@ describe('Workload volume suggestions', () => {
       customWorkloads: [],
     })
     const sofsVols = suggestions.filter((s) => s.source === 'SOFS')
-    expect(sofsVols).toHaveLength(2)
-    expect(sofsVols.find((s) => s.name === 'SOFS-ProfileData')).toBeDefined()
-    expect(sofsVols.find((s) => s.name === 'SOFS-OsDisk')).toBeDefined()
-    // OS disk = 2 VMs × 127 GB = 254 GB = 0.25 TB
-    expect(sofsVols.find((s) => s.name === 'SOFS-OsDisk')?.resiliency).toBe('three-way-mirror')
-    expect(Math.abs((sofsVols.find((s) => s.name === 'SOFS-OsDisk')?.plannedSizeTB ?? 0) - 0.25)).toBeLessThan(0.01)
+    expect(sofsVols).toHaveLength(1)
+    const sharedVol = sofsVols.find((s) => s.name === 'SOFS-Shared')
+    expect(sharedVol).toBeDefined()
+    expect(sharedVol?.resiliency).toBe('three-way-mirror')
+    // Combined = 11.72 TB data + 0.25 TB OS = 11.97 TB
+    expect(Math.abs((sharedVol?.plannedSizeTB ?? 0) - 11.97)).toBeLessThan(0.02)
   })
 
-  it('SOFS per-VM mode with 2 VMs generates 2 data + 2 OS volumes', () => {
+  it('SOFS per-VM mode with 2 VMs generates 2 combined volumes', () => {
     const suggestions = generateWorkloadVolumes({
       advanced: DEFAULT_ADVANCED_SETTINGS,
       avdEnabled: false,
@@ -401,14 +401,13 @@ describe('Workload volume suggestions', () => {
       customWorkloads: [],
     })
     const sofsVols = suggestions.filter((s) => s.source === 'SOFS')
-    expect(sofsVols).toHaveLength(4)  // 2 data + 2 OS disk
-    expect(sofsVols.filter((s) => s.name.endsWith('-Data'))).toHaveLength(2)
-    expect(sofsVols.filter((s) => s.name.endsWith('-OsDisk'))).toHaveLength(2)
-    // Total data = internalFootprintTB = 11.72 TB (sum of per-VM volumes)
-    const totalData = sofsVols.filter((s) => s.name.endsWith('-Data')).reduce((sum, s) => sum + s.plannedSizeTB, 0)
-    expect(Math.abs(totalData - 11.72)).toBeLessThan(0.05)
-    // OS disk volumes use three-way-mirror
-    expect(sofsVols.filter((s) => s.name.endsWith('-OsDisk')).every((s) => s.resiliency === 'three-way-mirror')).toBe(true)
+    expect(sofsVols).toHaveLength(2)
+    expect(sofsVols.some((s) => s.name === 'SOFS-VM1')).toBe(true)
+    expect(sofsVols.some((s) => s.name === 'SOFS-VM2')).toBe(true)
+    const totalCombined = sofsVols.reduce((sum, s) => sum + s.plannedSizeTB, 0)
+    // Combined = 11.72 TB data + 0.25 TB OS = 11.97 TB
+    expect(Math.abs(totalCombined - 11.97)).toBeLessThan(0.05)
+    expect(sofsVols.every((s) => s.resiliency === 'three-way-mirror')).toBe(true)
   })
 
   it('12D addendum: AVD generates per-pool OS + DataDisk volumes, shared Profiles/OfficeContainers', () => {

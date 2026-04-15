@@ -200,8 +200,10 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
   // ── SOFS ─────────────────────────────────────────────────────────────────
   // SOFS internal mirror compounds: the Azure Local CSV volume must hold the
   // internal footprint (logical × mirror factor), not just logical data.
-  // OS disk volumes are always three-way-mirror. Data volumes use defaultResiliency.
-  // Volume layout: 'shared' → 1 data + 1 OS volume; 'per-vm' → N data + N OS volumes.
+  // The guest VM OS disk files and the guest data VHDX files live on the same
+  // Azure Local host CSV, so the suggested host-side volume should be combined.
+  // Volume layout: 'shared' → 1 combined SOFS volume; 'per-vm' → N combined
+  // volumes, one per SOFS guest VM.
   if (inputs.sofsEnabled) {
     const sofs = inputs.sofsResult
     const sofsIn = inputs.sofsInputs
@@ -211,56 +213,36 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
       ? '' : ` (includes ${sofs.internalMirrorFactor}× internal mirror)`
 
     if (sofsIn.volumeLayout === 'per-vm') {
-      // Per-VM: one data volume + one OS disk volume per SOFS guest VM
+      // Per-VM: one combined Azure Local volume per SOFS guest VM
       const perVmDataTB = vmCount > 0 ? round2(sofs.internalFootprintTB / vmCount) : 0
       const perVmOsTB = round2(osDiskGB / 1024)
+      const perVmCombinedTB = round2(perVmDataTB + perVmOsTB)
       for (let i = 1; i <= vmCount; i++) {
-        if (perVmDataTB > 0) {
+        if (perVmCombinedTB > 0) {
           suggestions.push({
             id: `sug-${_sugId++}`,
-            name: `SOFS-VM${i}-Data`,
+            name: `SOFS-VM${i}`,
             resiliency: defaultRes,
             provisioning: 'fixed',
-            plannedSizeTB: perVmDataTB,
+            plannedSizeTB: perVmCombinedTB,
             source: 'SOFS',
-            description: `VM ${i} data share${mirrorLabel}`,
-          })
-        }
-        if (perVmOsTB > 0) {
-          suggestions.push({
-            id: `sug-${_sugId++}`,
-            name: `SOFS-VM${i}-OsDisk`,
-            resiliency: 'three-way-mirror',
-            provisioning: 'fixed',
-            plannedSizeTB: perVmOsTB,
-            source: 'SOFS',
-            description: `VM ${i} OS disk (${osDiskGB} GB)`,
+            description: `VM ${i} data share${mirrorLabel}${perVmOsTB > 0 ? ` + ${osDiskGB} GB guest OS disk` : ''}`,
           })
         }
       }
     } else {
-      // Shared: one combined data volume + one combined OS disk volume
-      if (sofs.internalFootprintTB > 0) {
+      // Shared: one combined Azure Local volume containing guest OS disks + data VHDXs
+      const totalOsDiskTB = round2((vmCount * osDiskGB) / 1024)
+      const totalCombinedTB = round2(sofs.internalFootprintTB + totalOsDiskTB)
+      if (totalCombinedTB > 0) {
         suggestions.push({
           id: `sug-${_sugId++}`,
-          name: 'SOFS-ProfileData',
+          name: 'SOFS-Shared',
           resiliency: defaultRes,
           provisioning: 'fixed',
-          plannedSizeTB: round2(sofs.internalFootprintTB),
+          plannedSizeTB: totalCombinedTB,
           source: 'SOFS',
-          description: `${sofs.totalStorageTB} TB logical data${mirrorLabel}`,
-        })
-      }
-      const totalOsDiskTB = round2((vmCount * osDiskGB) / 1024)
-      if (totalOsDiskTB > 0) {
-        suggestions.push({
-          id: `sug-${_sugId++}`,
-          name: 'SOFS-OsDisk',
-          resiliency: 'three-way-mirror',
-          provisioning: 'fixed',
-          plannedSizeTB: totalOsDiskTB,
-          source: 'SOFS',
-          description: `${vmCount} SOFS VM${vmCount > 1 ? 's' : ''} × ${osDiskGB} GB OS disk`,
+          description: `${sofs.totalStorageTB} TB logical data${mirrorLabel}${totalOsDiskTB > 0 ? ` + ${vmCount} SOFS VM${vmCount > 1 ? 's' : ''} × ${osDiskGB} GB guest OS disk` : ''}`,
         })
       }
     }
