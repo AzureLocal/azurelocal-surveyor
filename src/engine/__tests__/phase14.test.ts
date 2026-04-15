@@ -277,37 +277,50 @@ describe('computeQuickStart — reference rows', () => {
     effectiveUsableTB: 20,
   }
 
-  it('always generates exactly 2 rows: three-way then two-way', () => {
+  it('generates 8 rows: 4 threshold bands × 2 resiliency types, ordered 70→100%', () => {
     const result = computeQuickStart(CAPACITY_60TB)
-    expect(result.rows).toHaveLength(2)
-    expect(result.rows[0].resiliency).toBe('three-way-mirror')
-    expect(result.rows[1].resiliency).toBe('two-way-mirror')
+    expect(result.rows).toHaveLength(8)
+    // Each pair: three-way-mirror then two-way-mirror
+    for (let i = 0; i < 8; i += 2) {
+      expect(result.rows[i].resiliency).toBe('three-way-mirror')
+      expect(result.rows[i + 1].resiliency).toBe('two-way-mirror')
+    }
+    // Bands ordered 0.7 → 0.8 → 0.9 → 1.0
+    expect(result.rows[0].targetUtilization).toBe(0.7)
+    expect(result.rows[2].targetUtilization).toBe(0.8)
+    expect(result.rows[4].targetUtilization).toBe(0.9)
+    expect(result.rows[6].targetUtilization).toBe(1.0)
   })
 
-  it('three-way-mirror row: calculatorSizeTB = availableForVolumesTB / 3 / volumeCount', () => {
+  it('three-way-mirror row at default (70%): calculatorSizeTB = availableForVolumesTB × 0.7 / 3 / volumeCount', () => {
     const result = computeQuickStart(CAPACITY_60TB)
-    const row3x = result.rows[0]
-    // 4 nodes → 4 volumes; 60 TB / 3 / 4 = 5 TB
+    const row3x = result.rows[0]  // 70% band, three-way-mirror
+    // 4 nodes → 4 volumes; 60 TB × 0.7 / 3 / 4 = 3.5 TB
     expect(row3x.volumeCount).toBe(4)
-    expect(row3x.calculatorSizeTB).toBe(5)
+    expect(row3x.calculatorSizeTB).toBe(3.5)
   })
 
-  it('two-way-mirror row: calculatorSizeTB = availableForVolumesTB × 0.5 / volumeCount', () => {
+  it('two-way-mirror row at default (70%): calculatorSizeTB = availableForVolumesTB × 0.7 × 0.5 / volumeCount', () => {
     const result = computeQuickStart(CAPACITY_60TB)
-    const row2x = result.rows[1]
-    // 60 TB × 0.5 / 4 = 7.5 TB
+    const row2x = result.rows[1]  // 70% band, two-way-mirror
+    // 60 TB × 0.7 × 0.5 / 4 = 5.25 TB
     expect(row2x.volumeCount).toBe(4)
-    expect(row2x.calculatorSizeTB).toBe(7.5)
+    expect(row2x.calculatorSizeTB).toBe(5.25)
   })
 
   it('wacSizeGiB applies 1 GiB safety margin: floor(rawGiB) - 1', () => {
     const result = computeQuickStart(CAPACITY_60TB)
-    const row3x = result.rows[0]
-    // calcSizeTB=5 → rawGiB = 5 × (1e12/1024^3) = 5 × 931.3226 = 4656.61 → floor = 4656 → -1 = 4655
-    expect(row3x.wacSizeGiB).toBe(4655)
-    const row2x = result.rows[1]
-    // calcSizeTB=7.5 → rawGiB = 7.5 × 931.3226 = 6984.92 → floor = 6984 → -1 = 6983
-    expect(row2x.wacSizeGiB).toBe(6983)
+    const row3x = result.rows[0]  // 70% band, three-way-mirror
+    // calcSizeTB=3.5 → rawGiB = 3.5 × (1e12/1024^3) = 3.5 × 931.3226 = 3259.63 → floor = 3259 → -1 = 3258
+    expect(row3x.wacSizeGiB).toBe(3258)
+    const row2x = result.rows[1]  // 70% band, two-way-mirror
+    // calcSizeTB=5.25 → rawGiB = 5.25 × 931.3226 = 4889.44 → floor = 4889 → -1 = 4888
+    expect(row2x.wacSizeGiB).toBe(4888)
+    // 100% band (rows[6]) three-way-mirror should match the old 100% values
+    const row3x100 = result.rows[6]
+    // calcSizeTB=5 → rawGiB = 5 × 931.3226 = 4656.61 → floor = 4656 → -1 = 4655
+    expect(row3x100.calculatorSizeTB).toBe(5)
+    expect(row3x100.wacSizeGiB).toBe(4655)
   })
 
   it('volumeCount is capped at 16 for large clusters', () => {
