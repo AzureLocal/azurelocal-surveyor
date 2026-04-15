@@ -444,6 +444,94 @@ export function runHealthCheck(params: {
   }
 }
 
+// ─── Compute Health Check (Phase 13D) ────────────────────────────────────────
+// Separate from runHealthCheck so the Compute Report tab can render these
+// without re-running all volume checks. Checks were removed from runHealthCheck
+// in Phase 12H and now live here exclusively.
+
+export function runComputeHealthCheck(params: {
+  compute: ComputeResult
+  totalVCpus: number
+  totalMemoryGB: number
+}): HealthIssue[] {
+  const { compute, totalVCpus, totalMemoryGB } = params
+  const issues: HealthIssue[] = []
+  if (totalVCpus === 0 && totalMemoryGB === 0) return issues
+
+  const vCpuPct = compute.usableVCpus > 0 ? (totalVCpus / compute.usableVCpus) * 100 : 0
+  const memPct  = compute.usableMemoryGB > 0 ? (totalMemoryGB / compute.usableMemoryGB) * 100 : 0
+
+  if (totalVCpus > compute.usableVCpus) {
+    issues.push({
+      code: 'HC_VCPU_OVER_SUBSCRIBED',
+      severity: 'error',
+      message: `Workloads require ${totalVCpus} vCPUs but the cluster provides only ${compute.usableVCpus} usable vCPUs (${vCpuPct.toFixed(1)}% utilization).`,
+      details: [
+        detail({
+          label: 'vCPU capacity check',
+          status: 'fail',
+          calculation: `${totalVCpus} vCPUs required ÷ ${compute.usableVCpus} usable vCPUs = ${vCpuPct.toFixed(1)}% utilization.`,
+          threshold: 'Total workload vCPU demand must not exceed cluster usable vCPUs.',
+          outcome: `The plan exceeds vCPU capacity by ${totalVCpus - compute.usableVCpus} vCPUs. Add nodes, enable hyperthreading, or reduce workload density.`,
+          ruleSource: 'Azure Local compute capacity planning',
+        }),
+      ],
+    })
+  } else if (vCpuPct > 80) {
+    issues.push({
+      code: 'HC_VCPU_HIGH',
+      severity: 'warning',
+      message: `Workloads consume ${vCpuPct.toFixed(1)}% of usable vCPUs (${totalVCpus} of ${compute.usableVCpus}). Consider leaving at least 20% headroom for burst and OS overhead.`,
+      details: [
+        detail({
+          label: 'vCPU utilization headroom',
+          status: 'warning',
+          calculation: `${totalVCpus} vCPUs required ÷ ${compute.usableVCpus} usable vCPUs = ${vCpuPct.toFixed(1)}% utilization.`,
+          threshold: 'Stay at or below 80% vCPU utilization for burst headroom.',
+          outcome: `vCPU utilization is ${(vCpuPct - 80).toFixed(1)} percentage points above the 80% headroom guideline.`,
+          ruleSource: 'Azure Local compute headroom best practice',
+        }),
+      ],
+    })
+  }
+
+  if (totalMemoryGB > compute.usableMemoryGB) {
+    issues.push({
+      code: 'HC_MEMORY_EXCEEDED',
+      severity: 'error',
+      message: `Workloads require ${totalMemoryGB} GB RAM but the cluster provides only ${compute.usableMemoryGB} GB usable memory (${memPct.toFixed(1)}% utilization).`,
+      details: [
+        detail({
+          label: 'Memory capacity check',
+          status: 'fail',
+          calculation: `${totalMemoryGB} GB required ÷ ${compute.usableMemoryGB} GB usable = ${memPct.toFixed(1)}% utilization.`,
+          threshold: 'Total workload memory demand must not exceed cluster usable memory.',
+          outcome: `The plan exceeds memory capacity by ${totalMemoryGB - compute.usableMemoryGB} GB. Add nodes or increase per-node RAM.`,
+          ruleSource: 'Azure Local compute capacity planning',
+        }),
+      ],
+    })
+  } else if (memPct > 80) {
+    issues.push({
+      code: 'HC_MEMORY_HIGH',
+      severity: 'warning',
+      message: `Workloads consume ${memPct.toFixed(1)}% of usable memory (${totalMemoryGB} of ${compute.usableMemoryGB} GB). Consider leaving at least 20% headroom for burst and OS overhead.`,
+      details: [
+        detail({
+          label: 'Memory utilization headroom',
+          status: 'warning',
+          calculation: `${totalMemoryGB} GB required ÷ ${compute.usableMemoryGB} GB usable = ${memPct.toFixed(1)}% utilization.`,
+          threshold: 'Stay at or below 80% memory utilization for burst headroom.',
+          outcome: `Memory utilization is ${(memPct - 80).toFixed(1)} percentage points above the 80% headroom guideline.`,
+          ruleSource: 'Azure Local compute headroom best practice',
+        }),
+      ],
+    })
+  }
+
+  return issues
+}
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function isResiliencyAllowed(resiliency: ResiliencyType, nodeCount: number): boolean {

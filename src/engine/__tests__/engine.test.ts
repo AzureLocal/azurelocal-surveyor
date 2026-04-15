@@ -2,11 +2,11 @@ import { describe, it, expect } from 'vitest'
 import { computeAvd } from '../avd'
 import { computeSofs } from '../sofs'
 import { computeCompute } from '../compute'
-import { runHealthCheck } from '../healthcheck'
+import { runHealthCheck, runComputeHealthCheck } from '../healthcheck'
 import { computeVolumeSummary } from '../volumes'
 import { generateWorkloadVolumes } from '../workload-volumes'
 import { DEFAULT_ADVANCED_SETTINGS } from '../types'
-import type { AvdHostPool, HardwareInputs, VolumeSpec } from '../types'
+import type { AvdHostPool, ComputeResult, HardwareInputs, VolumeSpec } from '../types'
 
 // ─── AVD Tests ────────────────────────────────────────────────────────────────
 
@@ -429,7 +429,7 @@ describe('Workload volume suggestions', () => {
           officeContainerEnabled: true,
           officeContainerSizeGB: 10,
           dataDiskPerHostGB: 0,
-          profileStorageLocation: 'local',
+          profileStorageLocation: 'external',
         },
         {
           id: 'pool-power',
@@ -443,7 +443,7 @@ describe('Workload volume suggestions', () => {
           officeContainerEnabled: false,
           officeContainerSizeGB: 0,
           dataDiskPerHostGB: 100,
-          profileStorageLocation: 'local',
+          profileStorageLocation: 'external',
         },
       ],
       userTypeMixEnabled: false,
@@ -513,5 +513,78 @@ describe('Volume WAC size calculation', () => {
     ]
     const summary = computeVolumeSummary(vols, capacity)
     expect(summary.volumes[0].wacSizeGB).toBe(2560)
+  })
+})
+
+// ─── Compute Health Check Tests (Phase 13D) ───────────────────────────────────
+
+describe('runComputeHealthCheck', () => {
+  const BASE_COMPUTE: ComputeResult = {
+    nodeCount: 4,
+    physicalCores: 128,
+    logicalCores: 256,
+    logicalCoresPerNode: 64,
+    hyperthreadingEnabled: true,
+    systemReservedVCpus: 12,
+    usableVCpus: 100,
+    usableVCpusN1: 75,
+    usableMemoryGBN1: 750,
+    physicalMemoryGB: 1024,
+    systemReservedMemoryGB: 24,
+    usableMemoryGB: 1000,
+    numaDomainsEstimate: 8,
+  }
+
+  it('returns no issues when no workloads are planned', () => {
+    const issues = runComputeHealthCheck({ compute: BASE_COMPUTE, totalVCpus: 0, totalMemoryGB: 0 })
+    expect(issues).toHaveLength(0)
+  })
+
+  it('returns no issues when utilization is below 80%', () => {
+    const issues = runComputeHealthCheck({ compute: BASE_COMPUTE, totalVCpus: 70, totalMemoryGB: 700 })
+    expect(issues).toHaveLength(0)
+  })
+
+  it('HC_VCPU_HIGH when vCPU utilization is above 80% but under 100%', () => {
+    const issues = runComputeHealthCheck({ compute: BASE_COMPUTE, totalVCpus: 85, totalMemoryGB: 500 })
+    const codes = issues.map(i => i.code)
+    expect(codes).toContain('HC_VCPU_HIGH')
+    expect(codes).not.toContain('HC_VCPU_OVER_SUBSCRIBED')
+    const issue = issues.find(i => i.code === 'HC_VCPU_HIGH')!
+    expect(issue.severity).toBe('warning')
+  })
+
+  it('HC_VCPU_OVER_SUBSCRIBED when vCPU demand exceeds cluster capacity', () => {
+    const issues = runComputeHealthCheck({ compute: BASE_COMPUTE, totalVCpus: 110, totalMemoryGB: 500 })
+    const codes = issues.map(i => i.code)
+    expect(codes).toContain('HC_VCPU_OVER_SUBSCRIBED')
+    expect(codes).not.toContain('HC_VCPU_HIGH')
+    const issue = issues.find(i => i.code === 'HC_VCPU_OVER_SUBSCRIBED')!
+    expect(issue.severity).toBe('error')
+  })
+
+  it('HC_MEMORY_HIGH when memory utilization is above 80% but under 100%', () => {
+    const issues = runComputeHealthCheck({ compute: BASE_COMPUTE, totalVCpus: 50, totalMemoryGB: 850 })
+    const codes = issues.map(i => i.code)
+    expect(codes).toContain('HC_MEMORY_HIGH')
+    expect(codes).not.toContain('HC_MEMORY_EXCEEDED')
+    const issue = issues.find(i => i.code === 'HC_MEMORY_HIGH')!
+    expect(issue.severity).toBe('warning')
+  })
+
+  it('HC_MEMORY_EXCEEDED when memory demand exceeds cluster capacity', () => {
+    const issues = runComputeHealthCheck({ compute: BASE_COMPUTE, totalVCpus: 50, totalMemoryGB: 1100 })
+    const codes = issues.map(i => i.code)
+    expect(codes).toContain('HC_MEMORY_EXCEEDED')
+    expect(codes).not.toContain('HC_MEMORY_HIGH')
+    const issue = issues.find(i => i.code === 'HC_MEMORY_EXCEEDED')!
+    expect(issue.severity).toBe('error')
+  })
+
+  it('emits both CPU and memory issues simultaneously when both exceed capacity', () => {
+    const issues = runComputeHealthCheck({ compute: BASE_COMPUTE, totalVCpus: 120, totalMemoryGB: 1200 })
+    const codes = issues.map(i => i.code)
+    expect(codes).toContain('HC_VCPU_OVER_SUBSCRIBED')
+    expect(codes).toContain('HC_MEMORY_EXCEEDED')
   })
 })

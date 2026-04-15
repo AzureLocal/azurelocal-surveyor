@@ -36,6 +36,11 @@ const MIRROR_LABEL: Record<string, string> = {
   'simple':    'Simple / No Mirror (1×)',
 }
 
+const VOLUME_LAYOUT_LABEL: Record<string, string> = {
+  shared:  'Shared CSV (one volume for all SOFS VMs)',
+  'per-vm': 'Per-VM CSV (one volume per SOFS guest VM)',
+}
+
 const CONTAINER_LABEL: Record<string, string> = {
   single: 'Single Container (Profile VHD)',
   split:  'Split Container (Profile + Office)',
@@ -49,6 +54,7 @@ export default function SofsReport() {
 
   const mirrorLabel = MIRROR_LABEL[sofs.internalMirror] ?? sofs.internalMirror
   const containerLabel = CONTAINER_LABEL[sofs.containerType] ?? sofs.containerType
+  const volumeLayoutLabel = VOLUME_LAYOUT_LABEL[sofs.volumeLayout] ?? sofs.volumeLayout
 
   return (
     <div className="space-y-6">
@@ -90,10 +96,14 @@ export default function SofsReport() {
           <tbody>
             <Row label="Guest cluster data protection" value={mirrorLabel}
               sub="Data mirrored across SOFS guest VM virtual disks inside the guest Storage Spaces pool" />
+            <Row label="Volume layout" value={volumeLayoutLabel}
+              sub="Determines how Azure Local CSV volumes are presented to SOFS guest VMs" />
             <Row label="Internal storage footprint" value={`${result.internalFootprintTB} TB`}
               sub={`${result.totalStorageTB} TB logical × ${result.internalMirrorFactor}× mirror`} />
             <Row label="SOFS guest VMs" value={String(sofs.sofsGuestVmCount)}
               sub="Minimum 2 for high availability; anti-affinity across Azure Local host nodes recommended" />
+            <Row label="OS disk per SOFS VM" value={`${sofs.sofsOsDiskPerVmGB} GB`}
+              sub="Operating system disk for each SOFS guest VM" />
             <Row label="vCPUs per SOFS VM" value={String(sofs.sofsVCpusPerVm)} />
             <Row label="RAM per SOFS VM" value={`${sofs.sofsMemoryPerVmGB} GB`} />
             <Row label="Total SOFS vCPUs" value={String(result.sofsVCpusTotal)} highlight />

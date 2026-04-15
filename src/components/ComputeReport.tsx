@@ -1,4 +1,6 @@
-import type { ComputeResult } from '../engine/types'
+import { runComputeHealthCheck } from '../engine/healthcheck'
+import type { ComputeResult, HealthIssue } from '../engine/types'
+import { AlertTriangle, AlertCircle, Info } from 'lucide-react'
 
 // ─── Utilization gauge (#10) ──────────────────────────────────────────────────
 
@@ -45,6 +47,12 @@ export default function ComputeReport({ result, totalVCpus, totalMemoryGB }: {
 
   const nPlusOneVCpuFit = totalVCpus !== undefined ? totalVCpus <= result.usableVCpusN1 : null
   const nPlusOneMemFit  = totalMemoryGB !== undefined ? totalMemoryGB <= result.usableMemoryGBN1 : null
+
+  const computeIssues = runComputeHealthCheck({
+    compute: result,
+    totalVCpus: totalVCpus ?? 0,
+    totalMemoryGB: totalMemoryGB ?? 0,
+  })
 
   return (
     <div className="space-y-4">
@@ -184,7 +192,35 @@ export default function ComputeReport({ result, totalVCpus, totalMemoryGB }: {
           </tbody>
         </table>
       </div>
+
+      {/* Compute Health Check (Phase 13D) */}
+      {computeIssues.length > 0 && (
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">Compute Health Check</div>
+          <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+            {computeIssues.map((issue) => (
+              <ComputeHealthIssueRow key={issue.code} issue={issue} />
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
+  )
+}
+
+function ComputeHealthIssueRow({ issue }: { issue: HealthIssue }) {
+  return (
+    <li className="flex items-start gap-3 px-4 py-3">
+      <span className="mt-0.5 shrink-0">
+        {issue.severity === 'error'   && <AlertCircle    className="w-4 h-4 text-red-500" />}
+        {issue.severity === 'warning' && <AlertTriangle  className="w-4 h-4 text-amber-500" />}
+        {issue.severity === 'info'    && <Info           className="w-4 h-4 text-blue-500" />}
+      </span>
+      <div>
+        <div className="text-sm font-medium">{issue.message}</div>
+        <div className="text-xs text-gray-400 mt-0.5 font-mono">{issue.code}</div>
+      </div>
+    </li>
   )
 }
 

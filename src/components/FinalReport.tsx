@@ -146,6 +146,7 @@ export default function FinalReport() {
                 <tr className="bg-gray-50 dark:bg-gray-800 text-left">
                   <th className="px-4 py-2">Name</th>
                   <th className="px-4 py-2">Resiliency</th>
+                  <th className="px-4 py-2">Provisioning</th>
                   <th className="px-4 py-2 text-right">Calculator TB</th>
                   <th className="px-4 py-2 text-right">WAC GB</th>
                 </tr>
@@ -155,6 +156,7 @@ export default function FinalReport() {
                   <tr key={v.id} className="border-t border-gray-100 dark:border-gray-800">
                     <td className="px-4 py-2">{v.name}</td>
                     <td className="px-4 py-2 text-gray-500 text-xs">{v.resiliency}</td>
+                    <td className="px-4 py-2 text-gray-500 text-xs">{v.provisioning}</td>
                     <td className="px-4 py-2 text-right">{v.calculatorSizeTB}</td>
                     <td className="px-4 py-2 text-right font-mono font-semibold text-brand-700 dark:text-brand-300">{v.wacSizeGB}</td>
                   </tr>
@@ -197,6 +199,32 @@ export default function FinalReport() {
             <Stat label="Profile storage" value={`${sofs.totalProfileStorageTB} TB`} />
             <Stat label="Redirected storage" value={`${sofs.totalRedirectedStorageTB} TB`} />
             <Stat label="Total storage" value={`${sofs.totalStorageTB} TB`} />
+          </dl>
+        </section>
+      )}
+
+      {/* AKS section — only shown when enabled */}
+      {state.aks.enabled && (
+        <section>
+          <h2 className="text-lg font-semibold mb-3">AKS</h2>
+          <dl className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden text-sm">
+            <Stat label="Clusters" value={String(state.aks.clusters.length)} />
+            <Stat label="Total vCPUs" value={String(aks.totalVCpus)} />
+            <Stat label="Total RAM" value={`${aks.totalMemoryGB} GB`} />
+            <Stat label="Total storage" value={`${aks.totalStorageTB} TB`} />
+          </dl>
+        </section>
+      )}
+
+      {/* MABS section — only shown when enabled */}
+      {state.mabsEnabled && (
+        <section>
+          <h2 className="text-lg font-semibold mb-3">MABS (Azure Backup Server)</h2>
+          <dl className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden text-sm">
+            <Stat label="Backup data" value={`${mabsResult.backupDataVolumeTB} TB`} />
+            <Stat label="Scratch volume" value={`${mabsResult.scratchVolumeTB} TB`} />
+            <Stat label="VM: vCPUs" value={String(mabsResult.mabsVCpus)} />
+            <Stat label="VM: RAM" value={`${mabsResult.mabsMemoryGB} GB`} />
           </dl>
         </section>
       )}

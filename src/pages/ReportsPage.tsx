@@ -9,6 +9,9 @@ import FinalReport from '../components/FinalReport'
 import CapacityReport from '../components/CapacityReport'
 import ComputeReport from '../components/ComputeReport'
 import SofsReport from '../components/SofsReport'
+import AvdReport from '../components/AvdReport'
+import AksReport from '../components/AksReport'
+import MabsReport from '../components/MabsReport'
 import AdvancedSettings from '../components/AdvancedSettings'
 import { useSurveyorStore } from '../state/store'
 import { computeCapacity } from '../engine/capacity'
@@ -20,7 +23,7 @@ import { computeMabs } from '../engine/mabs'
 import { computeAllCustomWorkloads } from '../engine/custom-workloads'
 import { computeAllServicePresets } from '../engine/service-presets'
 
-type Tab = 'capacity' | 'compute' | 'sofs' | 'final'
+type Tab = 'capacity' | 'compute' | 'avd' | 'aks' | 'mabs' | 'sofs' | 'final'
 
 const BASE_TABS: { id: Tab; label: string }[] = [
   { id: 'capacity', label: 'Capacity' },
@@ -35,7 +38,10 @@ export default function ReportsPage() {
   const state = useSurveyorStore()
   const tabs: { id: Tab; label: string }[] = [
     ...BASE_TABS.filter((t) => t.id !== 'final'),
-    ...(state.sofsEnabled ? [{ id: 'sofs' as Tab, label: 'SOFS Report' }] : []),
+    ...(state.avdEnabled   ? [{ id: 'avd'  as Tab, label: 'AVD Report'  }] : []),
+    ...(state.aks.enabled  ? [{ id: 'aks'  as Tab, label: 'AKS Report'  }] : []),
+    ...(state.mabsEnabled  ? [{ id: 'mabs' as Tab, label: 'MABS Report' }] : []),
+    ...(state.sofsEnabled  ? [{ id: 'sofs' as Tab, label: 'SOFS Report' }] : []),
     { id: 'final', label: 'Final Report' },
   ]
   const { hardware, advanced } = state
@@ -135,6 +141,10 @@ export default function ReportsPage() {
       )}
 
       {activeTab === 'sofs' && state.sofsEnabled && <SofsReport />}
+
+      {activeTab === 'avd'  && state.avdEnabled  && <AvdReport />}
+      {activeTab === 'aks'  && state.aks.enabled  && <AksReport />}
+      {activeTab === 'mabs' && state.mabsEnabled  && <MabsReport />}
 
       {activeTab === 'final' && <FinalReport />}
     </div>
