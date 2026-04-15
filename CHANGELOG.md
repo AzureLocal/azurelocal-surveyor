@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.1.4] — 2026-04-15
+
+### Features
+
+- Best Practice Volume Reference table now shows four pool utilization bands (70 / 80 / 90 / 100%) for both Three-Way Mirror and Two-Way Mirror, allowing direct comparison of the space/headroom tradeoff (#156)
+- Suggested Volumes section adds a 70 / 80 / 90 / 100% pool utilization target selector; defaults to 70% to avoid triggering the WAC rebuild-headroom health alert; changing the band resets the added-volume state (#156)
+- PowerShell quick-create script follows the selected reference band (default 70%) via a segmented button selector on the PS block (#156)
+
+---
+
 ## [2.1.3] — 2026-04-15
 
 ### Bug Fixes

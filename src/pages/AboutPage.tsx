@@ -2,6 +2,15 @@ import { version } from '../../package.json'
 
 const RELEASE_HISTORY = [
   {
+    version: '2.1.4',
+    label: 'Multi-Threshold Pool Utilization Reference',
+    items: [
+      'Best Practice Volume Reference table now shows four threshold bands (70/80/90/100%) for Three-Way Mirror and Two-Way Mirror (#156)',
+      'Suggested Volumes section adds a 70/80/90/100% pool utilization target selector; defaults to 70% to avoid the WAC rebuild-headroom alert (#156)',
+      'PowerShell quick-create script follows the selected reference band via a segmented button selector (#156)',
+    ],
+  },
+  {
     version: '2.1.3',
     label: 'Generic Volume Suggestion Fix',
     items: [

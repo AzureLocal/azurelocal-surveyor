@@ -158,16 +158,31 @@ function VolumeModeToggle() {
 
 // ─── Generic Volume Suggestions (#76) ────────────────────────────────────────
 
+const UTIL_BANDS = [
+  { value: 0.7 as const, label: '70%', description: 'Conservative' },
+  { value: 0.8 as const, label: '80%', description: 'Balanced' },
+  { value: 0.9 as const, label: '90%', description: 'Aggressive' },
+  { value: 1.0 as const, label: '100%', description: 'Full capacity' },
+]
+
 function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/types').CapacityResult }) {
   const { volumes, addVolume } = useSurveyorStore()
   const [added, setAdded] = useState<Set<string>>(new Set())
   const [resiliencyOverrides, setResiliencyOverrides] = useState<Record<string, import('../engine/types').ResiliencyType>>({})
   const [provisioningOverrides, setProvisioningOverrides] = useState<Record<string, 'fixed' | 'thin'>>({})
-  const suggestions = generateGenericVolumes(capacity)
+  const [targetUtilization, setTargetUtilization] = useState<0.7 | 0.8 | 0.9 | 1.0>(0.7)
+  const suggestions = generateGenericVolumes(capacity, targetUtilization)
 
   if (suggestions.length === 0) return null
 
   const existingNames = new Set(volumes.map((v) => v.name))
+
+  function handleBandChange(value: 0.7 | 0.8 | 0.9 | 1.0) {
+    setTargetUtilization(value)
+    setAdded(new Set())
+    setResiliencyOverrides({})
+    setProvisioningOverrides({})
+  }
 
   function getResiliency(s: GenericSuggestion) {
     return resiliencyOverrides[s.id] ?? s.resiliency
@@ -193,14 +208,15 @@ function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/ty
   }
 
   const allAdded = suggestions.every((s) => existingNames.has(s.name) || added.has(s.id))
+  const activeBand = UTIL_BANDS.find(b => b.value === targetUtilization)!
 
   return (
     <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
       <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 px-4 py-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <Wand2 className="w-4 h-4 text-gray-500" />
           <span className="text-sm font-semibold">Suggested Volumes — Generic Hardware-Based</span>
-          <span className="text-xs text-gray-500">{suggestions.length} volumes ({capacity.resiliencyFactor > 0 ? Math.round(capacity.resiliencyFactor * 100) + '% efficiency' : ''})</span>
+          <span className="text-xs text-gray-500">{suggestions.length} volumes · {activeBand.label} pool utilization target ({activeBand.description})</span>
         </div>
         {!allAdded && (
           <button
@@ -212,6 +228,29 @@ function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/ty
           </button>
         )}
       </div>
+
+      {/* Utilization band selector */}
+      <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+        <span className="text-xs text-gray-500 shrink-0">Pool target:</span>
+        <div className="flex rounded overflow-hidden border border-gray-300 dark:border-gray-600 text-xs">
+          {UTIL_BANDS.map((band) => (
+            <button
+              key={band.value}
+              onClick={() => handleBandChange(band.value)}
+              title={band.description}
+              className={`px-3 py-1 transition-colors ${targetUtilization === band.value ? 'bg-brand-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+            >
+              {band.label}
+            </button>
+          ))}
+        </div>
+        {targetUtilization >= 0.9 && (
+          <span className="text-xs text-amber-600 dark:text-amber-400">
+            {targetUtilization === 1.0 ? 'Warning: 100% utilization will trigger the WAC rebuild headroom alert' : 'Caution: minimal rebuild headroom — consider adding a reserve drive'}
+          </span>
+        )}
+      </div>
+
       <div className="divide-y divide-gray-100 dark:divide-gray-800">
         {suggestions.map((s) => {
           const isAdded = existingNames.has(s.name) || added.has(s.id)
@@ -270,7 +309,7 @@ function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/ty
         })}
       </div>
       <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50 text-xs text-gray-500">
-        Equal-split layout based on hardware capacity. Switch to Workload mode for workload-specific sizing.
+        Equal-split layout targeting {activeBand.label} pool utilization. Switch to Workload mode for workload-specific sizing.
       </div>
     </div>
   )
@@ -281,7 +320,8 @@ function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/ty
 function QuickStartVolumes({ capacity }: { capacity: import('../engine/types').CapacityResult }) {
   const [open, setOpen] = useState(true)
   const [copied, setCopied] = useState(false)
-  const qs = computeQuickStart(capacity)
+  const [activePs, setActivePs] = useState<0.7 | 0.8 | 0.9 | 1.0>(0.7)
+  const qs = computeQuickStart(capacity, activePs)
 
   if (qs.rows.length === 0) return null
 
@@ -290,6 +330,33 @@ function QuickStartVolumes({ capacity }: { capacity: import('../engine/types').C
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     })
+  }
+
+  const BANDS = [
+    { value: 0.7 as const, label: '70%', description: 'Conservative', color: 'green' },
+    { value: 0.8 as const, label: '80%', description: 'Balanced', color: 'blue' },
+    { value: 0.9 as const, label: '90%', description: 'Aggressive', color: 'amber' },
+    { value: 1.0 as const, label: '100%', description: 'Full capacity', color: 'red' },
+  ]
+
+  // Group rows by threshold
+  const rowsByBand = new Map<number, typeof qs.rows>()
+  for (const row of qs.rows) {
+    const list = rowsByBand.get(row.targetUtilization) ?? []
+    list.push(row)
+    rowsByBand.set(row.targetUtilization, list)
+  }
+
+  function bandColorClass(value: number, type: 'bg' | 'text' | 'border') {
+    const band = BANDS.find(b => b.value === value)
+    if (!band) return ''
+    const map: Record<string, Record<string, string>> = {
+      green: { bg: 'bg-green-50 dark:bg-green-900/20', text: 'text-green-700 dark:text-green-300', border: 'border-green-200 dark:border-green-800' },
+      blue:  { bg: 'bg-blue-50 dark:bg-blue-900/20',   text: 'text-blue-700 dark:text-blue-300',   border: 'border-blue-200 dark:border-blue-800' },
+      amber: { bg: 'bg-amber-50 dark:bg-amber-900/20', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-200 dark:border-amber-800' },
+      red:   { bg: 'bg-red-50 dark:bg-red-900/20',     text: 'text-red-700 dark:text-red-300',     border: 'border-red-200 dark:border-red-800' },
+    }
+    return map[band.color]?.[type] ?? ''
   }
 
   return (
@@ -315,54 +382,78 @@ function QuickStartVolumes({ capacity }: { capacity: import('../engine/types').C
               1 TB ≈ 0.909 TiB. Volume sizes include a 1 GiB safety margin to prevent WAC errors.
             </p>
             <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
-              Microsoft recommends volume count as a multiple of your node count ({qs.nodeCount}).
-              These two rows show equal-split layouts for the two most common resiliency types.
+              Microsoft suggests volume count as a multiple of your node count ({qs.nodeCount}). These rows show equal-split layouts grouped by pool utilization target.
             </p>
           </div>
 
-          {/* Table — two reference rows (3WM + 2WM) */}
+          {/* Table — rows grouped by threshold band */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-800 text-left text-xs">
+                  <th className="px-4 py-2 font-semibold">Pool Target</th>
                   <th className="px-4 py-2 font-semibold text-center"># Volumes</th>
                   <th className="px-4 py-2 font-semibold">Resiliency</th>
                   <th className="px-4 py-2 font-semibold text-right">Eff. Size / Vol (TB)</th>
                   <th className="px-4 py-2 font-semibold text-right bg-yellow-100 dark:bg-yellow-900/30">WAC / PS Size (GiB)</th>
                   <th className="px-4 py-2 font-semibold text-right">Pool Footprint (TB)</th>
-                  <th className="px-4 py-2 font-semibold text-right">Usable Total (TB)</th>
                   <th className="px-4 py-2 font-semibold text-right">Pool Used %</th>
                 </tr>
               </thead>
               <tbody>
-                {qs.rows.map((row) => (
-                  <tr key={row.resiliency} className="border-t border-gray-100 dark:border-gray-800">
-                    <td className="px-4 py-2 text-center font-semibold">{row.volumeCount}</td>
-                    <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">{row.resiliencyLabel}</td>
-                    <td className="px-4 py-2 text-right font-mono text-gray-500">{row.calculatorSizeTB.toFixed(2)}</td>
-                    <td className="px-4 py-2 text-right font-mono font-semibold text-brand-700 dark:text-brand-300 bg-yellow-50 dark:bg-yellow-900/20">{row.wacSizeGiB}</td>
-                    <td className="px-4 py-2 text-right font-mono">{row.poolFootprintTB.toFixed(2)}</td>
-                    <td className="px-4 py-2 text-right font-mono">{row.usableTotalTB.toFixed(2)}</td>
-                    <td className="px-4 py-2 text-right font-mono text-gray-500">{row.utilizationPct}%</td>
-                  </tr>
-                ))}
+                {BANDS.map((band) => {
+                  const bandRows = rowsByBand.get(band.value) ?? []
+                  return bandRows.map((row, idx) => (
+                    <tr
+                      key={`${band.value}-${row.resiliency}`}
+                      className={`border-t border-gray-100 dark:border-gray-800 ${bandColorClass(band.value, 'bg')}`}
+                    >
+                      {idx === 0 ? (
+                        <td rowSpan={2} className={`px-4 py-2 font-semibold text-xs border-r border-gray-100 dark:border-gray-800 ${bandColorClass(band.value, 'text')}`}>
+                          <div className="font-bold">{band.label}</div>
+                          <div className="font-normal text-gray-500 dark:text-gray-400">{band.description}</div>
+                        </td>
+                      ) : null}
+                      <td className="px-4 py-2 text-center font-semibold text-xs">{row.volumeCount}</td>
+                      <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">{row.resiliencyLabel}</td>
+                      <td className="px-4 py-2 text-right font-mono text-gray-500 text-xs">{row.calculatorSizeTB.toFixed(2)}</td>
+                      <td className="px-4 py-2 text-right font-mono font-semibold text-brand-700 dark:text-brand-300 bg-yellow-50 dark:bg-yellow-900/20 text-xs">{row.wacSizeGiB}</td>
+                      <td className="px-4 py-2 text-right font-mono text-xs">{row.poolFootprintTB.toFixed(2)}</td>
+                      <td className={`px-4 py-2 text-right font-mono text-xs font-semibold ${bandColorClass(band.value, 'text')}`}>{row.utilizationPct}%</td>
+                    </tr>
+                  ))
+                })}
               </tbody>
             </table>
           </div>
 
-          {/* PowerShell Quick Create — uses 3WM row */}
+          {/* PS band selector + Quick Create */}
           <div className="border-t border-gray-100 dark:border-gray-800">
             <div className="flex items-center justify-between bg-[#012456] px-4 py-2">
               <div className="flex items-center gap-2 text-xs font-semibold text-blue-200">
                 <Terminal className="w-3.5 h-3.5" />
                 POWERSHELL — THREE-WAY MIRROR QUICK CREATE
               </div>
-              <button
-                onClick={handleCopy}
-                className="flex items-center gap-1 px-2 py-1 text-xs text-blue-300 hover:text-white border border-blue-700 rounded hover:bg-blue-800 transition-colors"
-              >
-                {copied ? <><CheckCircle className="w-3 h-3" /> Copied</> : <><Copy className="w-3 h-3" /> Copy</>}
-              </button>
+              <div className="flex items-center gap-2">
+                {/* Band selector for PS script */}
+                <div className="flex rounded overflow-hidden border border-blue-700 text-xs">
+                  {BANDS.map((band) => (
+                    <button
+                      key={band.value}
+                      onClick={() => setActivePs(band.value)}
+                      className={`px-2 py-0.5 transition-colors ${activePs === band.value ? 'bg-blue-600 text-white' : 'text-blue-300 hover:bg-blue-800'}`}
+                    >
+                      {band.label}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={handleCopy}
+                  className="flex items-center gap-1 px-2 py-1 text-xs text-blue-300 hover:text-white border border-blue-700 rounded hover:bg-blue-800 transition-colors"
+                >
+                  {copied ? <><CheckCircle className="w-3 h-3" /> Copied</> : <><Copy className="w-3 h-3" /> Copy</>}
+                </button>
+              </div>
             </div>
             <pre className="bg-[#012456] text-blue-100 px-4 py-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap">
               {qs.psScript}
