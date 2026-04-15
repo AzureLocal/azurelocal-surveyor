@@ -42,7 +42,8 @@ export function enrichVolume(spec: VolumeSpec): VolumeDetail {
 
 /**
  * Compute the full volume summary — total planned TB, remaining usable, utilization.
- * Uses the effectiveUsableTB from the capacity result as the ceiling.
+ * Uses availableForVolumesTB (raw pool after reserve + infra) as the ceiling so
+ * that utilization reflects pool consumption across mixed resiliency types.
  */
 export function computeVolumeSummary(
   volumes: VolumeSpec[],
@@ -50,25 +51,26 @@ export function computeVolumeSummary(
 ): VolumeSummaryResult {
   const enriched = volumes.map(enrichVolume)
 
-  // Account for resiliency overhead per volume: each volume consumes
-  // plannedSizeTB / resiliencyFactor from the pool
-  const totalPoolConsumptionTB = enriched.reduce((sum, v) => {
+  // Pool footprint per volume: plannedSizeTB / resiliencyFactor
+  const totalPoolFootprintTB = round2(enriched.reduce((sum, v) => {
     const factor = getResiliencyFactor(v.resiliency, capacity.nodeCount)
     return sum + v.calculatorSizeTB / factor
-  }, 0)
+  }, 0))
 
   const totalPlannedTB = round2(enriched.reduce((s, v) => s + v.calculatorSizeTB, 0))
   const totalWacTB = round2(enriched.reduce((s, v) => s + v.wacSizeTB, 0))
-  const remainingUsableTB = round2(capacity.effectiveUsableTB - totalPoolConsumptionTB)
+  // Remaining = raw pool minus pool footprints
+  const remainingUsableTB = round2(capacity.availableForVolumesTB - totalPoolFootprintTB)
   const utilizationPct =
-    capacity.effectiveUsableTB > 0
-      ? Math.round((totalPoolConsumptionTB / capacity.effectiveUsableTB) * 100 * 10) / 10
+    capacity.availableForVolumesTB > 0
+      ? Math.round((totalPoolFootprintTB / capacity.availableForVolumesTB) * 100 * 10) / 10
       : 0
 
   return {
     volumes: enriched,
     totalPlannedTB,
     totalWacTB,
+    totalPoolFootprintTB,
     remainingUsableTB,
     utilizationPct,
   }
@@ -86,6 +88,7 @@ export interface GenericSuggestion {
   id: string
   name: string
   resiliency: ResiliencyType
+  provisioning: 'fixed' | 'thin'
   plannedSizeTB: number
   description: string
 }
@@ -107,6 +110,7 @@ export function generateGenericVolumes(capacity: CapacityResult): GenericSuggest
       id: `generic-vol-${i}`,
       name: `Volume${i}`,
       resiliency: resiliencyType,
+      provisioning: 'fixed',
       plannedSizeTB: sizeTB,
       description: `Equal-split: ${effectiveUsableTB.toFixed(2)} TB ÷ ${volumeCount} volumes = ${sizeTB} TB each (${capacity.resiliencyFactor > 0 ? RESILIENCY_LABELS[resiliencyType] : 'Unknown'})`,
     })
@@ -119,16 +123,14 @@ export function generateGenericVolumes(capacity: CapacityResult): GenericSuggest
 // simplest balanced layout with N equal volumes."
 
 export interface QuickStartRow {
-  scenario: string            // e.g. "3 volumes (1 per node)"
   volumeCount: number
   resiliency: ResiliencyType
   resiliencyLabel: string
-  calculatorSizeTB: number    // effectiveUsableTB / volumeCount
-  wacSizeTiB: number          // TiB value for WAC/PowerShell (floored)
-  wacSizeGiB: number          // GiB value for New-Volume -Size
+  calculatorSizeTB: number    // effectiveUsable / volumeCount for this resiliency
+  wacSizeTiB: number          // TiB value for WAC/PowerShell (floored, 1 GiB margin)
+  wacSizeGiB: number          // GiB value for New-Volume -Size (1 GiB safety margin)
   poolFootprintTB: number     // wacSizeTiB × volumeCount / resiliencyFactor
   usableTotalTB: number       // wacSizeTiB × volumeCount
-  fits: boolean
   utilizationPct: number
 }
 
@@ -156,56 +158,60 @@ const PS_RESILIENCY: Record<ResiliencyType, { setting: string; redundancy?: numb
 }
 
 export function computeQuickStart(capacity: CapacityResult): QuickStartResult {
-  const { nodeCount, effectiveUsableTB, availableForVolumesTB, resiliencyType, resiliencyFactor } = capacity
-  const resiliencyLabel = RESILIENCY_LABELS[resiliencyType]
+  const { nodeCount, availableForVolumesTB } = capacity
 
-  // Microsoft best practice: 1 volume per node (up to 4 nodes)
+  // Microsoft best practice: 1 volume per node (up to 16)
   const volumeCount = Math.min(nodeCount, 16)
   const rows: QuickStartRow[] = []
+  const TB_TO_TiB = 1e12 / Math.pow(1024, 4)  // ≈ 0.909099
 
-  if (effectiveUsableTB > 0 && volumeCount > 0) {
-    const calcSizeTB = round2(effectiveUsableTB / volumeCount)
+  // Always show two reference rows: Three-Way Mirror + Two-Way Mirror
+  const REFERENCE_RESILIENCIES: ResiliencyType[] = ['three-way-mirror', 'two-way-mirror']
 
-    // TiB conversion: WAC interprets -Size "XTB" as TiB (binary)
-    // 1 TB = 0.909495 TiB (1e12 / 2^40)
-    const TB_TO_TiB = 1e12 / Math.pow(1024, 4)
-    const wacSizeTiB = Math.floor(calcSizeTB * TB_TO_TiB * 100) / 100  // floor to 2 decimals
-    const wacSizeGiB = Math.floor(wacSizeTiB * 1024)
+  if (availableForVolumesTB > 0 && volumeCount > 0) {
+    for (const resiliency of REFERENCE_RESILIENCIES) {
+      const factor = resiliency === 'two-way-mirror' ? 0.5 : 1 / 3
+      const effectiveUsable = availableForVolumesTB * factor
+      const calcSizeTB = round2(effectiveUsable / volumeCount)
 
-    // Pool footprint: each volume's TiB / resiliencyFactor × volumeCount
-    const poolFootprintTB = round2((wacSizeTiB / resiliencyFactor) * volumeCount / TB_TO_TiB)
-    const usableTotalTB = round2(wacSizeTiB * volumeCount / TB_TO_TiB)
-    const fits = poolFootprintTB <= availableForVolumesTB
-    const utilizationPct = availableForVolumesTB > 0
-      ? round2((poolFootprintTB / availableForVolumesTB) * 100)
-      : 0
+      // Convert to GiB with 1 GiB safety margin (WAC rounds internally)
+      const rawGiB = calcSizeTB * TB_TO_TiB * 1024
+      const wacSizeGiB = Math.max(0, Math.floor(rawGiB) - 1)  // 1 GiB safety margin
+      const wacSizeTiB = round2(wacSizeGiB / 1024)
 
-    rows.push({
-      scenario: `${volumeCount} volume${volumeCount > 1 ? 's' : ''} (1 per node)`,
-      volumeCount,
-      resiliency: resiliencyType,
-      resiliencyLabel,
-      calculatorSizeTB: calcSizeTB,
-      wacSizeTiB,
-      wacSizeGiB,
-      poolFootprintTB,
-      usableTotalTB,
-      fits,
-      utilizationPct,
-    })
+      const poolFootprintTB = round2((wacSizeTiB / factor) * volumeCount / TB_TO_TiB)
+      const usableTotalTB = round2(wacSizeTiB * volumeCount / TB_TO_TiB)
+      const utilizationPct = availableForVolumesTB > 0
+        ? round2((poolFootprintTB / availableForVolumesTB) * 100)
+        : 0
+
+      rows.push({
+        volumeCount,
+        resiliency,
+        resiliencyLabel: RESILIENCY_LABELS[resiliency],
+        calculatorSizeTB: calcSizeTB,
+        wacSizeTiB,
+        wacSizeGiB,
+        poolFootprintTB,
+        usableTotalTB,
+        utilizationPct,
+      })
+    }
   }
 
-  // Generate PowerShell script
-  const row = rows[0]
+  // PowerShell script uses the Three-Way Mirror row (first row) as default
+  const primaryRow = rows[0]
   let psScript = ''
-  if (row) {
-    const ps = PS_RESILIENCY[resiliencyType]
+  if (primaryRow) {
+    const ps = PS_RESILIENCY[primaryRow.resiliency]
     const redundancyParam = ps.redundancy != null ? ` -PhysicalDiskRedundancy ${ps.redundancy}` : ''
     psScript = [
-      `# Create ${row.volumeCount} equal volumes of ${row.wacSizeTiB} TiB each (${resiliencyLabel})`,
-      `1..${row.volumeCount} | ForEach { New-Volume -FriendlyName "Vol$_" -Size ${row.wacSizeGiB}GB -StoragePoolFriendlyName S2D* -FileSystem CSVFS_ReFS -ResiliencySettingName ${ps.setting}${redundancyParam} }`,
+      `# Create ${primaryRow.volumeCount} equal volumes of ${primaryRow.wacSizeGiB} GiB each (${primaryRow.resiliencyLabel})`,
+      `1..${primaryRow.volumeCount} | ForEach { New-Volume -FriendlyName "Vol$_" -Size ${primaryRow.wacSizeGiB}GB -StoragePoolFriendlyName S2D* -FileSystem CSVFS_ReFS -ResiliencySettingName ${ps.setting}${redundancyParam} }`,
     ].join('\n')
   }
 
+  const resiliencyLabel = RESILIENCY_LABELS[capacity.resiliencyType]
+  const effectiveUsableTB = capacity.effectiveUsableTB
   return { rows, availableForVolumesTB, effectiveUsableTB, nodeCount, resiliencyLabel, psScript }
 }

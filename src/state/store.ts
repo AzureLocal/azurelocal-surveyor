@@ -9,7 +9,9 @@ import type {
   AvdInputs,
   SofsInputs,
   AksInputs,
+  AksCluster,
   VmScenario,
+  VmStorageGroup,
   MabsInputs,
   CustomWorkload,
 } from '../engine/types'
@@ -75,7 +77,6 @@ const DEFAULT_HARDWARE: HardwareInputs = {
   coresPerNode: 32,
   memoryPerNodeGB: 256,
   hyperthreadingEnabled: true,
-  volumeProvisioning: 'fixed',
 }
 
 const DEFAULT_AVD: AvdInputs = {
@@ -104,29 +105,39 @@ const DEFAULT_SOFS: SofsInputs = {
   internalMirror: 'three-way',
   autoSizeDrivesPerNode: 4,
   autoSizeNodes: 2,
+  volumeLayout: 'shared',
+  sofsOsDiskPerVmGB: 127,
 }
 
-const DEFAULT_AKS: AksInputs = {
-  enabled: false,
-  clusterCount: 1,
+const DEFAULT_AKS_CLUSTER: AksCluster = {
+  id: 'cluster-1',
+  name: 'Cluster 1',
   controlPlaneNodesPerCluster: 1,
   workerNodesPerCluster: 3,
   vCpusPerWorker: 4,
   memoryPerWorkerGB: 16,
   osDiskPerNodeGB: 200,
   persistentVolumesTB: 0,
-  dataServicesTB: 0,
-  resiliency: 'three-way-mirror',
 }
 
-const DEFAULT_VIRTUAL_MACHINES: VmScenario = {
+const DEFAULT_AKS: AksInputs = {
   enabled: false,
+  clusters: [DEFAULT_AKS_CLUSTER],
+}
+
+const DEFAULT_VM_GROUP: VmStorageGroup = {
+  id: 'group-1',
+  name: 'Default',
   vmCount: 5,
   vCpusPerVm: 4,
   memoryPerVmGB: 16,
   storagePerVmGB: 200,
-  resiliency: 'three-way-mirror',
+}
+
+const DEFAULT_VIRTUAL_MACHINES: VmScenario = {
+  enabled: false,
   vCpuOvercommitRatio: 1,
+  groups: [DEFAULT_VM_GROUP],
 }
 
 const DEFAULT_MABS: MabsInputs = {
@@ -137,8 +148,6 @@ const DEFAULT_MABS: MabsInputs = {
   mabsVCpus: 8,
   mabsMemoryGB: 32,
   mabsOsDiskGB: 200,
-  scratchResiliency: 'two-way-mirror',
-  backupResiliency: 'dual-parity',
   internalMirror: 'two-way',
 }
 
@@ -251,11 +260,34 @@ export function normalizePersistedState(persisted: unknown): SurveyorPersistedSl
   const state = isRecord(persisted) ? persisted : {}
   const advanced = mergeObject(DEFAULT_ADVANCED_SETTINGS, state.advanced)
   const avd = normalizeAvd(state.avd)
-  const rawMabs = isRecord(state.mabs) ? state.mabs : {}
-  const mabs = mergeObject(DEFAULT_MABS, state.mabs)
-  const legacyMabsResiliency = rawMabs.resiliency
-  const hasScratchResiliency = rawMabs.scratchResiliency !== undefined
-  const hasBackupResiliency = rawMabs.backupResiliency !== undefined
+
+  // Normalize volumes: ensure all entries have provisioning (added in v9)
+  const rawVolumes = Array.isArray(state.volumes) ? state.volumes as Record<string, unknown>[] : []
+  const volumes = rawVolumes.map((v) => ({
+    ...v,
+    provisioning: v.provisioning ?? 'fixed',
+  })) as VolumeSpec[]
+
+  // Normalize AKS: must have clusters array (migration handles flat → array, this is the safety net)
+  const rawAks = isRecord(state.aks) ? state.aks : {}
+  const aks: AksInputs = {
+    enabled: typeof rawAks.enabled === 'boolean' ? rawAks.enabled : DEFAULT_AKS.enabled,
+    clusters: Array.isArray(rawAks.clusters)
+      ? (rawAks.clusters as AksCluster[])
+      : DEFAULT_AKS.clusters,
+  }
+
+  // Normalize VMs: must have groups array (migration handles flat → array, this is the safety net)
+  const rawVm = isRecord(state.virtualMachines) ? state.virtualMachines : {}
+  const virtualMachines: VmScenario = {
+    enabled: typeof rawVm.enabled === 'boolean' ? rawVm.enabled : DEFAULT_VIRTUAL_MACHINES.enabled,
+    vCpuOvercommitRatio: typeof rawVm.vCpuOvercommitRatio === 'number'
+      ? rawVm.vCpuOvercommitRatio
+      : DEFAULT_VIRTUAL_MACHINES.vCpuOvercommitRatio,
+    groups: Array.isArray(rawVm.groups)
+      ? (rawVm.groups as VmStorageGroup[])
+      : DEFAULT_VIRTUAL_MACHINES.groups,
+  }
 
   return {
     hardware: mergeObject(DEFAULT_HARDWARE, state.hardware),
@@ -263,25 +295,23 @@ export function normalizePersistedState(persisted: unknown): SurveyorPersistedSl
       ...advanced,
       overrides: mergeObject(DEFAULT_ADVANCED_SETTINGS.overrides, advanced.overrides),
     },
-    volumes: Array.isArray(state.volumes) ? state.volumes as VolumeSpec[] : [],
+    volumes,
     workloads: Array.isArray(state.workloads) ? state.workloads as WorkloadSpec[] : [],
     volumeMode: state.volumeMode === 'workload' ? ('workload' as VolumeMode) : ('generic' as VolumeMode),
     avd,
     avdEnabled: typeof state.avdEnabled === 'boolean' ? state.avdEnabled : false,
     sofs: mergeObject(DEFAULT_SOFS, state.sofs),
     sofsEnabled: typeof state.sofsEnabled === 'boolean' ? state.sofsEnabled : false,
-    mabs: {
-      ...mabs,
-      scratchResiliency: hasScratchResiliency
-        ? mabs.scratchResiliency
-        : (legacyMabsResiliency as MabsInputs['scratchResiliency'] | undefined) ?? DEFAULT_MABS.scratchResiliency,
-      backupResiliency: hasBackupResiliency
-        ? mabs.backupResiliency
-        : (legacyMabsResiliency as MabsInputs['backupResiliency'] | undefined) ?? DEFAULT_MABS.backupResiliency,
-    },
+    mabs: (() => {
+      // Strip legacy fields removed in v9 (scratchResiliency, backupResiliency)
+      const m = mergeObject(DEFAULT_MABS, state.mabs) as unknown as Record<string, unknown>
+      delete m.scratchResiliency
+      delete m.backupResiliency
+      return m as unknown as MabsInputs
+    })(),
     mabsEnabled: typeof state.mabsEnabled === 'boolean' ? state.mabsEnabled : false,
-    aks: mergeObject(DEFAULT_AKS, state.aks),
-    virtualMachines: mergeObject(DEFAULT_VIRTUAL_MACHINES, state.virtualMachines),
+    aks,
+    virtualMachines,
     servicePresets: Array.isArray(state.servicePresets)
       ? (state.servicePresets as ServicePresetInstance[])
       : [],
@@ -391,9 +421,104 @@ export const useSurveyorStore = create<SurveyorState>()(
     }),
     {
       name: 'surveyor-state',
-      version: 8,
+      version: 9,
       migrate: (persisted: unknown, version: number) => {
         const state = isRecord(persisted) ? { ...persisted } : {}
+
+        if (version < 9) {
+          // Migrate flat AKS → clusters array
+          if (isRecord(state.aks)) {
+            const a = state.aks as Record<string, unknown>
+            if (!Array.isArray(a.clusters)) {
+              a.clusters = [{
+                id: 'cluster-1',
+                name: 'Cluster 1',
+                controlPlaneNodesPerCluster: a.controlPlaneNodesPerCluster ?? 1,
+                workerNodesPerCluster: a.workerNodesPerCluster ?? 3,
+                vCpusPerWorker: a.vCpusPerWorker ?? 4,
+                memoryPerWorkerGB: a.memoryPerWorkerGB ?? 16,
+                osDiskPerNodeGB: a.osDiskPerNodeGB ?? 200,
+                persistentVolumesTB: a.persistentVolumesTB ?? 0,
+              }]
+              delete a.clusterCount
+              delete a.controlPlaneNodesPerCluster
+              delete a.workerNodesPerCluster
+              delete a.vCpusPerWorker
+              delete a.memoryPerWorkerGB
+              delete a.osDiskPerNodeGB
+              delete a.persistentVolumesTB
+              delete a.dataServicesTB
+              delete a.resiliency
+            }
+          }
+
+          // Migrate flat VMs → groups array
+          if (isRecord(state.virtualMachines)) {
+            const vm = state.virtualMachines as Record<string, unknown>
+            if (!Array.isArray(vm.groups)) {
+              vm.groups = [{
+                id: 'group-1',
+                name: 'Default',
+                vmCount: vm.vmCount ?? 5,
+                vCpusPerVm: vm.vCpusPerVm ?? 4,
+                memoryPerVmGB: vm.memoryPerVmGB ?? 16,
+                storagePerVmGB: vm.storagePerVmGB ?? 200,
+              }]
+              delete vm.vmCount
+              delete vm.vCpusPerVm
+              delete vm.memoryPerVmGB
+              delete vm.storagePerVmGB
+              delete vm.resiliency
+            }
+          }
+
+          // Migrate AVD pools: storageLocation 's2d' → 'sofs'
+          if (isRecord(state.avd) && Array.isArray((state.avd as Record<string, unknown>).pools)) {
+            const avd = state.avd as Record<string, unknown>
+            avd.pools = (avd.pools as Record<string, unknown>[]).map((pool) =>
+              pool.profileStorageLocation === 's2d'
+                ? { ...pool, profileStorageLocation: 'sofs' }
+                : pool
+            )
+          }
+
+          // Add provisioning: 'fixed' to all existing volumes
+          if (Array.isArray(state.volumes)) {
+            state.volumes = (state.volumes as Record<string, unknown>[]).map((v) => ({
+              ...v,
+              provisioning: v.provisioning ?? 'fixed',
+            }))
+          }
+
+          // Add SOFS v2.0 defaults
+          if (isRecord(state.sofs)) {
+            const s = state.sofs as Record<string, unknown>
+            if (s.volumeLayout === undefined) s.volumeLayout = 'shared'
+            if (s.sofsOsDiskPerVmGB === undefined) s.sofsOsDiskPerVmGB = 127
+          }
+
+          // Remove volumeProvisioning from hardware (now per-volume)
+          if (isRecord(state.hardware)) {
+            delete (state.hardware as Record<string, unknown>).volumeProvisioning
+          }
+
+          // Remove CSV-level resiliency from MABS (now per-volume)
+          if (isRecord(state.mabs)) {
+            const m = state.mabs as Record<string, unknown>
+            delete m.scratchResiliency
+            delete m.backupResiliency
+          }
+
+          // Remove resiliency from custom workloads (now per-volume)
+          if (Array.isArray(state.customWorkloads)) {
+            state.customWorkloads = (state.customWorkloads as Record<string, unknown>[]).map((cw) => {
+              // eslint-disable-next-line @typescript-eslint/no-unused-vars
+              const { resiliency: _r, ...rest } = cw
+              return rest
+            })
+          }
+        }
+
         if (version < 8) {
           if (state.avd && typeof state.avd === 'object') {
             const avd = state.avd as Record<string, unknown>
@@ -413,16 +538,8 @@ export const useSurveyorStore = create<SurveyorState>()(
           }
         }
         if (version < 7) {
-          if (state.mabs && typeof state.mabs === 'object') {
-            const m = state.mabs as Record<string, unknown>
-            const legacyResiliency = m.resiliency
-            if (m.scratchResiliency === undefined) {
-              m.scratchResiliency = legacyResiliency ?? DEFAULT_MABS.scratchResiliency
-            }
-            if (m.backupResiliency === undefined) {
-              m.backupResiliency = legacyResiliency ?? DEFAULT_MABS.backupResiliency
-            }
-          }
+          // v7 previously added scratchResiliency/backupResiliency, but those fields were
+          // removed in v9. Do not re-add them here — the v9 block above already deleted them.
         }
         if (version < 6) {
           // v6: add customWorkloads
@@ -450,12 +567,10 @@ export const useSurveyorStore = create<SurveyorState>()(
             if (s.autoSizeDrivesPerNode === undefined) s.autoSizeDrivesPerNode = 4
             if (s.autoSizeNodes === undefined) s.autoSizeNodes = 2
           }
-          // Ensure mabs has internalMirror
+          // Ensure mabs has internalMirror (scratchResiliency/backupResiliency removed in v9)
           if (state.mabs && typeof state.mabs === 'object') {
             const m = state.mabs as Record<string, unknown>
             if (m.internalMirror === undefined) m.internalMirror = 'two-way'
-            if (m.scratchResiliency === undefined) m.scratchResiliency = m.resiliency ?? DEFAULT_MABS.scratchResiliency
-            if (m.backupResiliency === undefined) m.backupResiliency = m.resiliency ?? DEFAULT_MABS.backupResiliency
           }
           // Ensure advanced has overrides
           if (state.advanced && typeof state.advanced === 'object') {

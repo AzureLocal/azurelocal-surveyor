@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight, Wand2, PlusCircle, CheckCircle2, Terminal, AlertTriangle, CheckCircle, Copy } from 'lucide-react'
+import { ChevronDown, ChevronRight, Wand2, PlusCircle, CheckCircle2, Terminal, CheckCircle, Copy } from 'lucide-react'
 import VolumeTable from '../components/VolumeTable'
 import HealthCheck from '../components/HealthCheck'
 import { useSurveyorStore } from '../state/store'
@@ -12,7 +12,7 @@ import { computeMabs } from '../engine/mabs'
 import { computeAllCustomWorkloads } from '../engine/custom-workloads'
 import { runHealthCheck } from '../engine/healthcheck'
 import { generateWorkloadVolumes, type SuggestedVolume } from '../engine/workload-volumes'
-import { computeAllServicePresets } from '../engine/service-presets'
+import { computeServicePreset, getCatalogEntry } from '../engine/service-presets'
 import { toWacSize, computeQuickStart, generateGenericVolumes, type GenericSuggestion } from '../engine/volumes'
 
 export default function VolumesPage() {
@@ -31,16 +31,27 @@ export default function VolumesPage() {
   if (state.aks.enabled) { totalVCpus += aks.totalVCpus;  totalMemoryGB += aks.totalMemoryGB;  totalStorageTB += aks.totalStorageTB }
   if (state.virtualMachines?.enabled) {
     const vm = state.virtualMachines
-    totalVCpus    += (vm.vmCount * vm.vCpusPerVm) / vm.vCpuOvercommitRatio
-    totalMemoryGB += vm.vmCount * vm.memoryPerVmGB
-    totalStorageTB += (vm.vmCount * vm.storagePerVmGB) / 1024
+    let rawVmVCpus = 0
+    for (const g of vm.groups) {
+      rawVmVCpus    += g.vmCount * g.vCpusPerVm
+      totalMemoryGB += g.vmCount * g.memoryPerVmGB
+      totalStorageTB += (g.vmCount * g.storagePerVmGB) / 1024
+    }
+    totalVCpus += rawVmVCpus / vm.vCpuOvercommitRatio
   }
   if (state.sofsEnabled) { totalVCpus += sofs.sofsVCpusTotal; totalMemoryGB += sofs.sofsMemoryTotalGB; totalStorageTB += sofs.totalStorageTB }
   if (state.mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB; totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB }
-  const presetTotals = computeAllServicePresets(state.servicePresets)
-  totalVCpus    += presetTotals.totalVCpus
-  totalMemoryGB += presetTotals.totalMemoryGB
-  totalStorageTB += presetTotals.totalStorageTB
+  // Arc-dependent presets run on AKS workers — exclude compute when AKS enabled
+  for (const inst of state.servicePresets) {
+    if (!inst.enabled || inst.instanceCount <= 0) continue
+    const entry = getCatalogEntry(inst.catalogId)
+    const t = computeServicePreset(inst)
+    if (!(state.aks.enabled && entry?.requiresAks)) {
+      totalVCpus    += t.totalVCpus
+      totalMemoryGB += t.totalMemoryGB
+    }
+    totalStorageTB += t.totalStorageTB
+  }
   const customTotals = computeAllCustomWorkloads(state.customWorkloads)
   totalVCpus    += customTotals.totalVCpus
   totalMemoryGB += customTotals.totalMemoryGB
@@ -61,7 +72,7 @@ export default function VolumesPage() {
     avdResult: avd,
     aksEnabled: state.aks.enabled,
     aksResult: aks,
-    aksResiliency: state.aks.resiliency,
+    aksInputs: state.aks,
     virtualMachines: state.virtualMachines,
     sofsEnabled: state.sofsEnabled,
     sofsInputs: state.sofs,
@@ -150,22 +161,32 @@ function VolumeModeToggle() {
 function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/types').CapacityResult }) {
   const { volumes, addVolume } = useSurveyorStore()
   const [added, setAdded] = useState<Set<string>>(new Set())
+  const [resiliencyOverrides, setResiliencyOverrides] = useState<Record<string, import('../engine/types').ResiliencyType>>({})
+  const [provisioningOverrides, setProvisioningOverrides] = useState<Record<string, 'fixed' | 'thin'>>({})
   const suggestions = generateGenericVolumes(capacity)
 
   if (suggestions.length === 0) return null
 
   const existingNames = new Set(volumes.map((v) => v.name))
 
+  function getResiliency(s: GenericSuggestion) {
+    return resiliencyOverrides[s.id] ?? s.resiliency
+  }
+
+  function getProvisioning(s: GenericSuggestion) {
+    return provisioningOverrides[s.id] ?? s.provisioning
+  }
+
   function handleAdd(s: GenericSuggestion) {
     if (existingNames.has(s.name) || added.has(s.id)) return
-    addVolume({ id: s.id, name: s.name, plannedSizeTB: s.plannedSizeTB, resiliency: s.resiliency })
+    addVolume({ id: s.id, name: s.name, plannedSizeTB: s.plannedSizeTB, resiliency: getResiliency(s), provisioning: getProvisioning(s) })
     setAdded((prev) => new Set(prev).add(s.id))
   }
 
   function handleAddAll() {
     for (const s of suggestions) {
       if (!existingNames.has(s.name) && !added.has(s.id)) {
-        addVolume({ id: s.id, name: s.name, plannedSizeTB: s.plannedSizeTB, resiliency: s.resiliency })
+        addVolume({ id: s.id, name: s.name, plannedSizeTB: s.plannedSizeTB, resiliency: getResiliency(s), provisioning: getProvisioning(s) })
         setAdded((prev) => { const next = new Set(prev); next.add(s.id); return next })
       }
     }
@@ -201,6 +222,33 @@ function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/ty
                 <div className="font-medium truncate">{s.name}</div>
                 <div className="text-xs text-gray-500 truncate">{s.description}</div>
               </div>
+              {isAdded ? (
+                <>
+                  <div className="text-xs text-gray-400 shrink-0">{getResiliency(s)}</div>
+                  <div className="text-xs text-gray-400 shrink-0">{getProvisioning(s)}</div>
+                </>
+              ) : (
+                <>
+                  <select
+                    value={getResiliency(s)}
+                    onChange={(e) => setResiliencyOverrides((prev) => ({ ...prev, [s.id]: e.target.value as import('../engine/types').ResiliencyType }))}
+                    className="text-xs border border-gray-200 dark:border-gray-700 rounded px-1 py-0.5 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 shrink-0"
+                  >
+                    <option value="two-way-mirror">Two-Way Mirror</option>
+                    <option value="three-way-mirror">Three-Way Mirror</option>
+                    <option value="dual-parity">Dual Parity</option>
+                    <option value="nested-two-way">Nested Two-Way</option>
+                  </select>
+                  <select
+                    value={getProvisioning(s)}
+                    onChange={(e) => setProvisioningOverrides((prev) => ({ ...prev, [s.id]: e.target.value as 'fixed' | 'thin' }))}
+                    className="text-xs border border-gray-200 dark:border-gray-700 rounded px-1 py-0.5 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 shrink-0"
+                  >
+                    <option value="fixed">Fixed</option>
+                    <option value="thin">Thin</option>
+                  </select>
+                </>
+              )}
               <div className="text-sm font-mono text-right w-20 shrink-0">{s.plannedSizeTB} TiB</div>
               <div className="text-xs font-mono text-gray-400 text-right w-20 shrink-0">{wacSizeGB} GiB</div>
               <div className="w-20 shrink-0 text-right">
@@ -237,11 +285,6 @@ function QuickStartVolumes({ capacity }: { capacity: import('../engine/types').C
 
   if (qs.rows.length === 0) return null
 
-  const row = qs.rows[0]
-  const fitColor = row.fits
-    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 text-green-800 dark:text-green-300'
-    : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800 text-red-800 dark:text-red-300'
-
   function handleCopy() {
     navigator.clipboard.writeText(qs.psScript).then(() => {
       setCopied(true)
@@ -256,85 +299,63 @@ function QuickStartVolumes({ capacity }: { capacity: import('../engine/types').C
         onClick={() => setOpen((o) => !o)}
       >
         {open ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
-        Quick-Start Volumes — Hardware-Based Reference
+        Microsoft Best Practice — Volume Reference
         <span className="ml-2 text-xs font-normal text-gray-400">
-          {qs.nodeCount}-node cluster = {row.volumeCount} equal volumes
+          {qs.nodeCount}-node cluster · {qs.rows[0].volumeCount} volumes · {qs.availableForVolumesTB.toFixed(2)} TB pool available
         </span>
       </button>
 
       {open && (
         <div className="border-t border-gray-100 dark:border-gray-800">
-          {/* Reference fit banner */}
-          <div className={`px-4 py-2.5 border-b border-gray-100 dark:border-gray-800 ${fitColor}`}>
-            <div className="flex items-center gap-2 text-sm font-semibold">
-              {row.fits
-                ? <><CheckCircle className="w-4 h-4 shrink-0" /> Reference scenario fits — {row.utilizationPct}% pool utilized. Headroom available for drive failure rebuild.</>
-                : <><AlertTriangle className="w-4 h-4 shrink-0" /> Reference scenario does not fit — pool footprint ({row.poolFootprintTB.toFixed(2)} TB) exceeds available pool space ({qs.availableForVolumesTB.toFixed(2)} TB).</>
-              }
-            </div>
-            <p className="text-xs mt-1 opacity-80">
-              This checks the equal-volume reference scenario below — not your Volume Health Check. A fail here means this specific reference layout doesn't fit; your actual planned volumes may still pass.
-            </p>
-          </div>
-
           {/* TiB/TB Warning */}
           <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800">
             <p className="text-xs text-amber-800 dark:text-amber-300">
-              <strong>⚠ IMPORTANT:</strong> Windows, PowerShell, and WAC use TiB (binary), not TB (decimal).
+              <strong>IMPORTANT:</strong> Windows, PowerShell, and WAC use TiB (binary), not TB (decimal).
               The <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded">-Size</code> parameter in PowerShell interprets "TB" as TiB.
-              1 TB ≈ 0.909 TiB — using the wrong column means your volumes will be ~10% larger than intended, wasting pool capacity.
+              1 TB ≈ 0.909 TiB. Volume sizes include a 1 GiB safety margin to prevent WAC errors.
             </p>
             <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
               Microsoft recommends volume count as a multiple of your node count ({qs.nodeCount}).
+              These two rows show equal-split layouts for the two most common resiliency types.
             </p>
           </div>
 
-          {/* Best practice note */}
-          <div className="px-4 py-2 text-xs text-gray-500 border-b border-gray-100 dark:border-gray-800">
-            Microsoft best practice: 1 volume per node (up to 4 nodes). Your {qs.nodeCount}-node cluster = {row.volumeCount} equal volumes.
-          </div>
-
-          {/* Table */}
+          {/* Table — two reference rows (3WM + 2WM) */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 dark:bg-gray-800 text-left text-xs">
-                  <th className="px-4 py-2 font-semibold">Scenario</th>
-                  <th className="px-4 py-2 font-semibold text-center"># of Volumes</th>
+                  <th className="px-4 py-2 font-semibold text-center"># Volumes</th>
                   <th className="px-4 py-2 font-semibold">Resiliency</th>
-                  <th className="px-4 py-2 font-semibold text-right">Calculator Only (TB)</th>
-                  <th className="px-4 py-2 font-semibold text-right bg-yellow-100 dark:bg-yellow-900/30">↓ ENTER THIS IN WAC / PS</th>
+                  <th className="px-4 py-2 font-semibold text-right">Eff. Size / Vol (TB)</th>
+                  <th className="px-4 py-2 font-semibold text-right bg-yellow-100 dark:bg-yellow-900/30">WAC / PS Size (GiB)</th>
                   <th className="px-4 py-2 font-semibold text-right">Pool Footprint (TB)</th>
                   <th className="px-4 py-2 font-semibold text-right">Usable Total (TB)</th>
-                  <th className="px-4 py-2 font-semibold text-center">Fits?</th>
+                  <th className="px-4 py-2 font-semibold text-right">Pool Used %</th>
                 </tr>
               </thead>
               <tbody>
-                <tr className="border-t border-gray-100 dark:border-gray-800">
-                  <td className="px-4 py-2 font-medium">{row.scenario}</td>
-                  <td className="px-4 py-2 text-center font-semibold">{row.volumeCount}</td>
-                  <td className="px-4 py-2 text-xs text-gray-500">{row.resiliencyLabel}</td>
-                  <td className="px-4 py-2 text-right font-mono">{row.calculatorSizeTB.toFixed(2)}</td>
-                  <td className="px-4 py-2 text-right font-mono font-semibold bg-yellow-50 dark:bg-yellow-900/20">{row.wacSizeTiB.toFixed(2)}</td>
-                  <td className="px-4 py-2 text-right font-mono text-brand-600 dark:text-brand-400">{row.poolFootprintTB.toFixed(2)}</td>
-                  <td className="px-4 py-2 text-right font-mono">{row.usableTotalTB.toFixed(2)}</td>
-                  <td className="px-4 py-2 text-center">
-                    {row.fits
-                      ? <span className="inline-flex items-center gap-1 text-xs font-semibold text-green-600 dark:text-green-400">PASS</span>
-                      : <span className="inline-flex items-center gap-1 text-xs font-semibold text-red-600 dark:text-red-400">FAIL</span>
-                    }
-                  </td>
-                </tr>
+                {qs.rows.map((row) => (
+                  <tr key={row.resiliency} className="border-t border-gray-100 dark:border-gray-800">
+                    <td className="px-4 py-2 text-center font-semibold">{row.volumeCount}</td>
+                    <td className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400">{row.resiliencyLabel}</td>
+                    <td className="px-4 py-2 text-right font-mono text-gray-500">{row.calculatorSizeTB.toFixed(2)}</td>
+                    <td className="px-4 py-2 text-right font-mono font-semibold text-brand-700 dark:text-brand-300 bg-yellow-50 dark:bg-yellow-900/20">{row.wacSizeGiB}</td>
+                    <td className="px-4 py-2 text-right font-mono">{row.poolFootprintTB.toFixed(2)}</td>
+                    <td className="px-4 py-2 text-right font-mono">{row.usableTotalTB.toFixed(2)}</td>
+                    <td className="px-4 py-2 text-right font-mono text-gray-500">{row.utilizationPct}%</td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>
 
-          {/* PowerShell Quick Create */}
+          {/* PowerShell Quick Create — uses 3WM row */}
           <div className="border-t border-gray-100 dark:border-gray-800">
             <div className="flex items-center justify-between bg-[#012456] px-4 py-2">
               <div className="flex items-center gap-2 text-xs font-semibold text-blue-200">
                 <Terminal className="w-3.5 h-3.5" />
-                POWERSHELL — QUICK CREATE
+                POWERSHELL — THREE-WAY MIRROR QUICK CREATE
               </div>
               <button
                 onClick={handleCopy}
@@ -351,16 +372,9 @@ function QuickStartVolumes({ capacity }: { capacity: import('../engine/types').C
           {/* Footer notes */}
           <div className="px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 text-xs text-gray-500 space-y-1.5">
             <p>
-              <strong className="text-gray-700 dark:text-gray-300">This is a reference-only section</strong> — it does not feed into the Workload Planner or Capacity Report.
-              Use it when you want to see your cluster's raw capability as a set of balanced, equal-sized volumes (one per node, up to 4 nodes per Microsoft guidance).
-              Max 64 volumes and 64 TB per volume.
-            </p>
-            <p>
-              <strong className="text-gray-700 dark:text-gray-300">Difference from Volume Health Check:</strong> The Volume Health Check (below) evaluates the volumes you actually plan to create.
-              This section only checks whether the equal-volume reference scenario fits — the two results are independent.
-            </p>
-            <p>
-              <span className="text-blue-600 dark:text-blue-400">Already created volumes that don't match these sizes?</span> Use the Volume Health Check section to assess reserve loss and resiliency risk for your actual volume plan.
+              <strong className="text-gray-700 dark:text-gray-300">Reference only</strong> — these numbers do not feed into the Workload Planner or Capacity Report.
+              Use them to see your cluster's raw capability as balanced equal-sized volumes (1 per node, up to 16).
+              Max 64 TB per volume per Azure Local limits.
             </p>
             <p className="text-gray-400">
               References:{' '}
@@ -380,20 +394,30 @@ function QuickStartVolumes({ capacity }: { capacity: import('../engine/types').C
 function WorkloadVolumeSuggestions({ suggestions }: { suggestions: SuggestedVolume[] }) {
   const { volumes, addVolume } = useSurveyorStore()
   const [added, setAdded] = useState<Set<string>>(new Set())
+  const [resiliencyOverrides, setResiliencyOverrides] = useState<Record<string, import('../engine/types').ResiliencyType>>({})
+  const [provisioningOverrides, setProvisioningOverrides] = useState<Record<string, 'fixed' | 'thin'>>({})
 
   // Check which suggestions already exist in the volume list (by name)
   const existingNames = new Set(volumes.map((v) => v.name))
 
+  function getResiliency(s: SuggestedVolume) {
+    return resiliencyOverrides[s.id] ?? s.resiliency
+  }
+
+  function getProvisioning(s: SuggestedVolume) {
+    return provisioningOverrides[s.id] ?? s.provisioning
+  }
+
   function handleAdd(s: SuggestedVolume) {
     if (existingNames.has(s.name) || added.has(s.id)) return
-    addVolume({ id: s.id, name: s.name, plannedSizeTB: s.plannedSizeTB, resiliency: s.resiliency })
+    addVolume({ id: s.id, name: s.name, plannedSizeTB: s.plannedSizeTB, resiliency: getResiliency(s), provisioning: getProvisioning(s) })
     setAdded((prev) => new Set(prev).add(s.id))
   }
 
   function handleAddAll() {
     for (const s of suggestions) {
       if (!existingNames.has(s.name) && !added.has(s.id)) {
-        addVolume({ id: s.id, name: s.name, plannedSizeTB: s.plannedSizeTB, resiliency: s.resiliency })
+        addVolume({ id: s.id, name: s.name, plannedSizeTB: s.plannedSizeTB, resiliency: getResiliency(s), provisioning: getProvisioning(s) })
         setAdded((prev) => { const next = new Set(prev); next.add(s.id); return next })
       }
     }
@@ -442,7 +466,33 @@ function WorkloadVolumeSuggestions({ suggestions }: { suggestions: SuggestedVolu
                     <div className="font-medium truncate">{s.name}</div>
                     <div className="text-xs text-gray-500 truncate">{s.description}</div>
                   </div>
-                  <div className="text-xs text-gray-500 shrink-0">{s.resiliency}</div>
+                  {isAdded ? (
+                    <>
+                      <div className="text-xs text-gray-400 shrink-0">{getResiliency(s)}</div>
+                      <div className="text-xs text-gray-400 shrink-0">{getProvisioning(s)}</div>
+                    </>
+                  ) : (
+                    <>
+                      <select
+                        value={getResiliency(s)}
+                        onChange={(e) => setResiliencyOverrides((prev) => ({ ...prev, [s.id]: e.target.value as import('../engine/types').ResiliencyType }))}
+                        className="text-xs border border-gray-200 dark:border-gray-700 rounded px-1 py-0.5 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 shrink-0"
+                      >
+                        <option value="two-way-mirror">Two-Way Mirror</option>
+                        <option value="three-way-mirror">Three-Way Mirror</option>
+                        <option value="dual-parity">Dual Parity</option>
+                        <option value="nested-two-way">Nested Two-Way</option>
+                      </select>
+                      <select
+                        value={getProvisioning(s)}
+                        onChange={(e) => setProvisioningOverrides((prev) => ({ ...prev, [s.id]: e.target.value as 'fixed' | 'thin' }))}
+                        className="text-xs border border-gray-200 dark:border-gray-700 rounded px-1 py-0.5 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 shrink-0"
+                      >
+                        <option value="fixed">Fixed</option>
+                        <option value="thin">Thin</option>
+                      </select>
+                    </>
+                  )}
                   <div className="text-sm font-mono text-right w-20 shrink-0">{s.plannedSizeTB} TiB</div>
                   <div className="text-xs font-mono text-gray-400 text-right w-20 shrink-0">{wacSizeGB} GiB</div>
                   <div className="w-20 shrink-0 text-right">

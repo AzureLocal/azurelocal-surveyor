@@ -21,8 +21,12 @@ export default function WorkloadsPage() {
   if (avdEnabled) { totalVCpus += avdResult.totalVCpus; totalMemoryGB += avdResult.totalMemoryGB }
   if (aks.enabled) { totalVCpus += aksResult.totalVCpus; totalMemoryGB += aksResult.totalMemoryGB }
   if (virtualMachines?.enabled) {
-    totalVCpus += (virtualMachines.vmCount * virtualMachines.vCpusPerVm) / virtualMachines.vCpuOvercommitRatio
-    totalMemoryGB += virtualMachines.vmCount * virtualMachines.memoryPerVmGB
+    let rawVmVCpus = 0
+    for (const g of virtualMachines.groups) {
+      rawVmVCpus  += g.vmCount * g.vCpusPerVm
+      totalMemoryGB += g.vmCount * g.memoryPerVmGB
+    }
+    totalVCpus += rawVmVCpus / virtualMachines.vCpuOvercommitRatio
   }
   if (sofsEnabled) { totalVCpus += sofsResult.sofsVCpusTotal; totalMemoryGB += sofsResult.sofsMemoryTotalGB }
   if (mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB }

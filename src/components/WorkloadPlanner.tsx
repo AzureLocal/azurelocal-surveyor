@@ -15,10 +15,10 @@ import { computeAks } from '../engine/aks'
 import { computeSofs } from '../engine/sofs'
 import { computeMabs } from '../engine/mabs'
 import { computeAllCustomWorkloads } from '../engine/custom-workloads'
-import { computeAllServicePresets, getCatalogEntry } from '../engine/service-presets'
+import { computeServicePreset, getCatalogEntry } from '../engine/service-presets'
 import ServicePresets from './ServicePresets'
 import CustomWorkloads from './CustomWorkloads'
-import type { ResiliencyType, VmScenario } from '../engine/types'
+import type { VmScenario, VmStorageGroup } from '../engine/types'
 
 /** Parse numeric input — returns current value if input is empty or NaN. */
 function num(e: React.ChangeEvent<HTMLInputElement>, current: number): number {
@@ -71,48 +71,42 @@ function ScenarioCard({
   )
 }
 
-// ─── Resiliency select shared ─────────────────────────────────────────────────
+// ─── VM storage groups editor ─────────────────────────────────────────────────
 
-function ResiliencySelect({ value, onChange }: { value: ResiliencyType; onChange: (v: ResiliencyType) => void }) {
-  return (
-    <select value={value} onChange={(e) => onChange(e.target.value as ResiliencyType)} className="input">
-      <option value="three-way-mirror">Three-Way Mirror (33%)</option>
-      <option value="two-way-mirror">Two-Way Mirror (50%)</option>
-      <option value="dual-parity">Dual Parity (50–80%)</option>
-      <option value="nested-two-way">Nested Two-Way (25%)</option>
-    </select>
-  )
+function vmScenarioTotals(s: VmScenario) {
+  let rawVCpus = 0
+  let memoryGB = 0
+  let storageTB = 0
+  for (const g of s.groups) {
+    rawVCpus += g.vmCount * g.vCpusPerVm
+    memoryGB  += g.vmCount * g.memoryPerVmGB
+    storageTB += (g.vmCount * g.storagePerVmGB) / 1024
+  }
+  return { rawVCpus, vCpus: Math.round(rawVCpus / s.vCpuOvercommitRatio), memoryGB, storageTB }
 }
 
-// ─── VM scenario fields ─────────────────────────────────────────────────────
+function VmGroupsEditor({ value, onChange }: { value: VmScenario; onChange: (v: Partial<VmScenario>) => void }) {
+  const totals = vmScenarioTotals(value)
 
-function VmFields({
-  value,
-  onChange,
-}: {
-  value: VmScenario
-  onChange: (v: Partial<VmScenario>) => void
-}) {
-  const effectiveVCpus = Math.round((value.vmCount * value.vCpusPerVm) / value.vCpuOvercommitRatio)
+  function updateGroup(id: string, patch: Partial<VmStorageGroup>) {
+    onChange({ groups: value.groups.map((g) => g.id === id ? { ...g, ...patch } : g) })
+  }
+
+  function addGroup() {
+    const idx = value.groups.length + 1
+    onChange({
+      groups: [...value.groups, { id: `g-${Date.now()}`, name: `Group ${idx}`, vmCount: 10, vCpusPerVm: 4, memoryPerVmGB: 16, storagePerVmGB: 500 }],
+    })
+  }
+
+  function removeGroup(id: string) {
+    if (value.groups.length <= 1) return
+    onChange({ groups: value.groups.filter((g) => g.id !== id) })
+  }
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-      <SmallField label="VM count">
-        <input type="number" min={1} className="input w-full" value={value.vmCount}
-          onChange={(e) => onChange({ vmCount: num(e, value.vmCount) })} />
-      </SmallField>
-      <SmallField label="vCPUs / VM">
-        <input type="number" min={1} className="input w-full" value={value.vCpusPerVm}
-          onChange={(e) => onChange({ vCpusPerVm: num(e, value.vCpusPerVm) })} />
-      </SmallField>
-      <SmallField label="RAM / VM (GB)">
-        <input type="number" min={1} className="input w-full" value={value.memoryPerVmGB}
-          onChange={(e) => onChange({ memoryPerVmGB: num(e, value.memoryPerVmGB) })} />
-      </SmallField>
-      <SmallField label="Storage / VM (GB)">
-        <input type="number" min={1} className="input w-full" value={value.storagePerVmGB}
-          onChange={(e) => onChange({ storagePerVmGB: num(e, value.storagePerVmGB) })} />
-      </SmallField>
-      <SmallField label="vCPU overcommit" hint={`${effectiveVCpus} effective vCPUs`}>
+    <div className="space-y-3">
+      <SmallField label="vCPU overcommit" hint={`${totals.vCpus} effective vCPUs`}>
         <select className="input w-full" value={value.vCpuOvercommitRatio}
           onChange={(e) => onChange({ vCpuOvercommitRatio: +e.target.value })}>
           <option value={1}>1:1 (no overcommit)</option>
@@ -122,19 +116,45 @@ function VmFields({
           <option value={8}>8:1</option>
         </select>
       </SmallField>
-      <SmallField label="Workload volume resiliency" hint="applies to VM storage volumes">
-        <ResiliencySelect value={value.resiliency} onChange={(r) => onChange({ resiliency: r })} />
-      </SmallField>
+      <div className="space-y-2">
+        {value.groups.map((group) => (
+          <div key={group.id} className="rounded-md border border-gray-200 dark:border-gray-700 p-2.5 space-y-2">
+            <div className="flex items-center gap-2">
+              <input type="text" className="input text-xs font-medium flex-1"
+                value={group.name} placeholder="Group name"
+                onChange={(e) => updateGroup(group.id, { name: e.target.value })} />
+              <button onClick={() => removeGroup(group.id)} disabled={value.groups.length <= 1}
+                className="text-xs text-red-500 hover:text-red-700 dark:text-red-400 disabled:text-gray-300 dark:disabled:text-gray-600 transition-colors shrink-0">
+                Remove
+              </button>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <SmallField label="VMs">
+                <input type="number" min={1} className="input w-full" value={group.vmCount}
+                  onChange={(e) => updateGroup(group.id, { vmCount: num(e, group.vmCount) })} />
+              </SmallField>
+              <SmallField label="vCPUs / VM">
+                <input type="number" min={1} className="input w-full" value={group.vCpusPerVm}
+                  onChange={(e) => updateGroup(group.id, { vCpusPerVm: num(e, group.vCpusPerVm) })} />
+              </SmallField>
+              <SmallField label="RAM / VM (GB)">
+                <input type="number" min={1} className="input w-full" value={group.memoryPerVmGB}
+                  onChange={(e) => updateGroup(group.id, { memoryPerVmGB: num(e, group.memoryPerVmGB) })} />
+              </SmallField>
+              <SmallField label="Storage / VM (GB)">
+                <input type="number" min={0} className="input w-full" value={group.storagePerVmGB}
+                  onChange={(e) => updateGroup(group.id, { storagePerVmGB: num(e, group.storagePerVmGB) })} />
+              </SmallField>
+            </div>
+          </div>
+        ))}
+      </div>
+      <button onClick={addGroup}
+        className="text-xs text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300 font-medium">
+        + Add Group
+      </button>
     </div>
   )
-}
-
-function vmScenarioTotals(s: VmScenario) {
-  return {
-    vCpus: Math.round((s.vmCount * s.vCpusPerVm) / s.vCpuOvercommitRatio),
-    memoryGB: s.vmCount * s.memoryPerVmGB,
-    storageTB: (s.vmCount * s.storagePerVmGB) / 1024,
-  }
 }
 
 // ─── Main component ────────────────────────────────────────────────────────────
@@ -156,7 +176,6 @@ export default function WorkloadPlanner() {
   const sofsResult = computeSofs(sofs, advanced.overrides)
   const mabsResult = computeMabs(mabs)
   const vmTotals = vmScenarioTotals(virtualMachines)
-  const presetTotals = computeAllServicePresets(servicePresets)
   const customTotals = computeAllCustomWorkloads(customWorkloads)
 
   // True when any enabled service preset requires AKS
@@ -194,10 +213,18 @@ export default function WorkloadPlanner() {
     totalMemoryGB += mabsResult.mabsMemoryGB
     totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB
   }
-  // Service presets: always aggregate enabled instances (no top-level toggle)
-  totalVCpus    += presetTotals.totalVCpus
-  totalMemoryGB += presetTotals.totalMemoryGB
-  totalStorageTB += presetTotals.totalStorageTB
+  // Service presets: arc-dependent presets run on AKS workers — exclude their compute
+  // when AKS is enabled to avoid double-counting with AKS worker vCPU/memory.
+  for (const inst of servicePresets) {
+    if (!inst.enabled || inst.instanceCount <= 0) continue
+    const entry = getCatalogEntry(inst.catalogId)
+    const t = computeServicePreset(inst)
+    if (!(aks.enabled && entry?.requiresAks)) {
+      totalVCpus    += t.totalVCpus
+      totalMemoryGB += t.totalMemoryGB
+    }
+    totalStorageTB += t.totalStorageTB
+  }
   // Custom workloads: always aggregate enabled instances
   totalVCpus    += customTotals.totalVCpus
   totalMemoryGB += customTotals.totalMemoryGB
@@ -208,9 +235,9 @@ export default function WorkloadPlanner() {
 
       {/* ── 1. Virtual Machines ── */}
       <ScenarioCard label="Virtual Machines" subtitle="Workload VMs, dev/test, infra" enabled={virtualMachines.enabled} onToggle={() => setVirtualMachines({ enabled: !virtualMachines.enabled })}>
-        <VmFields value={virtualMachines} onChange={setVirtualMachines} />
+        <VmGroupsEditor value={virtualMachines} onChange={setVirtualMachines} />
         <ScenarioTotals vCpus={vmTotals.vCpus} memGB={vmTotals.memoryGB} storageTB={vmTotals.storageTB}
-          rawVCpus={virtualMachines.vmCount * virtualMachines.vCpusPerVm} overcommit={virtualMachines.vCpuOvercommitRatio} />
+          rawVCpus={vmTotals.rawVCpus} overcommit={virtualMachines.vCpuOvercommitRatio} />
       </ScenarioCard>
 
       {/* ── 2. AVD ── */}
@@ -230,56 +257,25 @@ export default function WorkloadPlanner() {
       </ScenarioCard>
 
       {/* ── 3. AKS ── */}
-      <ScenarioCard label="AKS on Azure Local" subtitle="Kubernetes" enabled={aks.enabled} onToggle={() => {
+      <ScenarioCard label="AKS on Azure Local" subtitle="Kubernetes" badge="separate page" enabled={aks.enabled} onToggle={() => {
         if (aks.enabled && aksDependentPresetsEnabled) {
           if (!window.confirm('One or more Arc-enabled services (SQL MI, IoT Operations, etc.) require AKS. Disabling AKS will leave those presets without a runtime. Disable anyway?')) return
         }
         setAks({ enabled: !aks.enabled })
       }}>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <SmallField label="Clusters">
-            <input type="number" min={1} className="input w-full" value={aks.clusterCount}
-              onChange={(e) => setAks({ clusterCount: num(e, aks.clusterCount) })} />
-          </SmallField>
-          <SmallField label="Control plane nodes / cluster" hint="1=dev, 3=HA">
-            <input type="number" min={1} max={3} className="input w-full" value={aks.controlPlaneNodesPerCluster}
-              onChange={(e) => setAks({ controlPlaneNodesPerCluster: num(e, aks.controlPlaneNodesPerCluster) })} />
-          </SmallField>
-          <SmallField label="Worker nodes / cluster">
-            <input type="number" min={1} className="input w-full" value={aks.workerNodesPerCluster}
-              onChange={(e) => setAks({ workerNodesPerCluster: num(e, aks.workerNodesPerCluster) })} />
-          </SmallField>
-          <SmallField label="vCPUs / worker">
-            <input type="number" min={1} className="input w-full" value={aks.vCpusPerWorker}
-              onChange={(e) => setAks({ vCpusPerWorker: num(e, aks.vCpusPerWorker) })} />
-          </SmallField>
-          <SmallField label="RAM / worker (GB)">
-            <input type="number" min={1} className="input w-full" value={aks.memoryPerWorkerGB}
-              onChange={(e) => setAks({ memoryPerWorkerGB: num(e, aks.memoryPerWorkerGB) })} />
-          </SmallField>
-          <SmallField label="OS disk / node (GB)" hint="default 200">
-            <input type="number" min={100} className="input w-full" value={aks.osDiskPerNodeGB}
-              onChange={(e) => setAks({ osDiskPerNodeGB: num(e, aks.osDiskPerNodeGB) })} />
-          </SmallField>
-          <SmallField label="Persistent volumes (TB)">
-            <input type="number" min={0} step={0.1} className="input w-full" value={aks.persistentVolumesTB}
-              onChange={(e) => setAks({ persistentVolumesTB: num(e, aks.persistentVolumesTB) })} />
-          </SmallField>
-          <SmallField label="Data services (TB)" hint="Arc SQL, etc.">
-            <input type="number" min={0} step={0.1} className="input w-full" value={aks.dataServicesTB}
-              onChange={(e) => setAks({ dataServicesTB: num(e, aks.dataServicesTB) })} />
-          </SmallField>
-          <SmallField label="Workload volume resiliency" hint="applies to persistent volumes and data services" className="col-span-2">
-            <ResiliencySelect value={aks.resiliency} onChange={(r) => setAks({ resiliency: r })} />
-            <p className="text-xs text-gray-400 mt-1">AKS node OS disks are always Three-Way Mirror regardless of this setting.</p>
-          </SmallField>
+        <div className="text-sm text-gray-500">
+          AKS clusters are configured on the{' '}
+          <Link to="/aks" className="text-brand-600 hover:underline">AKS Planning page</Link>.
+          Enabling this includes their compute and storage in the totals below.
         </div>
-        <div className="mt-2 pt-2 border-t border-gray-100 dark:border-gray-700 grid grid-cols-4 gap-2 text-xs text-gray-500">
-          <span>Nodes: <strong className="text-gray-900 dark:text-white">{aksResult.totalNodes}</strong></span>
-          <span>vCPUs: <strong className="text-gray-900 dark:text-white">{aksResult.totalVCpus}</strong></span>
-          <span>RAM: <strong className="text-gray-900 dark:text-white">{aksResult.totalMemoryGB} GB</strong></span>
-          <span>Storage: <strong className="text-gray-900 dark:text-white">{aksResult.totalStorageTB} TB</strong></span>
-        </div>
+        <SummaryRow label="Clusters" value={String(aks.clusters.length)} />
+        <SummaryRow label="Nodes" value={String(aksResult.totalNodes)} />
+        <SummaryRow label="vCPUs" value={String(aksResult.totalVCpus)} />
+        <SummaryRow label="Memory" value={`${aksResult.totalMemoryGB} GB`} />
+        <SummaryRow label="Storage" value={`${aksResult.totalStorageTB} TB`} />
+        <p className="text-xs text-gray-400 mt-1">
+          Volume resiliency: OS disks use Three-Way Mirror. PVC volumes follow the default resiliency in Advanced Settings.
+        </p>
       </ScenarioCard>
 
       {/* ── 4. SOFS ── */}
@@ -321,13 +317,13 @@ export default function WorkloadPlanner() {
         </div>
         <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700">
           {aksDependentPresetsEnabled && !aks.enabled && (
-            <div className="mb-3 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-3 py-2.5 flex items-start justify-between gap-3">
-              <p className="text-xs text-amber-800 dark:text-amber-300">
-                <strong>AKS required:</strong> one or more enabled Arc-enabled services (SQL MI, IoT Operations, etc.) run on AKS on Azure Local. Enable AKS to include the runtime infrastructure in your plan.
+            <div className="mb-3 rounded-md border border-red-300 dark:border-red-700 bg-red-50 dark:bg-red-900/20 px-3 py-2.5 flex items-start justify-between gap-3">
+              <p className="text-xs text-red-800 dark:text-red-300">
+                <strong>AKS required:</strong> Arc services require AKS. Enable AKS to use Arc service presets.
               </p>
               <button
                 onClick={() => setAks({ enabled: true })}
-                className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-md bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+                className="shrink-0 px-2.5 py-1 text-xs font-semibold rounded-md bg-red-600 hover:bg-red-700 text-white transition-colors"
               >
                 Enable AKS
               </button>

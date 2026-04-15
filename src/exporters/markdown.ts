@@ -37,9 +37,13 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
   if (state.aks.enabled) { totalVCpus += aks.totalVCpus; totalMemoryGB += aks.totalMemoryGB; totalStorageTB += aks.totalStorageTB }
   if (state.virtualMachines?.enabled) {
     const vm = state.virtualMachines
-    totalVCpus += (vm.vmCount * vm.vCpusPerVm) / vm.vCpuOvercommitRatio
-    totalMemoryGB += vm.vmCount * vm.memoryPerVmGB
-    totalStorageTB += (vm.vmCount * vm.storagePerVmGB) / 1024
+    let rawVCpus = 0
+    for (const group of vm.groups) {
+      rawVCpus += group.vmCount * group.vCpusPerVm
+      totalMemoryGB += group.vmCount * group.memoryPerVmGB
+      totalStorageTB += (group.vmCount * group.storagePerVmGB) / 1024
+    }
+    totalVCpus += rawVCpus / vm.vCpuOvercommitRatio
   }
   if (state.sofsEnabled) { totalVCpus += sofs.sofsVCpusTotal; totalMemoryGB += sofs.sofsMemoryTotalGB; totalStorageTB += sofs.totalStorageTB }
   if (state.mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB; totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB }
@@ -151,7 +155,10 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
     if (state.aks.enabled) lines.push(`| AKS | ${aks.totalVCpus} | ${aks.totalMemoryGB} | ${round2(aks.totalStorageTB)} |`)
     if (state.virtualMachines?.enabled) {
       const vm = state.virtualMachines
-      lines.push(`| Virtual Machines | ${Math.round((vm.vmCount * vm.vCpusPerVm) / vm.vCpuOvercommitRatio)} | ${vm.vmCount * vm.memoryPerVmGB} | ${round2((vm.vmCount * vm.storagePerVmGB) / 1024)} |`)
+      const vmVCpus = Math.round(vm.groups.reduce((s, g) => s + g.vmCount * g.vCpusPerVm, 0) / vm.vCpuOvercommitRatio)
+      const vmMemory = vm.groups.reduce((s, g) => s + g.vmCount * g.memoryPerVmGB, 0)
+      const vmStorage = round2(vm.groups.reduce((s, g) => s + (g.vmCount * g.storagePerVmGB) / 1024, 0))
+      lines.push(`| Virtual Machines | ${vmVCpus} | ${vmMemory} | ${vmStorage} |`)
     }
     if (state.sofsEnabled) lines.push(`| SOFS | ${sofs.sofsVCpusTotal} | ${sofs.sofsMemoryTotalGB} | ${round2(sofs.totalStorageTB)} |`)
     if (state.mabsEnabled) lines.push(`| MABS | ${mabsResult.mabsVCpus} | ${mabsResult.mabsMemoryGB} | ${round2(mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB)} |`)
@@ -208,8 +215,6 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
     lines.push(`|---|---|`)
     lines.push(`| Protected data | ${state.mabs.protectedDataTB} TB |`)
     lines.push(`| Retention | ${state.mabs.onPremRetentionDays} days |`)
-    lines.push(`| Scratch volume resiliency | ${state.mabs.scratchResiliency} |`)
-    lines.push(`| Backup volume resiliency | ${state.mabs.backupResiliency} |`)
     lines.push(`| Scratch volume | ${mabsResult.scratchVolumeTB} TB |`)
     lines.push(`| Backup volume | ${mabsResult.backupDataVolumeTB} TB |`)
     lines.push(`| Internal mirror | ${state.mabs.internalMirror} (${mabsResult.internalMirrorFactor}×) |`)

@@ -179,6 +179,19 @@ export default function SofsPlanner() {
             <input type="number" min={4} className="input" value={sofs.sofsMemoryPerVmGB}
               onChange={(e) => setSofs({ sofsMemoryPerVmGB: num(e, sofs.sofsMemoryPerVmGB) })} />
           </Field>
+
+          <Field label="OS disk per SOFS VM (GB)" hint="default 127">
+            <input type="number" min={64} className="input" value={sofs.sofsOsDiskPerVmGB}
+              onChange={(e) => setSofs({ sofsOsDiskPerVmGB: num(e, sofs.sofsOsDiskPerVmGB) })} />
+          </Field>
+
+          <Field label="Volume layout" hint="affects Volumes page suggestions">
+            <select className="input w-full" value={sofs.volumeLayout}
+              onChange={(e) => setSofs({ volumeLayout: e.target.value as 'shared' | 'per-vm' })}>
+              <option value="shared">Single shared volume</option>
+              <option value="per-vm">One volume per SOFS VM</option>
+            </select>
+          </Field>
         </div>
       </div>
 

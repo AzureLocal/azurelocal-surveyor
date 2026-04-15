@@ -16,31 +16,35 @@ const CONTROL_PLANE_VCPUS_PER_NODE = 4
 const CONTROL_PLANE_MEMORY_GB_PER_NODE = 16
 
 export function computeAks(inputs: AksInputs): AksResult {
-  const {
-    clusterCount,
-    controlPlaneNodesPerCluster,
-    workerNodesPerCluster,
-    vCpusPerWorker,
-    memoryPerWorkerGB,
-    osDiskPerNodeGB,
-    persistentVolumesTB,
-    dataServicesTB,
-  } = inputs
+  let totalControlPlaneNodes = 0
+  let totalWorkerNodes = 0
+  let totalControlPlaneVCpus = 0
+  let totalWorkerVCpus = 0
+  let totalControlPlaneMemoryGB = 0
+  let totalWorkerMemoryGB = 0
+  let osDiskTB = 0
+  let totalPvcTB = 0
 
-  const totalControlPlaneNodes = clusterCount * controlPlaneNodesPerCluster
-  const totalWorkerNodes = clusterCount * workerNodesPerCluster
+  for (const cluster of inputs.clusters) {
+    const cpNodes = cluster.controlPlaneNodesPerCluster
+    const wkNodes = cluster.workerNodesPerCluster
+    const totalClusterNodes = cpNodes + wkNodes
+
+    totalControlPlaneNodes += cpNodes
+    totalWorkerNodes += wkNodes
+    totalControlPlaneVCpus += cpNodes * CONTROL_PLANE_VCPUS_PER_NODE
+    totalWorkerVCpus += wkNodes * cluster.vCpusPerWorker
+    totalControlPlaneMemoryGB += cpNodes * CONTROL_PLANE_MEMORY_GB_PER_NODE
+    totalWorkerMemoryGB += wkNodes * cluster.memoryPerWorkerGB
+    osDiskTB += (totalClusterNodes * cluster.osDiskPerNodeGB) / 1024
+    totalPvcTB += cluster.persistentVolumesTB
+  }
+
   const totalNodes = totalControlPlaneNodes + totalWorkerNodes
-
-  const totalControlPlaneVCpus = totalControlPlaneNodes * CONTROL_PLANE_VCPUS_PER_NODE
-  const totalWorkerVCpus = totalWorkerNodes * vCpusPerWorker
   const totalVCpus = totalControlPlaneVCpus + totalWorkerVCpus
-
-  const totalControlPlaneMemoryGB = totalControlPlaneNodes * CONTROL_PLANE_MEMORY_GB_PER_NODE
-  const totalWorkerMemoryGB = totalWorkerNodes * memoryPerWorkerGB
   const totalMemoryGB = totalControlPlaneMemoryGB + totalWorkerMemoryGB
-
-  const osDiskTB = round2((totalNodes * osDiskPerNodeGB) / 1024)
-  const totalStorageTB = round2(osDiskTB + persistentVolumesTB + dataServicesTB)
+  osDiskTB = round2(osDiskTB)
+  const totalStorageTB = round2(osDiskTB + totalPvcTB)
 
   return {
     totalNodes,

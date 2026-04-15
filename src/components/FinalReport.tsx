@@ -52,9 +52,13 @@ export default function FinalReport() {
   }
   if (state.virtualMachines?.enabled) {
     const vm = state.virtualMachines
-    totalVCpus    += (vm.vmCount * vm.vCpusPerVm) / vm.vCpuOvercommitRatio
-    totalMemoryGB += vm.vmCount * vm.memoryPerVmGB
-    totalStorageTB += (vm.vmCount * vm.storagePerVmGB) / 1024
+    let rawVmVCpus = 0
+    for (const g of vm.groups) {
+      rawVmVCpus    += g.vmCount * g.vCpusPerVm
+      totalMemoryGB += g.vmCount * g.memoryPerVmGB
+      totalStorageTB += (g.vmCount * g.storagePerVmGB) / 1024
+    }
+    totalVCpus += rawVmVCpus / vm.vCpuOvercommitRatio
   }
   if (state.sofsEnabled) {
     totalVCpus    += sofs.sofsVCpusTotal
@@ -317,7 +321,7 @@ function BestPracticeNotes({ hardware, capacity, compute, volumes, workloadSumma
     .filter((v) => v.name.toLowerCase().includes('os') || v.name.toLowerCase().includes('system') || v.name.toLowerCase().includes('infra'))
     .every((v) => v.resiliency === 'three-way-mirror' || v.resiliency === 'two-way-mirror')
 
-  const hasThinVolumes = hardware.volumeProvisioning === 'thin'
+  const hasThinVolumes = volumes.some((v) => v.provisioning === 'thin')
 
   const checks: BPCheck[] = [
     {

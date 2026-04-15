@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import {
-  Home, Server, Cpu, Monitor, HardDrive, BarChart3,
+  Server, Cpu, Monitor, HardDrive, BarChart3,
   Settings, BookOpen, Link2, FileText, Container, X, Layers, ShieldCheck, Info,
 } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
@@ -37,7 +37,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="text-xs text-blue-300/40 mt-0.5 font-mono">v{version}</div>
         </div>
         <nav className="flex-1 py-4 space-y-0.5 px-2">
-          <NavItem to="/" label="Home" icon={Home} end />
           <NavItem to="/hardware" label="Hardware" icon={Server} end />
           <NavItem to="/workloads" label="Workloads" icon={Cpu} />
           {avdEnabled   && <NavItem to="/avd"  label="AVD"  icon={Monitor}    />}

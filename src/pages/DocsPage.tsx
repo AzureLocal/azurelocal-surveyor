@@ -119,6 +119,19 @@ export default function DocsPage() {
       ))}
 
       <section>
+        <h2 className="text-xl font-semibold mb-3">Architecture</h2>
+        <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-5 space-y-3 text-sm text-gray-700 dark:text-gray-300">
+          <p>
+            The architecture documentation covers the internal structure of Surveyor — how the engine pipeline flows from hardware inputs through workload aggregation to volume suggestions and health checks.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <DocLink href="https://github.com/AzureLocal/azurelocal-surveyor/blob/main/docs/architecture/overview.md" label="Architecture Overview" />
+            <DocLink href="https://github.com/AzureLocal/azurelocal-surveyor/blob/main/docs/architecture/engine-flow.md" label="Engine Flow" />
+          </div>
+        </div>
+      </section>
+
+      <section>
         <h2 className="text-xl font-semibold mb-3">Related Tools</h2>
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-5 space-y-3 text-sm text-gray-700 dark:text-gray-300">
           <p>

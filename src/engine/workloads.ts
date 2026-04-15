@@ -9,7 +9,7 @@ import type {
   CustomWorkload,
 } from './types'
 import type { ServicePresetInstance } from './service-presets'
-import { computeAllServicePresets } from './service-presets'
+import { computeServicePreset, getCatalogEntry } from './service-presets'
 
 /**
  * Aggregate compute and storage requirements across all defined workloads.
@@ -59,9 +59,15 @@ export function computeWorkloadTotals(input: WorkloadTotalsInput): WorkloadSumma
   }
   if (input.virtualMachines?.enabled) {
     const vm = input.virtualMachines
-    totalVCpus    += (vm.vmCount * vm.vCpusPerVm) / vm.vCpuOvercommitRatio
-    totalMemoryGB += vm.vmCount * vm.memoryPerVmGB
-    totalStorageTB += (vm.vmCount * vm.storagePerVmGB) / 1024
+    let rawVCpus = 0
+    let rawMemoryGB = 0
+    for (const group of vm.groups) {
+      rawVCpus    += group.vmCount * group.vCpusPerVm
+      rawMemoryGB += group.vmCount * group.memoryPerVmGB
+      totalStorageTB += (group.vmCount * group.storagePerVmGB) / 1024
+    }
+    totalVCpus    += rawVCpus / vm.vCpuOvercommitRatio
+    totalMemoryGB += rawMemoryGB
   }
   if (input.sofsEnabled) {
     totalVCpus    += input.sofs.sofsVCpusTotal
@@ -74,10 +80,19 @@ export function computeWorkloadTotals(input: WorkloadTotalsInput): WorkloadSumma
     totalStorageTB += input.mabs.totalStorageTB + input.mabs.mabsOsDiskTB
   }
 
-  const presetTotals = computeAllServicePresets(input.servicePresets)
-  totalVCpus    += presetTotals.totalVCpus
-  totalMemoryGB += presetTotals.totalMemoryGB
-  totalStorageTB += presetTotals.totalStorageTB
+  // Arc-dependent presets run on AKS worker nodes. When AKS is enabled their compute
+  // is already counted within the AKS worker totals — only count non-AKS presets.
+  // Storage always counts (needs physical PVC storage regardless of AKS state).
+  for (const inst of input.servicePresets) {
+    if (!inst.enabled || inst.instanceCount <= 0) continue
+    const entry = getCatalogEntry(inst.catalogId)
+    const t = computeServicePreset(inst)
+    if (!(input.aksEnabled && entry?.requiresAks)) {
+      totalVCpus    += t.totalVCpus
+      totalMemoryGB += t.totalMemoryGB
+    }
+    totalStorageTB += t.totalStorageTB
+  }
 
   for (const w of input.customWorkloads) {
     if (!w.enabled) continue

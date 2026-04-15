@@ -38,11 +38,12 @@ const BASE_POOL: AvdHostPool = {
   concurrentUsers: 0,
   workloadType: 'medium',
   multiSession: true,
+  fslogixEnabled: true,
   profileSizeGB: 40,
   officeContainerEnabled: false,
   officeContainerSizeGB: 20,
   dataDiskPerHostGB: 0,
-  profileStorageLocation: 's2d',
+  profileStorageLocation: 'sofs',
 }
 
 const BASE_AVD: AvdInputs = {

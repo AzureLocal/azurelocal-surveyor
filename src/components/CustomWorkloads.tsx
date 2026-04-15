@@ -10,17 +10,8 @@ import { Trash2, Plus, ChevronDown, ChevronUp, Download, Upload } from 'lucide-r
 import { useSurveyorStore } from '../state/store'
 import { computeAllCustomWorkloads } from '../engine/custom-workloads'
 import type { CustomWorkload } from '../engine/types'
-import type { ResiliencyType } from '../engine/types'
 
-const RESILIENCY_LABELS: Record<ResiliencyType, string> = {
-  'three-way-mirror': 'Three-Way Mirror (33%)',
-  'two-way-mirror':   'Two-Way Mirror (50%)',
-  'dual-parity':      'Dual Parity (50–80%)',
-  'nested-two-way':   'Nested Two-Way (25%)',
-}
-
-const JSON_TEMPLATE: CustomWorkload = {
-  id: 'example',
+const JSON_TEMPLATE: Omit<CustomWorkload, 'id'> = {
   name: 'My Custom Workload',
   description: 'Optional description of what this workload does',
   enabled: true,
@@ -29,7 +20,6 @@ const JSON_TEMPLATE: CustomWorkload = {
   memoryPerVmGB: 32,
   osDiskPerVmGB: 200,
   storageTB: 10,
-  resiliency: 'three-way-mirror',
   internalMirrorFactor: 1,
   bandwidthMbps: 0,
 }
@@ -45,7 +35,6 @@ function newWorkload(): CustomWorkload {
     memoryPerVmGB: 16,
     osDiskPerVmGB: 200,
     storageTB: 1,
-    resiliency: 'three-way-mirror',
     internalMirrorFactor: 1,
     bandwidthMbps: 0,
   }
@@ -55,7 +44,7 @@ function computeTotals(w: CustomWorkload) {
   const totalVCpus   = w.vmCount * w.vCpusPerVm
   const totalMemGB   = w.vmCount * w.memoryPerVmGB
   const osDiskTB     = (w.vmCount * w.osDiskPerVmGB) / 1024
-  const storageTB    = w.storageTB
+  const storageTB    = w.storageTB * w.internalMirrorFactor
   const totalStorageTB = osDiskTB + storageTB
   return { totalVCpus, totalMemGB, osDiskTB, storageTB, totalStorageTB }
 }
@@ -70,9 +59,7 @@ export default function CustomWorkloads() {
   const enabledCount = customWorkloads.filter((w) => w.enabled).length
 
   function handleDownloadTemplate() {
-    const { id, ...template } = JSON_TEMPLATE
-    void id
-    const blob = new Blob([JSON.stringify(template, null, 2)], { type: 'application/json' })
+    const blob = new Blob([JSON.stringify(JSON_TEMPLATE, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -83,35 +70,46 @@ export default function CustomWorkloads() {
 
   function handleImportJson(text: string) {
     setImportError(null)
+    let parsed: unknown
     try {
-      const parsed = JSON.parse(text)
-      // Support both single object and array
-      const items: unknown[] = Array.isArray(parsed) ? parsed : [parsed]
-      let imported = 0
-      for (const item of items) {
-        if (typeof item !== 'object' || item === null) continue
-        const obj = item as Record<string, unknown>
-        const wl: CustomWorkload = {
-          id: `cw-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          name:             typeof obj.name === 'string'            ? obj.name             : 'Imported Workload',
-          description:      typeof obj.description === 'string'     ? obj.description      : '',
-          enabled:          typeof obj.enabled === 'boolean'        ? obj.enabled          : true,
-          vmCount:          typeof obj.vmCount === 'number'         ? obj.vmCount          : 1,
-          vCpusPerVm:       typeof obj.vCpusPerVm === 'number'      ? obj.vCpusPerVm       : 4,
-          memoryPerVmGB:    typeof obj.memoryPerVmGB === 'number'   ? obj.memoryPerVmGB    : 16,
-          osDiskPerVmGB:    typeof obj.osDiskPerVmGB === 'number'   ? obj.osDiskPerVmGB    : 200,
-          storageTB:        typeof obj.storageTB === 'number'       ? obj.storageTB        : 0,
-          resiliency:       isResiliency(obj.resiliency)            ? obj.resiliency       : 'three-way-mirror',
-          internalMirrorFactor: typeof obj.internalMirrorFactor === 'number' ? obj.internalMirrorFactor : 1,
-          bandwidthMbps:    typeof obj.bandwidthMbps === 'number'   ? obj.bandwidthMbps    : 0,
-        }
-        addCustomWorkload(wl)
-        imported++
-      }
-      if (imported === 0) setImportError('No valid workload objects found in JSON.')
+      parsed = JSON.parse(text)
     } catch {
-      setImportError('Invalid JSON. Check the format and try again.')
+      setImportError('Invalid JSON — check the format and try again.')
+      return
     }
+    if (typeof parsed !== 'object' || parsed === null) {
+      setImportError('JSON must be an object or array of workload objects.')
+      return
+    }
+    // Support both single object and array
+    const items: unknown[] = Array.isArray(parsed) ? parsed : [parsed]
+    let imported = 0
+    for (const item of items) {
+      if (typeof item !== 'object' || item === null) continue
+      const obj = item as Record<string, unknown>
+      // Validate required fields
+      if (typeof obj.name !== 'string' || !obj.name.trim()) {
+        setImportError('One or more workloads is missing a "name" field.')
+        return
+      }
+      const wl: CustomWorkload = {
+        id: `cw-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name:             obj.name as string,
+        description:      typeof obj.description === 'string'          ? obj.description      : '',
+        enabled:          typeof obj.enabled === 'boolean'             ? obj.enabled          : true,
+        vmCount:          typeof obj.vmCount === 'number' && obj.vmCount >= 1 ? obj.vmCount : 1,
+        vCpusPerVm:       typeof obj.vCpusPerVm === 'number' && obj.vCpusPerVm >= 1 ? obj.vCpusPerVm : 4,
+        memoryPerVmGB:    typeof obj.memoryPerVmGB === 'number' && obj.memoryPerVmGB >= 1 ? obj.memoryPerVmGB : 16,
+        osDiskPerVmGB:    typeof obj.osDiskPerVmGB === 'number' && obj.osDiskPerVmGB >= 0 ? obj.osDiskPerVmGB : 200,
+        storageTB:        typeof obj.storageTB === 'number' && obj.storageTB >= 0 ? obj.storageTB : 0,
+        internalMirrorFactor: typeof obj.internalMirrorFactor === 'number' && obj.internalMirrorFactor >= 1 ? obj.internalMirrorFactor : 1,
+        bandwidthMbps:    typeof obj.bandwidthMbps === 'number' && obj.bandwidthMbps >= 0 ? obj.bandwidthMbps : 0,
+        // resiliency silently stripped if present in imported JSON
+      }
+      addCustomWorkload(wl)
+      imported++
+    }
+    if (imported === 0) setImportError('No valid workload objects found in JSON.')
   }
 
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
@@ -241,18 +239,10 @@ export default function CustomWorkloads() {
                 </div>
 
                 {/* Storage */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <Field label="Logical storage (TB)" hint="before resiliency">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Field label="Logical storage (TB)" hint="before internal mirror">
                     <input type="number" min={0} step={0.1} className="input w-full" value={wl.storageTB}
                       onChange={(e) => updateCustomWorkload(wl.id, { storageTB: Math.max(0, +e.target.value || 0) })} />
-                  </Field>
-                  <Field label="Resiliency">
-                    <select className="input w-full" value={wl.resiliency}
-                      onChange={(e) => updateCustomWorkload(wl.id, { resiliency: e.target.value as ResiliencyType })}>
-                      {Object.entries(RESILIENCY_LABELS).map(([v, l]) => (
-                        <option key={v} value={v}>{l}</option>
-                      ))}
-                    </select>
                   </Field>
                   <Field label="Internal mirror factor" hint="1=none, 2=two-way, 3=three-way">
                     <select className="input w-full" value={wl.internalMirrorFactor}
@@ -280,7 +270,7 @@ export default function CustomWorkloads() {
                     <span>
                       Storage footprint: <strong className="text-gray-900 dark:text-white">
                         {wl.internalMirrorFactor > 1
-                          ? `${wl.storageTB} TB × ${wl.internalMirrorFactor} mirror = ${(wl.storageTB * wl.internalMirrorFactor).toFixed(2)} TB`
+                          ? `${wl.storageTB} TB × ${wl.internalMirrorFactor} mirror = ${t.storageTB.toFixed(2)} TB`
                           : `${t.storageTB} TB`}
                       </strong>
                     </span>
@@ -338,8 +328,4 @@ function Field({ label, hint, className, children }: { label: string; hint?: str
       {children}
     </div>
   )
-}
-
-function isResiliency(v: unknown): v is ResiliencyType {
-  return v === 'three-way-mirror' || v === 'two-way-mirror' || v === 'dual-parity' || v === 'nested-two-way'
 }

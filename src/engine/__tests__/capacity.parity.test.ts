@@ -40,7 +40,6 @@ const BASE_HW: HardwareInputs = {
   coresPerNode: 32,
   memoryPerNodeGB: 256,
   hyperthreadingEnabled: true,
-  volumeProvisioning: 'fixed',
 }
 
 function scenario(

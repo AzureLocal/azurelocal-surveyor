@@ -11,7 +11,7 @@ import type {
   AdvancedSettings,
 } from './types'
 import type { AvdResult } from './types'
-import type { AksResult } from './types'
+import type { AksInputs, AksResult } from './types'
 import type { SofsResult, SofsInputs } from './types'
 import type { MabsResult, MabsInputs } from './types'
 import type { VmScenario } from './types'
@@ -29,10 +29,10 @@ interface WorkloadVolumeInputs {
   // AVD
   avdEnabled: boolean
   avdResult: AvdResult
-  // AKS
+  // AKS — per-cluster volumes; aksResult used for aksEnabled check
   aksEnabled: boolean
   aksResult: AksResult
-  aksResiliency: ResiliencyType  // resiliency for PVC + data service volume suggestions
+  aksInputs?: AksInputs
   // Virtual Machines
   virtualMachines: VmScenario
   // SOFS
@@ -60,23 +60,42 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
   const defaultRes = inputs.advanced.defaultResiliency
 
   // ── AVD ──────────────────────────────────────────────────────────────────
+  // Per-pool OS + DataDisk volumes (12D addendum): one CSV per session host pool,
+  // matching how VM groups work. Profiles and OfficeContainers stay as aggregates
+  // because they live on a shared SOFS share, not per-pool.
   if (inputs.avdEnabled) {
     const avd = inputs.avdResult
-    if (avd.totalOsStorageTB > 0) {
-      suggestions.push({
-        id: `sug-${_sugId++}`,
-        name: 'AVD-SessionHosts-OS',
-        resiliency: 'three-way-mirror' as ResiliencyType,
-        plannedSizeTB: round2(avd.totalOsStorageTB),
-        source: 'AVD',
-        description: `${avd.sessionHostCount} session hosts × ${avd.osDiskPerHostGB} GB OS disk`,
-      })
+    for (const pool of avd.pools) {
+      const safeName = pool.name.replace(/[^a-zA-Z0-9-]/g, '').slice(0, 24) || `Pool${pool.id}`
+      if (pool.totalOsStorageTB > 0) {
+        suggestions.push({
+          id: `sug-${_sugId++}`,
+          name: `AVD-${safeName}-OS`,
+          resiliency: 'three-way-mirror' as ResiliencyType,
+          provisioning: 'fixed',
+          plannedSizeTB: round2(pool.totalOsStorageTB),
+          source: 'AVD',
+          description: `${pool.sessionHostCount} hosts × ${pool.osDiskPerHostGB} GB OS — ${pool.name}`,
+        })
+      }
+      if (pool.dataDiskPerHostGB > 0 && pool.totalDataDiskStorageTB > 0) {
+        suggestions.push({
+          id: `sug-${_sugId++}`,
+          name: `AVD-${safeName}-DataDisks`,
+          resiliency: defaultRes,
+          provisioning: 'fixed',
+          plannedSizeTB: round2(pool.totalDataDiskStorageTB),
+          source: 'AVD',
+          description: `Data disks for ${pool.sessionHostCount} hosts — ${pool.name}`,
+        })
+      }
     }
     if (avd.profileStorageWithGrowthTB > 0) {
       suggestions.push({
         id: `sug-${_sugId++}`,
         name: 'AVD-Profiles',
         resiliency: defaultRes,
+        provisioning: 'fixed',
         plannedSizeTB: round2(avd.profileStorageWithGrowthTB),
         source: 'AVD',
         description: `FSLogix profiles for ${avd.sizingUsers} users (with growth buffer)`,
@@ -87,86 +106,164 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
         id: `sug-${_sugId++}`,
         name: 'AVD-OfficeContainers',
         resiliency: defaultRes,
+        provisioning: 'fixed',
         plannedSizeTB: round2(avd.totalOfficeContainerStorageTB),
         source: 'AVD',
         description: 'FSLogix Office Container VHDXs',
       })
     }
-    if (avd.totalDataDiskStorageTB > 0) {
-      suggestions.push({
-        id: `sug-${_sugId++}`,
-        name: 'AVD-DataDisks',
-        resiliency: defaultRes,
-        plannedSizeTB: round2(avd.totalDataDiskStorageTB),
-        source: 'AVD',
-        description: `Data/temp disks for ${avd.sessionHostCount} session hosts`,
-      })
-    }
   }
 
   // ── AKS ──────────────────────────────────────────────────────────────────
-  if (inputs.aksEnabled) {
-    const aks = inputs.aksResult
-    if (aks.osDiskTB > 0) {
-      suggestions.push({
-        id: `sug-${_sugId++}`,
-        name: 'AKS-OsDisks',
-        resiliency: 'three-way-mirror',
-        plannedSizeTB: round2(aks.osDiskTB),
-        source: 'AKS',
-        description: `OS disks for ${aks.totalNodes} AKS nodes`,
-      })
+  // One OS-disk volume and one PVC volume per cluster. Arc service preset storage
+  // is folded into a combined AKS-ArcServices-PVC entry (no standalone Svc-* volumes
+  // for AKS-dependent presets). Resiliency defaults to three-way-mirror for OS disks
+  // and defaultRes for PVCs; users can change on Volumes page.
+  if (inputs.aksEnabled && inputs.aksInputs) {
+    for (const cluster of inputs.aksInputs.clusters) {
+      const totalClusterNodes = cluster.controlPlaneNodesPerCluster + cluster.workerNodesPerCluster
+      const clusterOsDiskTB = round2((totalClusterNodes * cluster.osDiskPerNodeGB) / 1024)
+      const safeName = cluster.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 20) || `Cluster${cluster.id}`
+      if (clusterOsDiskTB > 0) {
+        suggestions.push({
+          id: `sug-${_sugId++}`,
+          name: `AKS-${safeName}-OS`,
+          resiliency: 'three-way-mirror',
+          provisioning: 'fixed',
+          plannedSizeTB: clusterOsDiskTB,
+          source: 'AKS',
+          description: `OS disks for ${totalClusterNodes} nodes — ${cluster.name}`,
+        })
+      }
+      if (cluster.persistentVolumesTB > 0) {
+        suggestions.push({
+          id: `sug-${_sugId++}`,
+          name: `AKS-${safeName}-PVC`,
+          resiliency: defaultRes,
+          provisioning: 'fixed',
+          plannedSizeTB: round2(cluster.persistentVolumesTB),
+          source: 'AKS',
+          description: `Persistent volume claims — ${cluster.name}`,
+        })
+      }
     }
-    const pvcTB = round2(aks.totalStorageTB - aks.osDiskTB)
-    if (pvcTB > 0) {
+
+    // Arc service preset storage flows as PVC storage on AKS worker nodes
+    let arcPvcTB = 0
+    for (const inst of inputs.servicePresets ?? []) {
+      if (!inst.enabled || inst.instanceCount <= 0) continue
+      const entry = getCatalogEntry(inst.catalogId)
+      if (entry?.requiresAks) {
+        arcPvcTB = round2(arcPvcTB + computeServicePreset(inst).totalStorageTB)
+      }
+    }
+    if (arcPvcTB > 0) {
       suggestions.push({
         id: `sug-${_sugId++}`,
-        name: 'AKS-PersistentVolumes',
-        resiliency: inputs.aksResiliency,
-        plannedSizeTB: pvcTB,
+        name: 'AKS-ArcServices-PVC',
+        resiliency: 'three-way-mirror',
+        provisioning: 'fixed',
+        plannedSizeTB: arcPvcTB,
         source: 'AKS',
-        description: 'Persistent volume claims + data services',
+        description: 'Persistent volume claims for Arc-enabled service presets',
       })
     }
   }
 
   // ── Virtual Machines ─────────────────────────────────────────────────────
+  // One volume suggestion per storage group. Resiliency defaults to defaultRes
+  // (user can adjust per-volume on the Volumes page).
   if (inputs.virtualMachines?.enabled) {
-    const vm = inputs.virtualMachines
-    const storageTB = round2((vm.vmCount * vm.storagePerVmGB) / 1024)
-    if (storageTB > 0) {
-      suggestions.push({
-        id: `sug-${_sugId++}`,
-        name: 'VM-Storage',
-        resiliency: vm.resiliency,
-        plannedSizeTB: storageTB,
-        source: 'Virtual Machines',
-        description: `${vm.vmCount} VMs × ${vm.storagePerVmGB} GB storage`,
-      })
+    for (const group of inputs.virtualMachines.groups) {
+      const storageTB = round2((group.vmCount * group.storagePerVmGB) / 1024)
+      if (storageTB > 0) {
+        const safeName = group.name.replace(/[^a-zA-Z0-9]/g, '').slice(0, 20) || 'Default'
+        suggestions.push({
+          id: `sug-${_sugId++}`,
+          name: `VM-${safeName}`,
+          resiliency: defaultRes,
+          provisioning: 'fixed',
+          plannedSizeTB: storageTB,
+          source: 'Virtual Machines',
+          description: `${group.vmCount} VMs × ${group.storagePerVmGB} GB storage — ${group.name}`,
+        })
+      }
     }
   }
 
   // ── SOFS ─────────────────────────────────────────────────────────────────
-  // SOFS internal mirror compounds: the Azure Local volume must hold the
+  // SOFS internal mirror compounds: the Azure Local CSV volume must hold the
   // internal footprint (logical × mirror factor), not just logical data.
+  // OS disk volumes are always three-way-mirror. Data volumes use defaultResiliency.
+  // Volume layout: 'shared' → 1 data + 1 OS volume; 'per-vm' → N data + N OS volumes.
   if (inputs.sofsEnabled) {
     const sofs = inputs.sofsResult
-    if (sofs.internalFootprintTB > 0) {
-      const mirrorLabel = inputs.sofsInputs.internalMirror === 'simple'
-        ? '' : ` (includes ${sofs.internalMirrorFactor}× internal mirror)`
-      suggestions.push({
-        id: `sug-${_sugId++}`,
-        name: 'SOFS-ProfileData',
-        resiliency: defaultRes,
-        plannedSizeTB: round2(sofs.internalFootprintTB),
-        source: 'SOFS',
-        description: `${sofs.totalStorageTB} TB logical data${mirrorLabel}`,
-      })
+    const sofsIn = inputs.sofsInputs
+    const vmCount = Math.max(1, sofsIn.sofsGuestVmCount)
+    const osDiskGB = Math.max(0, sofsIn.sofsOsDiskPerVmGB ?? 127)
+    const mirrorLabel = sofsIn.internalMirror === 'simple'
+      ? '' : ` (includes ${sofs.internalMirrorFactor}× internal mirror)`
+
+    if (sofsIn.volumeLayout === 'per-vm') {
+      // Per-VM: one data volume + one OS disk volume per SOFS guest VM
+      const perVmDataTB = vmCount > 0 ? round2(sofs.internalFootprintTB / vmCount) : 0
+      const perVmOsTB = round2(osDiskGB / 1024)
+      for (let i = 1; i <= vmCount; i++) {
+        if (perVmDataTB > 0) {
+          suggestions.push({
+            id: `sug-${_sugId++}`,
+            name: `SOFS-VM${i}-Data`,
+            resiliency: defaultRes,
+            provisioning: 'fixed',
+            plannedSizeTB: perVmDataTB,
+            source: 'SOFS',
+            description: `VM ${i} data share${mirrorLabel}`,
+          })
+        }
+        if (perVmOsTB > 0) {
+          suggestions.push({
+            id: `sug-${_sugId++}`,
+            name: `SOFS-VM${i}-OsDisk`,
+            resiliency: 'three-way-mirror',
+            provisioning: 'fixed',
+            plannedSizeTB: perVmOsTB,
+            source: 'SOFS',
+            description: `VM ${i} OS disk (${osDiskGB} GB)`,
+          })
+        }
+      }
+    } else {
+      // Shared: one combined data volume + one combined OS disk volume
+      if (sofs.internalFootprintTB > 0) {
+        suggestions.push({
+          id: `sug-${_sugId++}`,
+          name: 'SOFS-ProfileData',
+          resiliency: defaultRes,
+          provisioning: 'fixed',
+          plannedSizeTB: round2(sofs.internalFootprintTB),
+          source: 'SOFS',
+          description: `${sofs.totalStorageTB} TB logical data${mirrorLabel}`,
+        })
+      }
+      const totalOsDiskTB = round2((vmCount * osDiskGB) / 1024)
+      if (totalOsDiskTB > 0) {
+        suggestions.push({
+          id: `sug-${_sugId++}`,
+          name: 'SOFS-OsDisk',
+          resiliency: 'three-way-mirror',
+          provisioning: 'fixed',
+          plannedSizeTB: totalOsDiskTB,
+          source: 'SOFS',
+          description: `${vmCount} SOFS VM${vmCount > 1 ? 's' : ''} × ${osDiskGB} GB OS disk`,
+        })
+      }
     }
   }
 
   // ── MABS ─────────────────────────────────────────────────────────────────
   // MABS internal Storage Spaces mirror compounds similarly.
+  // Volume resiliency is now per-volume (defaults to advanced.defaultResiliency).
+  // MABS-BackupData provisioning defaults to 'thin' (grows over retention period).
   if (inputs.mabsEnabled) {
     const mabs = inputs.mabsResult
     const mirrorFactor = mabs.internalMirrorFactor
@@ -176,7 +273,8 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
       suggestions.push({
         id: `sug-${_sugId++}`,
         name: 'MABS-Scratch',
-        resiliency: inputs.mabsInputs.scratchResiliency,
+        resiliency: defaultRes,
+        provisioning: 'fixed',
         plannedSizeTB: scratchDisk,
         source: 'MABS',
         description: `Scratch/cache ${mabs.scratchVolumeTB} TB × ${mirrorFactor} mirror`,
@@ -187,7 +285,8 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
       suggestions.push({
         id: `sug-${_sugId++}`,
         name: 'MABS-BackupData',
-        resiliency: inputs.mabsInputs.backupResiliency,
+        resiliency: defaultRes,
+        provisioning: 'thin',
         plannedSizeTB: backupDisk,
         source: 'MABS',
         description: `Backup data ${mabs.backupDataVolumeTB} TB × ${mirrorFactor} mirror`,
@@ -198,6 +297,7 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
         id: `sug-${_sugId++}`,
         name: 'MABS-OsDisk',
         resiliency: 'three-way-mirror',
+        provisioning: 'fixed',
         plannedSizeTB: round2(mabs.mabsOsDiskTB),
         source: 'MABS',
         description: 'MABS VM operating system disk',
@@ -206,19 +306,22 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
   }
 
   // ── Service Presets ───────────────────────────────────────────────────────
-  // Each enabled preset instance gets a PVC volume suggestion using the
-  // catalog's defaultPvcResiliency.
+  // AKS-dependent presets have their storage folded into AKS-ArcServices-PVC above.
+  // Only non-AKS presets (if any exist) get standalone volume suggestions here.
   if (inputs.servicePresets && inputs.servicePresets.length > 0) {
     for (const inst of inputs.servicePresets) {
       if (!inst.enabled || inst.instanceCount <= 0) continue
       const entry = getCatalogEntry(inst.catalogId)
       if (!entry) continue
+      // Skip AKS-dependent presets when AKS is enabled — storage already in AKS-ArcServices-PVC
+      if (entry.requiresAks && inputs.aksEnabled) continue
       const t = computeServicePreset(inst)
       if (t.totalStorageTB > 0) {
         suggestions.push({
           id: `sug-${_sugId++}`,
           name: `Svc-${entry.shortName.replace(/[^a-zA-Z0-9]/g, '')}`,
           resiliency: entry.defaultPvcResiliency,
+          provisioning: 'fixed',
           plannedSizeTB: round2(t.totalStorageTB),
           source: 'Service Presets',
           description: `${entry.shortName} × ${inst.instanceCount} — ${t.totalVCpus} vCPU, ${t.totalMemoryGB} GB`,
@@ -228,8 +331,8 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
   }
 
   // ── Custom Workloads ──────────────────────────────────────────────────────
-  // OS disks → Three-Way Mirror; logical storage → selected resiliency
-  // Internal mirror compounding: volume suggestion = storageTB × mirrorFactor
+  // OS disks → Three-Way Mirror; data volumes → defaultResiliency.
+  // Internal mirror compounding: volume suggestion = storageTB × mirrorFactor.
   if (inputs.customWorkloads && inputs.customWorkloads.length > 0) {
     for (const wl of inputs.customWorkloads) {
       if (!wl.enabled) continue
@@ -240,6 +343,7 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
           id: `sug-${_sugId++}`,
           name: `${safeName}-OsDisk`,
           resiliency: 'three-way-mirror',
+          provisioning: 'fixed',
           plannedSizeTB: osTB,
           source: 'Custom Workloads',
           description: `${wl.vmCount} VMs × ${wl.osDiskPerVmGB} GB OS disk — ${wl.name}`,
@@ -253,7 +357,8 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
         suggestions.push({
           id: `sug-${_sugId++}`,
           name: `${safeName}-Data`,
-          resiliency: wl.resiliency,
+          resiliency: defaultRes,
+          provisioning: 'fixed',
           plannedSizeTB: footprint,
           source: 'Custom Workloads',
           description: `${wl.name}${mirrorNote}`,

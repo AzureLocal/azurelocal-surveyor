@@ -63,9 +63,13 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   if (state.aks.enabled) { totalVCpus += aks.totalVCpus; totalMemoryGB += aks.totalMemoryGB; totalStorageTB += aks.totalStorageTB }
   if (state.virtualMachines?.enabled) {
     const vm = state.virtualMachines
-    totalVCpus += (vm.vmCount * vm.vCpusPerVm) / vm.vCpuOvercommitRatio
-    totalMemoryGB += vm.vmCount * vm.memoryPerVmGB
-    totalStorageTB += (vm.vmCount * vm.storagePerVmGB) / 1024
+    let rawVCpus = 0
+    for (const group of vm.groups) {
+      rawVCpus += group.vmCount * group.vCpusPerVm
+      totalMemoryGB += group.vmCount * group.memoryPerVmGB
+      totalStorageTB += (group.vmCount * group.storagePerVmGB) / 1024
+    }
+    totalVCpus += rawVCpus / vm.vCpuOvercommitRatio
   }
   if (state.sofsEnabled) { totalVCpus += sofs.sofsVCpusTotal; totalMemoryGB += sofs.sofsMemoryTotalGB; totalStorageTB += sofs.totalStorageTB }
   if (state.mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB; totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB }
@@ -114,7 +118,6 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
       ['Cores / Node (Physical)', state.hardware.coresPerNode],
       ['Hyperthreading', state.hardware.hyperthreadingEnabled ? 'Enabled' : 'Disabled'],
       ['Memory / Node (GB)', state.hardware.memoryPerNodeGB],
-      ['Volume Provisioning', state.hardware.volumeProvisioning],
     ],
   ), 'Hardware Inputs')
 
@@ -139,13 +142,13 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
     const row = quickStart.rows[0]
     capRows.push(
       [],
-      ['--- Quick-Start Reference ---', '', ''],
+      ['--- Best Practice Reference (Three-Way Mirror) ---', '', ''],
       ['Equal Volume Count', row.volumeCount, `1 per node (${row.resiliencyLabel})`],
       ['Calculator Size (TB)', row.calculatorSizeTB, 'Effective usable ÷ volume count'],
       ['WAC Size (TiB)', row.wacSizeTiB, 'Binary-unit value for New-Volume -Size'],
-      ['WAC Size (GiB)', row.wacSizeGiB, 'Whole GiB for WAC input'],
+      ['WAC Size (GiB)', row.wacSizeGiB, 'Whole GiB for WAC input (1 GiB safety margin)'],
       ['Pool Footprint (TB)', row.poolFootprintTB, 'Total pool space consumed'],
-      ['Fits in Pool', row.fits ? 'YES' : 'NO', `${row.utilizationPct}% utilization`],
+      ['Pool Utilization', `${row.utilizationPct}%`, `of ${quickStart.availableForVolumesTB} TB available`],
     )
   }
 
@@ -197,13 +200,10 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   if (state.aks.enabled) wlRows.push(['AKS on Azure Local', aks.totalVCpus, aks.totalMemoryGB, round2(aks.totalStorageTB), 'Enabled'])
   if (state.virtualMachines?.enabled) {
     const vm = state.virtualMachines
-    wlRows.push([
-      'Virtual Machines',
-      Math.round((vm.vmCount * vm.vCpusPerVm) / vm.vCpuOvercommitRatio),
-      vm.vmCount * vm.memoryPerVmGB,
-      round2((vm.vmCount * vm.storagePerVmGB) / 1024),
-      'Enabled',
-    ])
+    const vmVCpus = Math.round(vm.groups.reduce((s, g) => s + g.vmCount * g.vCpusPerVm, 0) / vm.vCpuOvercommitRatio)
+    const vmMemory = vm.groups.reduce((s, g) => s + g.vmCount * g.memoryPerVmGB, 0)
+    const vmStorage = round2(vm.groups.reduce((s, g) => s + (g.vmCount * g.storagePerVmGB) / 1024, 0))
+    wlRows.push(['Virtual Machines', vmVCpus, vmMemory, vmStorage, 'Enabled'])
   }
   if (state.sofsEnabled) wlRows.push(['SOFS Guest Cluster', sofs.sofsVCpusTotal, sofs.sofsMemoryTotalGB, round2(sofs.totalStorageTB), 'Enabled'])
   if (state.mabsEnabled) wlRows.push(['MABS (Azure Backup Server)', mabsResult.mabsVCpus, mabsResult.mabsMemoryGB, round2(mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB), 'Enabled'])
@@ -311,54 +311,61 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
 
   // ── Sheet 8: AKS ─────────────────────────────────────────────────────────
   if (state.aks.enabled) {
-    XLSX.utils.book_append_sheet(wb, makeSheet(
-      ['Parameter', 'Value'],
-      [
-        ['Cluster Count', state.aks.clusterCount],
-        ['Control Plane Nodes / Cluster', state.aks.controlPlaneNodesPerCluster],
-        ['Worker Nodes / Cluster', state.aks.workerNodesPerCluster],
-        ['vCPUs / Worker', state.aks.vCpusPerWorker],
-        ['Memory / Worker (GB)', state.aks.memoryPerWorkerGB],
-        ['OS Disk / Node (GB)', state.aks.osDiskPerNodeGB],
-        ['Persistent Volumes (TB)', state.aks.persistentVolumesTB],
-        ['Data Services (TB)', state.aks.dataServicesTB],
-        ['Resiliency', state.aks.resiliency],
+    const aksRows: Row[] = [
+      ['Cluster Count', state.aks.clusters.length],
+      [],
+      ['--- Per-Cluster Configuration ---', ''],
+      ...state.aks.clusters.flatMap((cluster, i) => [
+        [`Cluster ${i + 1}`, cluster.name],
+        ['  Control Plane Nodes', cluster.controlPlaneNodesPerCluster],
+        ['  Worker Nodes', cluster.workerNodesPerCluster],
+        ['  vCPUs / Worker', cluster.vCpusPerWorker],
+        ['  Memory / Worker (GB)', cluster.memoryPerWorkerGB],
+        ['  OS Disk / Node (GB)', cluster.osDiskPerNodeGB],
+        ['  Persistent Volumes (TB)', cluster.persistentVolumesTB],
         [],
-        ['--- Results ---', ''],
-        ['Total Nodes', aks.totalNodes],
-        ['Control Plane vCPUs', aks.totalControlPlaneVCpus],
-        ['Worker vCPUs', aks.totalWorkerVCpus],
-        ['Total vCPUs', aks.totalVCpus],
-        ['Control Plane Memory (GB)', aks.totalControlPlaneMemoryGB],
-        ['Worker Memory (GB)', aks.totalWorkerMemoryGB],
-        ['Total Memory (GB)', aks.totalMemoryGB],
-        ['OS Disk (TB)', round2(aks.osDiskTB)],
-        ['Total Storage (TB)', round2(aks.totalStorageTB)],
-      ],
-    ), 'AKS')
+      ] as Row[]),
+      ['--- Results ---', ''],
+      ['Total Nodes', aks.totalNodes],
+      ['Control Plane vCPUs', aks.totalControlPlaneVCpus],
+      ['Worker vCPUs', aks.totalWorkerVCpus],
+      ['Total vCPUs', aks.totalVCpus],
+      ['Control Plane Memory (GB)', aks.totalControlPlaneMemoryGB],
+      ['Worker Memory (GB)', aks.totalWorkerMemoryGB],
+      ['Total Memory (GB)', aks.totalMemoryGB],
+      ['OS Disk (TB)', round2(aks.osDiskTB)],
+      ['Total Storage (TB)', round2(aks.totalStorageTB)],
+    ]
+    XLSX.utils.book_append_sheet(wb, makeSheet(['Parameter', 'Value'], aksRows), 'AKS')
   }
 
   // ── Sheet 9: Virtual Machines ─────────────────────────────────────────────
   if (state.virtualMachines?.enabled) {
     const vm = state.virtualMachines
-    const effectiveVCpus = Math.round((vm.vmCount * vm.vCpusPerVm) / vm.vCpuOvercommitRatio)
-    XLSX.utils.book_append_sheet(wb, makeSheet(
-      ['Parameter', 'Value'],
-      [
-        ['VM Count', vm.vmCount],
-        ['vCPUs / VM', vm.vCpusPerVm],
-        ['Memory / VM (GB)', vm.memoryPerVmGB],
-        ['Storage / VM (GB)', vm.storagePerVmGB],
-        ['Resiliency', vm.resiliency],
-        ['vCPU Overcommit Ratio', `${vm.vCpuOvercommitRatio}:1`],
+    const totalRawVCpus = vm.groups.reduce((s, g) => s + g.vmCount * g.vCpusPerVm, 0)
+    const effectiveVCpus = Math.round(totalRawVCpus / vm.vCpuOvercommitRatio)
+    const totalMemory = vm.groups.reduce((s, g) => s + g.vmCount * g.memoryPerVmGB, 0)
+    const totalStorage = round2(vm.groups.reduce((s, g) => s + (g.vmCount * g.storagePerVmGB) / 1024, 0))
+    const vmRows: Row[] = [
+      ['vCPU Overcommit Ratio', `${vm.vCpuOvercommitRatio}:1`],
+      ['VM Groups', vm.groups.length],
+      [],
+      ['--- Per-Group Configuration ---', ''],
+      ...vm.groups.flatMap((group) => [
+        ['Group', group.name],
+        ['  VM Count', group.vmCount],
+        ['  vCPUs / VM', group.vCpusPerVm],
+        ['  Memory / VM (GB)', group.memoryPerVmGB],
+        ['  Storage / VM (GB)', group.storagePerVmGB],
         [],
-        ['--- Results ---', ''],
-        ['Raw vCPU Demand', vm.vmCount * vm.vCpusPerVm],
-        ['Effective vCPUs (after overcommit)', effectiveVCpus],
-        ['Total Memory (GB)', vm.vmCount * vm.memoryPerVmGB],
-        ['Total Storage (TB)', round2((vm.vmCount * vm.storagePerVmGB) / 1024)],
-      ],
-    ), 'Virtual Machines')
+      ] as Row[]),
+      ['--- Results ---', ''],
+      ['Raw vCPU Demand', totalRawVCpus],
+      ['Effective vCPUs (after overcommit)', effectiveVCpus],
+      ['Total Memory (GB)', totalMemory],
+      ['Total Storage (TB)', totalStorage],
+    ]
+    XLSX.utils.book_append_sheet(wb, makeSheet(['Parameter', 'Value'], vmRows), 'Virtual Machines')
   }
 
   // ── Sheet 10: MABS ────────────────────────────────────────────────────────
@@ -373,8 +380,6 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
         ['MABS VM vCPUs', state.mabs.mabsVCpus],
         ['MABS VM Memory (GB)', state.mabs.mabsMemoryGB],
         ['MABS VM OS Disk (GB)', state.mabs.mabsOsDiskGB],
-        ['Scratch Volume Resiliency', state.mabs.scratchResiliency],
-        ['Backup Volume Resiliency', state.mabs.backupResiliency],
         ['Internal Mirror', state.mabs.internalMirror],
         [],
         ['--- Results ---', ''],
@@ -432,16 +437,15 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
       w.osDiskPerVmGB,
       round2((w.vmCount * w.osDiskPerVmGB) / 1024),
       w.storageTB,
-      w.resiliency,
       w.internalMirrorFactor > 1 ? `${w.internalMirrorFactor}×` : 'None',
       round2(w.storageTB * w.internalMirrorFactor),
       w.bandwidthMbps > 0 ? w.bandwidthMbps : 'Not specified',
     ])
     cwRows.push([])
-    cwRows.push(['TOTAL', '', '', '', customTotals.totalVCpus, '', customTotals.totalMemoryGB, '', '', '', '', '', '', ''])
+    cwRows.push(['TOTAL', '', '', '', customTotals.totalVCpus, '', customTotals.totalMemoryGB, '', '', '', '', '', ''])
 
     XLSX.utils.book_append_sheet(wb, makeSheet(
-      ['Name', 'Description', 'VMs', 'vCPUs/VM', 'Total vCPUs', 'RAM/VM (GB)', 'Total RAM (GB)', 'OS Disk/VM (GB)', 'OS Disk Total (TB)', 'Storage (TB)', 'Resiliency', 'Internal Mirror', 'Storage Footprint (TB)', 'Bandwidth (Mbps)'],
+      ['Name', 'Description', 'VMs', 'vCPUs/VM', 'Total vCPUs', 'RAM/VM (GB)', 'Total RAM (GB)', 'OS Disk/VM (GB)', 'OS Disk Total (TB)', 'Storage (TB)', 'Internal Mirror', 'Storage Footprint (TB)', 'Bandwidth (Mbps)'],
       cwRows,
     ), 'Custom Workloads')
   }

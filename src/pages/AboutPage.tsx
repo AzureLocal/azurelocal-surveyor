@@ -2,6 +2,56 @@ import { version } from '../../package.json'
 
 const RELEASE_HISTORY = [
   {
+    version: '2.0.0',
+    label: 'Comprehensive Quality Overhaul',
+    items: [
+      'Per-volume resiliency and provisioning — each volume on the Volumes page controls its own resiliency and fixed/thin setting',
+      'AKS multi-cluster support — plan multiple independent AKS clusters, each with their own node specs and PVC storage',
+      'Arc-enabled service presets integrated into AKS worker capacity instead of being additive',
+      'AVD planner intelligence — conditional field behavior by storage location, separate session host VM storage section',
+      'SOFS planner overhaul — shared vs per-VM volume layout, OS disk volumes per VM',
+      'MABS planner cleanup — CSV-level resiliency removed, MABS-BackupData defaults to thin provisioning',
+      'VM storage groups — define multiple VM tiers (e.g. SQL vs web), each generating its own volume suggestion',
+      'Custom workloads — internalMirrorFactor wired into engine, JSON import validation, OS disk volumes',
+      'Volumes page overhaul — Quick Start rewritten as pure hardware reference, corrected pool footprint calculations, health check split from compute checks',
+      'Reports — conditional AVD, AKS, and MABS report tabs; compute health checks moved to Compute Report',
+      'Zustand store migrated v8→v9 with full backward-compatible data migration',
+    ],
+  },
+  {
+    version: '1.7.0',
+    label: 'Architecture Documentation',
+    items: [
+      'Architecture docs: overview.md — app layer diagram, page-to-engine map, state structure, export layer table, OEM preset overview',
+      'Architecture docs: engine-flow.md — end-to-end pipeline flowchart, capacity computation chain, workload aggregation flow, health-check evaluation diagram',
+      'Formula map updated with deferred/implemented-with-enhancements statuses, AVD/SOFS/Compute parity test counts, and app-added modules table',
+      'Plan manifest (SurveyorPlan JSON export) and Ranger integration contract documented in docs/reference/plan-manifest.md',
+    ],
+  },
+  {
+    version: '1.6.0',
+    label: 'AKS Dependencies, Terminology Clarity',
+    items: [
+      'Arc-enabled service presets: requiresAks flag on all 5 catalog entries; amber dependency banner with one-click Enable AKS',
+      'AKS disable-protection: confirmation dialog when disabling AKS while an AKS-dependent preset is active',
+      'Navigation: subtitle labels under workload nav items (Virtual Machines, Azure Virtual Desktop, Kubernetes, Scale-Out File Server, Azure Backup Server)',
+      'PDF export: full SOFS Solution Report section added (12-row parameter table)',
+      'AVD: "Host Pools" renamed to Session Host Groups throughout UI and exports',
+    ],
+  },
+  {
+    version: '1.5.0',
+    label: 'AVD Maturity',
+    items: [
+      'AVD multi-pool support — plan up to 10 independent host pools, each with its own user count, workload model, and profile storage location',
+      'Per-pool breakdown table in AVD planner; aggregate totals always shown at top',
+      'SOFS sync aggregates across SOFS-targeted pools only, reflecting combined profile demand',
+      'AVD ↔ SOFS cross-page navigation links in both planners',
+      'Markdown and XLSX exports include per-pool breakdown when multiple pools are configured',
+      'Zustand store migrated to v8; legacy flat AVD state converted to pools[] array format',
+    ],
+  },
+  {
     version: '1.4.0',
     label: 'Stability and UX Clarity',
     items: [

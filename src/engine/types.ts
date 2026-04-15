@@ -36,7 +36,6 @@ export interface HardwareInputs {
   coresPerNode: number           // physical CPU cores per node
   memoryPerNodeGB: number        // physical RAM per node
   hyperthreadingEnabled: boolean // logical vCPU = physical × 2 when true
-  volumeProvisioning: 'fixed' | 'thin'
 }
 
 // ─── Advanced Settings (Sheet: "Advanced Settings") ──────────────────────────
@@ -95,6 +94,7 @@ export interface VolumeSpec {
   id: string
   name: string
   resiliency: ResiliencyType
+  provisioning: 'fixed' | 'thin'
   plannedSizeTB: number
 }
 
@@ -112,23 +112,27 @@ export interface VolumeSummaryResult {
   volumes: VolumeDetail[]
   totalPlannedTB: number
   totalWacTB: number
+  totalPoolFootprintTB: number
   remainingUsableTB: number
   utilizationPct: number
 }
 
 // ─── AKS on Azure Local (Sheet: "Workload Planner" → AKS scenario) ──────────
 
-export interface AksInputs {
-  enabled: boolean
-  clusterCount: number
-  controlPlaneNodesPerCluster: number  // 1 (dev) or 3 (HA) — always 4 vCPU, 16 GB RAM each
+export interface AksCluster {
+  id: string
+  name: string
+  controlPlaneNodesPerCluster: 1 | 3   // 1 (dev) or 3 (HA) — always 4 vCPU, 16 GB RAM each
   workerNodesPerCluster: number
   vCpusPerWorker: number
   memoryPerWorkerGB: number
   osDiskPerNodeGB: number              // default 200 GB per node
-  persistentVolumesTB: number          // total PVC storage across all clusters
-  dataServicesTB: number               // SQL MI, Arc data, etc.
-  resiliency: ResiliencyType
+  persistentVolumesTB: number          // PVC storage for this cluster (includes Arc preset storage)
+}
+
+export interface AksInputs {
+  enabled: boolean
+  clusters: AksCluster[]
 }
 
 export interface AksResult {
@@ -145,16 +149,21 @@ export interface AksResult {
 
 // ─── Workload Scenarios (Sheet: "Workload Planner") ──────────────────────────
 
-export interface VmScenario {
-  enabled: boolean
+export interface VmStorageGroup {
+  id: string
+  name: string
   vmCount: number
   vCpusPerVm: number
   memoryPerVmGB: number
   storagePerVmGB: number
-  resiliency: ResiliencyType
-  // Per-scenario overcommit: effective vCPU demand = (vmCount × vCpusPerVm) / vCpuOvercommitRatio
-  // Default 1 = full vCPU demand. Higher values mean these VMs can share cores more aggressively.
+}
+
+export interface VmScenario {
+  enabled: boolean
+  // Effective vCPU demand = (totalVCpus across all groups) / vCpuOvercommitRatio
+  // Default 1 = full vCPU demand. Higher values mean VMs can share cores more aggressively.
   vCpuOvercommitRatio: number
+  groups: VmStorageGroup[]
 }
 
 // ─── MABS (Microsoft Azure Backup Server) ───────────────────────────────────
@@ -170,9 +179,8 @@ export interface MabsInputs {
   mabsVCpus: number                 // MABS VM vCPUs (default 8)
   mabsMemoryGB: number              // MABS VM RAM (default 32)
   mabsOsDiskGB: number              // MABS VM OS disk (default 200)
-  scratchResiliency: ResiliencyType // Azure Local volume resiliency for scratch/cache storage
-  backupResiliency: ResiliencyType  // Azure Local volume resiliency for retained backup data
   // #70: internal Storage Spaces mirror inside the MABS VM
+  // Volume resiliency (scratchResiliency, backupResiliency) moved to per-volume on Volumes page
   internalMirror: MabsInternalMirror
 }
 
@@ -211,8 +219,8 @@ export interface CustomWorkload {
   memoryPerVmGB: number     // memory per VM in GB
   osDiskPerVmGB: number     // OS disk per VM in GB (0 = none)
   // Storage
-  storageTB: number         // logical storage in TB (before resiliency)
-  resiliency: ResiliencyType
+  storageTB: number         // logical storage in TB (before internal mirror compounding)
+  // Volume resiliency moved to per-volume on Volumes page
   internalMirrorFactor: number  // 1 = no compounding, 2 = two-way, 3 = three-way
   // Optional
   bandwidthMbps: number     // 0 = not specified
@@ -226,7 +234,7 @@ export interface WorkloadSummaryResult {
 
 // ─── AVD (Sheet: "AVD Planning") ─────────────────────────────────────────────
 
-export type AvdProfileStorageLocation = 's2d' | 'sofs' | 'azure-files' | 'external'
+export type AvdProfileStorageLocation = 'sofs' | 'azure-files' | 'external'
 
 export interface AvdUserTypeMix {
   taskPct: number           // % of task workers (light profile)
@@ -244,6 +252,7 @@ export interface AvdHostPool {
   concurrentUsers: number         // #26: 0 = use totalUsers for sizing; > 0 = size session hosts for this peak
   workloadType: AvdWorkloadType
   multiSession: boolean           // true = Windows 11 multi-session; false = single-session VDI
+  fslogixEnabled: boolean         // when false, no profile storage is counted for this pool
   profileSizeGB: number           // FSLogix VHD(X) size per user (overridden by mix when enabled)
   officeContainerEnabled: boolean
   officeContainerSizeGB: number   // additional FSLogix Office Container per user
@@ -348,6 +357,9 @@ export interface SofsInputs {
   // #43: auto-sizing — target drive count to calculate required drive size
   autoSizeDrivesPerNode: number  // 0 = manual, > 0 = auto-calculate drive size
   autoSizeNodes: number          // node count for auto-sizing SOFS cluster
+  // v2.0: volume layout — one shared CSV or one per SOFS VM
+  volumeLayout: 'shared' | 'per-vm'
+  sofsOsDiskPerVmGB: number      // OS disk size per SOFS VM (default 127 GB)
 }
 
 export interface SofsResult {

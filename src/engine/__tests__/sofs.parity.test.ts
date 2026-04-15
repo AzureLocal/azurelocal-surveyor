@@ -41,6 +41,8 @@ const BASE_SOFS: SofsInputs = {
   internalMirror: 'three-way',
   autoSizeDrivesPerNode: 0,
   autoSizeNodes: 0,
+  volumeLayout: 'shared',
+  sofsOsDiskPerVmGB: 127,
 }
 
 describe('SOFS parity — 8 golden scenarios', () => {

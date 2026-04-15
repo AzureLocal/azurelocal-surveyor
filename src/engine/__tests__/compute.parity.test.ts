@@ -40,7 +40,6 @@ const BASE_HW: HardwareInputs = {
   cacheDriveSizeTB: 0,
   cacheMediaType: 'none',
   capacityMediaType: 'nvme',
-  volumeProvisioning: 'fixed',
 }
 
 const BASE_SETTINGS: AdvancedSettings = {

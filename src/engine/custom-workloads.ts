@@ -4,7 +4,8 @@ function computeTotals(workload: CustomWorkload) {
   const totalVCpus = workload.vmCount * workload.vCpusPerVm
   const totalMemGB = workload.vmCount * workload.memoryPerVmGB
   const osDiskTB = (workload.vmCount * workload.osDiskPerVmGB) / 1024
-  const storageTB = workload.storageTB
+  // Apply internal mirror factor: data storage footprint = logical × mirror
+  const storageTB = workload.storageTB * (workload.internalMirrorFactor ?? 1)
   const totalStorageTB = osDiskTB + storageTB
 
   return { totalVCpus, totalMemGB, osDiskTB, storageTB, totalStorageTB }

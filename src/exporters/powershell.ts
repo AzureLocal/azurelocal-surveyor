@@ -32,7 +32,7 @@ export function generatePowerShell(state: Pick<SurveyorState, 'hardware' | 'adva
   if (quickStart.psScript) {
     lines.push('')
     lines.push('# ── Quick-Start: Equal Volumes (1 per node) ─────────────────────')
-    lines.push(`# ${quickStart.rows[0]?.scenario ?? 'Equal-split volumes'}`)
+    lines.push(`# ${quickStart.rows[0] ? `${quickStart.rows[0].volumeCount} equal volumes — ${quickStart.rows[0].resiliencyLabel}` : 'Equal-split volumes'}`)
     lines.push(`# Usable: ${quickStart.effectiveUsableTB} TB | Pool: ${quickStart.availableForVolumesTB} TB | ${quickStart.resiliencyLabel}`)
     lines.push('#')
     lines.push('# Uncomment the block below to create the quick-start layout:')

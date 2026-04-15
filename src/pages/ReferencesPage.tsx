@@ -113,6 +113,41 @@ const REFERENCES: RefCategory[] = [
     ],
   },
   {
+    category: 'AKS on Azure Local',
+    links: [
+      {
+        title: 'AKS on Azure Local overview',
+        url: 'https://learn.microsoft.com/azure/aks/hybrid/aks-hybrid-overview',
+        description: 'Architecture, supported workloads, and deployment options for AKS on Azure Local.',
+      },
+      {
+        title: 'Network requirements for AKS on Azure Local',
+        url: 'https://learn.microsoft.com/azure/aks/hybrid/concepts-network-requirements',
+        description: 'IP address planning, subnet sizing, and network topology requirements for AKS clusters.',
+      },
+      {
+        title: 'Storage options for AKS on Azure Local',
+        url: 'https://learn.microsoft.com/azure/aks/hybrid/concepts-storage',
+        description: 'Persistent volumes, storage classes, and CSI driver integration for AKS workloads on S2D.',
+      },
+    ],
+  },
+  {
+    category: 'Microsoft Azure Backup Server (MABS)',
+    links: [
+      {
+        title: 'Install MABS on Azure Local',
+        url: 'https://learn.microsoft.com/azure/backup/backup-mabs-install-azure-stack',
+        description: 'Step-by-step installation guide for Microsoft Azure Backup Server on Azure Local.',
+      },
+      {
+        title: 'MABS protection matrix',
+        url: 'https://learn.microsoft.com/azure/backup/backup-mabs-protection-matrix',
+        description: 'Supported workloads, data sources, and retention limits for MABS backup protection.',
+      },
+    ],
+  },
+  {
     category: 'Scale-Out File Server (SOFS)',
     links: [
       {

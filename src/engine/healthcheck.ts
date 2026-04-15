@@ -28,7 +28,7 @@ export function runHealthCheck(params: {
   workloadSummary: WorkloadSummaryResult
 }): HealthCheckResult {
   const issues: HealthIssue[] = []
-  const { hardware, volumes, capacity, compute, workloadSummary } = params
+  const { hardware, volumes, capacity, workloadSummary } = params
   const addIssue = (issue: HealthIssue) => issues.push(issue)
 
   // ── Resiliency rules ────────────────────────────────────────────────────────
@@ -78,40 +78,72 @@ export function runHealthCheck(params: {
   // ── Pool / capacity utilization ─────────────────────────────────────────────
 
   const totalVolumeTB = volumes.reduce((s, v) => s + v.plannedSizeTB, 0)
-  const utilizationPct = capacity.effectiveUsableTB > 0
-    ? (totalVolumeTB / capacity.effectiveUsableTB) * 100
+  const hasThinVolumes = volumes.some((v) => v.provisioning === 'thin')
+  // Pool-footprint based utilization (12G/12I): pool footprint / available raw pool
+  const aggPoolFootprintTB = volumes.reduce((sum, v) => {
+    const factor = getResiliencyFactor(v.resiliency, hardware.nodeCount)
+    return sum + v.plannedSizeTB / factor
+  }, 0)
+  const fixedPoolFootprintTB = volumes
+    .filter((v) => v.provisioning === 'fixed')
+    .reduce((sum, v) => {
+      const factor = getResiliencyFactor(v.resiliency, hardware.nodeCount)
+      return sum + v.plannedSizeTB / factor
+    }, 0)
+  const utilizationPct = capacity.availableForVolumesTB > 0
+    ? (aggPoolFootprintTB / capacity.availableForVolumesTB) * 100
     : 0
 
-  if (utilizationPct > 100) {
+  // Fixed volumes must physically fit in the pool (12H)
+  if (fixedPoolFootprintTB > capacity.availableForVolumesTB) {
     addIssue({
       code: 'HC_OVER_CAPACITY',
       severity: 'error',
-      message: `Planned volumes (${totalVolumeTB.toFixed(2)} TB) exceed effective usable capacity (${capacity.effectiveUsableTB.toFixed(2)} TB).`,
+      message: `Fixed volumes require ${fixedPoolFootprintTB.toFixed(2)} TB pool footprint but only ${capacity.availableForVolumesTB.toFixed(2)} TB is available.`,
       details: [
         detail({
-          label: 'Aggregate planned capacity',
+          label: 'Fixed volume pool capacity',
           status: 'fail',
-          calculation: `${totalVolumeTB.toFixed(2)} TB planned ÷ ${capacity.effectiveUsableTB.toFixed(2)} TB effective usable = ${utilizationPct.toFixed(1)}% utilization.`,
-          threshold: `Total planned volume capacity must stay at or below ${capacity.effectiveUsableTB.toFixed(2)} TB effective usable capacity.`,
-          outcome: `The current plan exceeds effective usable capacity by ${(totalVolumeTB - capacity.effectiveUsableTB).toFixed(2)} TB.`,
-          ruleSource: 'Azure Local effective usable pool capacity after resiliency overhead',
+          calculation: `${fixedPoolFootprintTB.toFixed(2)} TB pool footprint from fixed volumes vs ${capacity.availableForVolumesTB.toFixed(2)} TB available pool.`,
+          threshold: 'Fixed volumes\' pool footprint must stay at or below available raw pool space.',
+          outcome: `Fixed volumes exceed available pool by ${(fixedPoolFootprintTB - capacity.availableForVolumesTB).toFixed(2)} TB.`,
+          ruleSource: 'Azure Local volume pool capacity — fixed provisioning requires physical space up front',
         }),
       ],
     })
   } else if (utilizationPct > 70) {
-    // Excel workbook warns at 70% — S2D needs rebuild headroom (#58)
+    // S2D needs rebuild headroom (#58)
     addIssue({
       code: 'HC_HIGH_UTILIZATION',
       severity: 'warning',
-      message: `Storage utilization is ${utilizationPct.toFixed(1)}%. Microsoft recommends staying below 70% to maintain rebuild headroom after a drive failure.`,
+      message: `Pool utilization is ${utilizationPct.toFixed(1)}%. Microsoft recommends staying below 70% to maintain rebuild headroom after a drive failure.`,
       details: [
         detail({
           label: 'Rebuild headroom guardrail',
           status: 'warning',
-          calculation: `${totalVolumeTB.toFixed(2)} TB planned ÷ ${capacity.effectiveUsableTB.toFixed(2)} TB effective usable = ${utilizationPct.toFixed(1)}% utilization.`,
-          threshold: 'Stay at or below 70% utilization for healthier rebuild headroom.',
+          calculation: `${aggPoolFootprintTB.toFixed(2)} TB pool footprint ÷ ${capacity.availableForVolumesTB.toFixed(2)} TB available pool = ${utilizationPct.toFixed(1)}% utilization.`,
+          threshold: 'Stay at or below 70% pool utilization for healthier rebuild headroom.',
           outcome: `The plan is ${(utilizationPct - 70).toFixed(1)} percentage points above the recommended headroom threshold.`,
           ruleSource: 'Microsoft Azure Local rebuild-headroom guidance',
+        }),
+      ],
+    })
+  }
+
+  // Thin over-provisioning INFO check (12H): logical allocation can exceed physical capacity
+  if (hasThinVolumes && totalVolumeTB > capacity.effectiveUsableTB) {
+    addIssue({
+      code: 'HC_THIN_OVER_PROVISIONED',
+      severity: 'info',
+      message: `You are thin-provisioned by ${(totalVolumeTB - capacity.effectiveUsableTB).toFixed(2)} TB over physical capacity. This is expected with thin provisioning but requires monitoring.`,
+      details: [
+        detail({
+          label: 'Thin provisioning logical over-subscription',
+          status: 'info',
+          calculation: `${totalVolumeTB.toFixed(2)} TB logical planned vs ${capacity.effectiveUsableTB.toFixed(2)} TB effective usable physical capacity.`,
+          threshold: 'Thin volumes do not consume physical space immediately; logical allocation can exceed physical capacity.',
+          outcome: `Logical volumes exceed physical capacity by ${(totalVolumeTB - capacity.effectiveUsableTB).toFixed(2)} TB. Monitor actual consumption to prevent running out of physical space.`,
+          ruleSource: 'Storage Spaces Direct thin provisioning behavior',
         }),
       ],
     })
@@ -139,99 +171,8 @@ export function runHealthCheck(params: {
     })
   }
 
-  // ── Compute: vCPU ──────────────────────────────────────────────────────────
-
-  if (workloadSummary.totalVCpus > compute.usableVCpus) {
-    addIssue({
-      code: 'HC_VCPU_OVER_SUBSCRIBED',
-      severity: 'error',
-      message: `Workloads require ${workloadSummary.totalVCpus} vCPUs but only ${compute.usableVCpus} are available after system reservation.`,
-      details: [
-        detail({
-          label: 'vCPU capacity check',
-          status: 'fail',
-          calculation: `${workloadSummary.totalVCpus} required vCPUs vs ${compute.usableVCpus} usable vCPUs.`,
-          threshold: 'Required workload vCPUs must be less than or equal to usable cluster vCPUs.',
-          outcome: `The plan is oversubscribed by ${workloadSummary.totalVCpus - compute.usableVCpus} vCPU(s).`,
-          ruleSource: 'Compute headroom after Azure Local system reservation',
-        }),
-      ],
-    })
-  } else if (workloadSummary.totalVCpus > compute.usableVCpus * 0.9) {
-    addIssue({
-      code: 'HC_VCPU_HIGH',
-      severity: 'warning',
-      message: `vCPU utilization is above 90% (${workloadSummary.totalVCpus}/${compute.usableVCpus}). Leave headroom for burst workloads.`,
-      details: [
-        detail({
-          label: 'vCPU headroom check',
-          status: 'warning',
-          calculation: `${workloadSummary.totalVCpus} required ÷ ${compute.usableVCpus} usable = ${((workloadSummary.totalVCpus / compute.usableVCpus) * 100).toFixed(1)}%.`,
-          threshold: 'Keep planned vCPU utilization below 90% for burst headroom.',
-          outcome: 'The cluster still fits the workload, but burst tolerance is narrow.',
-          ruleSource: 'Compute sizing guardrail for burst workloads',
-        }),
-      ],
-    })
-  }
-
-  // ── Compute: memory ────────────────────────────────────────────────────────
-
-  if (workloadSummary.totalMemoryGB > compute.usableMemoryGB) {
-    addIssue({
-      code: 'HC_MEMORY_EXCEEDED',
-      severity: 'error',
-      message: `Workloads require ${workloadSummary.totalMemoryGB} GB RAM but only ${compute.usableMemoryGB} GB is available after system reservation.`,
-      details: [
-        detail({
-          label: 'Memory capacity check',
-          status: 'fail',
-          calculation: `${workloadSummary.totalMemoryGB} GB required vs ${compute.usableMemoryGB} GB usable.`,
-          threshold: 'Required workload memory must be less than or equal to usable cluster memory.',
-          outcome: `The plan exceeds usable memory by ${workloadSummary.totalMemoryGB - compute.usableMemoryGB} GB.`,
-          ruleSource: 'Compute headroom after Azure Local system reservation',
-        }),
-      ],
-    })
-  } else if (workloadSummary.totalMemoryGB > compute.usableMemoryGB * 0.9) {
-    addIssue({
-      code: 'HC_MEMORY_HIGH',
-      severity: 'warning',
-      message: `Memory utilization is above 90% (${workloadSummary.totalMemoryGB} GB/${compute.usableMemoryGB} GB).`,
-      details: [
-        detail({
-          label: 'Memory headroom check',
-          status: 'warning',
-          calculation: `${workloadSummary.totalMemoryGB} GB required ÷ ${compute.usableMemoryGB} GB usable = ${((workloadSummary.totalMemoryGB / compute.usableMemoryGB) * 100).toFixed(1)}%.`,
-          threshold: 'Keep planned memory utilization below 90% for burst and failover headroom.',
-          outcome: 'The cluster still fits the workload, but memory headroom is narrow.',
-          ruleSource: 'Compute sizing guardrail for memory headroom',
-        }),
-      ],
-    })
-  }
-
-  // ── Thin provisioning over-commit risk (#8) ────────────────────────────────
-
-  if (hardware.volumeProvisioning === 'thin') {
-    addIssue({
-      code: 'HC_THIN_PROVISIONING',
-      severity: 'warning',
-      message: 'Thin provisioning is enabled. Monitor pool space regularly — if logical volume sizes exceed available pool capacity, VMs will crash without warning. Not recommended for production workloads.',
-      details: [
-        detail({
-          label: 'Provisioning mode',
-          status: 'warning',
-          calculation: 'Thin provisioning is enabled for Azure Local volumes.',
-          threshold: 'Fixed provisioning is the safer default for production workloads.',
-          outcome: 'The plan can work, but pool exhaustion becomes an operational risk that must be actively monitored.',
-          ruleSource: 'Azure Local thin provisioning operational guidance',
-        }),
-      ],
-    })
-  }
-
   // ── Sub-4-node dual-parity restriction ────────────────────────────────────
+  // Note: compute checks (HC_VCPU_*, HC_MEMORY_*) moved to Phase 13 Compute Report.
 
   if (hardware.nodeCount < 4) {
     const dpVolumes = volumes.filter((v) => v.resiliency === 'dual-parity')
@@ -472,16 +413,6 @@ export function runHealthCheck(params: {
             ? `The plan still fits, but total utilization is ${utilizationPct.toFixed(1)}%, which is above the 70% rebuild-headroom recommendation.`
             : 'The full plan fits within available pool space and stays inside the rebuild-headroom guardrail.',
         ruleSource: 'Azure Local available volume pool and rebuild-headroom guidance',
-      }),
-      detail({
-        label: 'Provisioning mode',
-        status: hardware.volumeProvisioning === 'thin' ? 'warning' : 'pass',
-        calculation: `${hardware.volumeProvisioning === 'thin' ? 'Thin' : 'Fixed'} provisioning selected for cluster volumes.`,
-        threshold: 'Fixed provisioning is the preferred production default unless thin provisioning is intentionally monitored.',
-        outcome: hardware.volumeProvisioning === 'thin'
-          ? 'Thin provisioning is allowed, but pool exhaustion becomes an operational risk that must be actively monitored.'
-          : 'Fixed provisioning avoids silent over-commit risk for production workloads.',
-        ruleSource: 'Azure Local thin provisioning operational guidance',
       }),
     ]
     let status: 'pass' | 'fail' = 'pass'

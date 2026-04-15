@@ -1,7 +1,7 @@
 import { ExternalLink } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
 import { computeMabs } from '../engine/mabs'
-import type { ResiliencyType, MabsInternalMirror } from '../engine/types'
+import type { MabsInternalMirror } from '../engine/types'
 
 /** Parse numeric input — returns current value if input is empty or NaN. */
 function num(e: React.ChangeEvent<HTMLInputElement>, current: number): number {
@@ -78,8 +78,7 @@ export default function MabsPage() {
           Surveyor therefore models <strong>two Azure Local CSV-backed volume roles</strong>: a scratch/cache volume for high-churn staging and a backup-data volume for retained recovery points.
         </p>
         <p className="text-blue-800 dark:text-blue-300 text-xs">
-          The resiliency selections below apply to the <strong>Azure Local cluster volumes</strong> that host those attached disks. They are separate from the
-          <strong> Storage Spaces mirror inside the MABS VM</strong>, which is configured independently.
+          Azure Local volume resiliency is configured per-volume on the <strong>Volumes page</strong>. The <strong>Storage Spaces mirror inside the MABS VM</strong> is a separate guest-level setting configured below.
         </p>
       </div>
 
@@ -103,24 +102,6 @@ export default function MabsPage() {
         <Field label="Scratch/cache (% of protected)" hint="staging area for backup jobs">
           <input type="number" min={5} max={50} step={1} className="input" value={mabs.scratchCachePct}
             onChange={(e) => setMabs({ scratchCachePct: num(e, mabs.scratchCachePct) })} />
-        </Field>
-
-        <Field label="Scratch/cache volume resiliency" hint="Azure Local cluster volume for staging and cache">
-          <select className="input" value={mabs.scratchResiliency}
-            onChange={(e) => setMabs({ scratchResiliency: e.target.value as ResiliencyType })}>
-            <option value="two-way-mirror">Two-Way Mirror (50%)</option>
-            <option value="three-way-mirror">Three-Way Mirror (33%)</option>
-            <option value="dual-parity">Dual Parity (50–80%)</option>
-          </select>
-        </Field>
-
-        <Field label="Backup data volume resiliency" hint="Azure Local cluster volume for retained recovery points">
-          <select className="input" value={mabs.backupResiliency}
-            onChange={(e) => setMabs({ backupResiliency: e.target.value as ResiliencyType })}>
-            <option value="dual-parity">Dual Parity (50–80%)</option>
-            <option value="three-way-mirror">Three-Way Mirror (33%)</option>
-            <option value="two-way-mirror">Two-Way Mirror (50%)</option>
-          </select>
         </Field>
 
         <Field label="Storage Spaces mirror" hint="inside the MABS VM">
@@ -163,9 +144,9 @@ export default function MabsPage() {
         <table className="w-full text-sm">
           <tbody>
             <Row label="Scratch/cache volume" value={`${result.scratchVolumeTB} TB`}
-              detail={`${mabs.scratchCachePct}% of ${mabs.protectedDataTB} TB protected • Azure Local resiliency: ${formatResiliency(mabs.scratchResiliency)}`} />
+              detail={`${mabs.scratchCachePct}% of ${mabs.protectedDataTB} TB protected`} />
             <Row label="Backup data volume" value={`${result.backupDataVolumeTB} TB`}
-              detail={`Full copy + ${mabs.dailyChangeRatePct}% daily change × ${mabs.onPremRetentionDays} days • Azure Local resiliency: ${formatResiliency(mabs.backupResiliency)}`} />
+              detail={`Full copy + ${mabs.dailyChangeRatePct}% daily change × ${mabs.onPremRetentionDays} days`} />
             <Row label="Total logical storage" value={`${result.totalStorageTB} TB`} highlight />
             <Row label={`Storage Spaces mirror (${mabs.internalMirror === 'simple' ? '1×' : mabs.internalMirror === 'two-way' ? '2×' : '3×'})`}
               value={`${result.internalFootprintTB} TB`}
@@ -279,9 +260,3 @@ function Row({ label, value, detail, highlight }: { label: string; value: string
   )
 }
 
-function formatResiliency(resiliency: ResiliencyType) {
-  if (resiliency === 'two-way-mirror') return 'Two-Way Mirror'
-  if (resiliency === 'three-way-mirror') return 'Three-Way Mirror'
-  if (resiliency === 'dual-parity') return 'Dual Parity'
-  return 'Nested Two-Way Mirror'
-}

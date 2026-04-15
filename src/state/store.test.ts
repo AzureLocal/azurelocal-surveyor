@@ -55,15 +55,20 @@ describe('normalizePersistedState', () => {
     expect(normalized.mabsEnabled).toBe(false)
   })
 
-  it('maps legacy MABS resiliency into the new split volume fields', () => {
+  it('normalizes MABS state — resiliency fields removed in v9, internalMirror preserved', () => {
     const normalized = normalizePersistedState({
       mabs: {
-        resiliency: 'three-way-mirror',
+        protectedDataTB: 20,
+        internalMirror: 'three-way',
+        scratchResiliency: 'two-way-mirror', // old field — should be silently ignored
+        backupResiliency: 'dual-parity',     // old field — should be silently ignored
       },
     })
 
-    expect(normalized.mabs.scratchResiliency).toBe('three-way-mirror')
-    expect(normalized.mabs.backupResiliency).toBe('three-way-mirror')
+    expect(normalized.mabs.protectedDataTB).toBe(20)
+    expect(normalized.mabs.internalMirror).toBe('three-way')
+    expect((normalized.mabs as unknown as Record<string, unknown>).scratchResiliency).toBeUndefined()
+    expect((normalized.mabs as unknown as Record<string, unknown>).backupResiliency).toBeUndefined()
   })
 
   it('syncs AVD profile size into SOFS when SOFS is enabled', () => {

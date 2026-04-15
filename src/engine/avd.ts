@@ -111,20 +111,26 @@ export function computeAvd(inputs: AvdInputs, overrides?: AdvancedSettingsOverri
       ? round2((sessionHostCount * dataDiskPerHostGB) / 1024)
       : 0
 
-    const baseProfileStorageTB =
-      singlePool && overrides?.avdProfileLogicalTb && overrides.avdProfileLogicalTb > 0
+    // When FSLogix is disabled, profile and Office Container storage are zero
+    const fslogixEnabled = pool.fslogixEnabled !== false  // default true for legacy pools
+    const baseProfileStorageTB = fslogixEnabled
+      ? (singlePool && overrides?.avdProfileLogicalTb && overrides.avdProfileLogicalTb > 0
         ? overrides.avdProfileLogicalTb
-        : (totalUsers * effectiveProfileSizeGB) / 1024
-    const totalProfileStorageTB = round2(baseProfileStorageTB * growthMultiplier)
+        : (totalUsers * effectiveProfileSizeGB) / 1024)
+      : 0
+    const totalProfileStorageTB = fslogixEnabled ? round2(baseProfileStorageTB * growthMultiplier) : 0
     const profileStorageWithGrowthTB = totalProfileStorageTB
-    const totalOfficeContainerStorageTB = pool.officeContainerEnabled
+    const totalOfficeContainerStorageTB = fslogixEnabled && pool.officeContainerEnabled
       ? round2((totalUsers * officeContainerSizeGB) / 1024)
       : 0
     const profileAndOfficeTB = round2(totalProfileStorageTB + totalOfficeContainerStorageTB)
+    // 'sofs' means profile storage is hosted on this Azure Local cluster (via guest SOFS VMs)
+    // 'azure-files' and 'external' are hosted off-cluster — not counted in cluster storage totals
+    const isLocalStorage = pool.profileStorageLocation === 'sofs'
     const totalStorageTB = round2(
-      totalOsStorageTB + totalDataDiskStorageTB + (pool.profileStorageLocation === 's2d' ? profileAndOfficeTB : 0)
+      totalOsStorageTB + totalDataDiskStorageTB + (isLocalStorage ? profileAndOfficeTB : 0)
     )
-    const externalizedStorageTB = pool.profileStorageLocation === 's2d' ? 0 : profileAndOfficeTB
+    const externalizedStorageTB = isLocalStorage ? 0 : profileAndOfficeTB
     const bandwidthPerUserMbps = profile.bandwidthMbps
     const totalBandwidthMbps = round2(sizingUsers * bandwidthPerUserMbps)
 

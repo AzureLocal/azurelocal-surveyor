@@ -275,14 +275,6 @@ export default function HardwareForm() {
           </div>
         </Field>
 
-        <Field label="Volume provisioning">
-          <select value={hardware.volumeProvisioning}
-            onChange={(e) => setHardware({ volumeProvisioning: e.target.value as 'fixed'|'thin' })}
-            className="input">
-            <option value="fixed">Fixed</option>
-            <option value="thin">Thin</option>
-          </select>
-        </Field>
       </div>
     </div>
   )

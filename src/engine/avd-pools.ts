@@ -12,11 +12,12 @@ export function createDefaultAvdPool(index = 1): AvdHostPool {
     concurrentUsers: 0,
     workloadType: 'medium',
     multiSession: true,
+    fslogixEnabled: true,
     profileSizeGB: 40,
     officeContainerEnabled: true,
     officeContainerSizeGB: 20,
     dataDiskPerHostGB: 0,
-    profileStorageLocation: 's2d',
+    profileStorageLocation: 'sofs',
   }
 }
 

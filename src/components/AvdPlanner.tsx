@@ -35,7 +35,7 @@ const READINESS_CHECKLIST = [
   'Network: 25 GbE RDMA for storage, 10 GbE minimum for VM traffic',
   'Active Directory or Azure AD DS reachable from session hosts',
   'FSLogix license available (included in M365 E3/E5, Win E3/E5, RDS CAL)',
-  'Profile storage (SOFS, Azure Files, or S2D share) planned and sized',
+  'Profile storage (SOFS, Azure Files, or External NAS) planned and sized',
   'Gold image tested and captured as managed image or Azure Compute Gallery',
   'Host pool created in Azure with correct workspace assignment',
   'App groups configured and assigned to users/groups',
@@ -45,9 +45,8 @@ const READINESS_CHECKLIST = [
 ]
 
 const STORAGE_LOCATION_DESCRIPTIONS: Record<AvdProfileStorageLocation, string> = {
-  's2d': 'Profile VHDXs stored on a CSV on this cluster. Simple, low-latency, no egress — but profiles go offline if cluster is down.',
-  'sofs': 'Dedicated Scale-Out File Server guest cluster on this or a separate Azure Local cluster. Recommended for >200 users.',
-  'azure-files': 'Azure Files share (Standard or Premium). Survives cluster failure, AD-integrated, but adds latency and egress cost.',
+  'sofs': 'Dedicated Scale-Out File Server guest cluster. Profile storage lives on this Azure Local cluster — recommended for >200 users.',
+  'azure-files': 'Azure Files share (Standard or Premium). Profiles survive cluster failure and are AD-integrated, but add latency and egress cost.',
   'external': 'Third-party NAS/SMB share external to Azure Local. Full control but additional infrastructure to manage.',
 }
 
@@ -66,8 +65,8 @@ export default function AvdPlanner() {
 
   const selectedPool = avd.pools.find((pool) => pool.id === selectedPoolId) ?? avd.pools[0]
   const selectedPoolResult = result.pools.find((pool) => pool.id === selectedPool?.id) ?? result.pools[0]
-  const usingSofs = avd.pools.some((pool) => pool.profileStorageLocation === 'sofs')
-  const sofsPoolCount = avd.pools.filter((pool) => pool.profileStorageLocation === 'sofs').length
+  const usingSofs = avd.pools.some((pool) => pool.fslogixEnabled !== false && pool.profileStorageLocation === 'sofs')
+  const sofsPoolCount = avd.pools.filter((pool) => pool.fslogixEnabled !== false && pool.profileStorageLocation === 'sofs').length
   const profileSizeInSync = !usingSofs || sofs.profileSizeGB === result.sofsLinkedProfileSizeGB
   const sofsInSync = usingSofs && sofsEnabled &&
     sofs.userCount === result.sofsLinkedUserCount &&
@@ -108,6 +107,8 @@ export default function AvdPlanner() {
       profileSizeGB: result.sofsLinkedProfileSizeGB,
     })
   }
+
+  const isNotLocal = selectedPool.profileStorageLocation !== 'sofs'
 
   if (!selectedPool || !selectedPoolResult) return null
 
@@ -168,6 +169,7 @@ export default function AvdPlanner() {
         )}
       </div>
 
+      {/* ── Session Host Basics ── */}
       <div className="grid grid-cols-2 gap-4">
         <Field label="Session host group name">
           <input
@@ -217,68 +219,157 @@ export default function AvdPlanner() {
             <option value="single">Single-session VDI (1 user per VM)</option>
           </select>
         </Field>
+      </div>
 
-        <Field label="FSLogix profile size (GB)">
-          {avd.userTypeMixEnabled ? (
-            <div className="input bg-gray-100 dark:bg-gray-800 text-gray-500 text-sm py-2">
-              {selectedPoolResult.effectiveProfileSizeGB} GB (computed from user type mix)
+      {/* ── Session Host VM Storage ── */}
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">Session Host VM Storage</div>
+        <div className="px-4 py-4">
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Data / temp disk per host (GB)" hint="0 if not needed">
+              <input type="number" min={0} step={10} className="input" value={selectedPool.dataDiskPerHostGB}
+                onChange={(e) => updateSelectedPool({ dataDiskPerHostGB: num(e, selectedPool.dataDiskPerHostGB) })} />
+              <p className="text-xs text-gray-400 mt-1">Local virtual disk on each session host VM — distinct from FSLogix profile storage.</p>
+            </Field>
+          </div>
+        </div>
+      </div>
+
+      {/* ── FSLogix Profile Storage ── */}
+      <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 flex items-center justify-between gap-4">
+          <span className="text-sm font-semibold">FSLogix Profile Storage</span>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <span className="text-xs text-gray-500">Use FSLogix</span>
+            <button
+              role="switch"
+              aria-checked={selectedPool.fslogixEnabled}
+              onClick={() => updateSelectedPool({ fslogixEnabled: !selectedPool.fslogixEnabled })}
+              className={`relative inline-flex h-5 w-9 shrink-0 rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+                selectedPool.fslogixEnabled
+                  ? 'bg-brand-600'
+                  : 'bg-gray-300 dark:bg-gray-600'
+              }`}
+            >
+              <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                selectedPool.fslogixEnabled ? 'translate-x-4' : 'translate-x-0'
+              }`} />
+            </button>
+          </label>
+        </div>
+
+        {selectedPool.fslogixEnabled ? (
+          <div className="px-4 py-4 space-y-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Storage location</label>
+              <select className="input" value={selectedPool.profileStorageLocation}
+                onChange={(e) => updateSelectedPool({ profileStorageLocation: e.target.value as AvdProfileStorageLocation })}>
+                <option value="sofs">SOFS (Scale-Out File Server)</option>
+                <option value="azure-files">Azure Files</option>
+                <option value="external">External NAS / SMB</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1">{STORAGE_LOCATION_DESCRIPTIONS[selectedPool.profileStorageLocation]}</p>
             </div>
-          ) : (
-            <input type="number" min={1} className="input" value={selectedPool.profileSizeGB}
-              onChange={(e) => updateSelectedPool({ profileSizeGB: num(e, selectedPool.profileSizeGB) })} />
-          )}
-          {sofsEnabled && selectedPool.profileStorageLocation === 'sofs' && (
-            <p className={`text-xs mt-1 ${profileSizeInSync ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
-              {profileSizeInSync
-                ? `SOFS linked aggregate profile size is ${sofs.profileSizeGB} GB.`
-                : `SOFS planner currently differs (${sofs.profileSizeGB} GB). Editing SOFS-targeted pools updates the SOFS planner automatically.`}
-            </p>
-          )}
-        </Field>
 
-        <Field label="User type mix" hint="#59">
-          <label className="flex items-center gap-2 mt-2 text-sm">
-            <input type="checkbox" checked={avd.userTypeMixEnabled}
-              onChange={(e) => setAvd({ userTypeMixEnabled: e.target.checked })} />
-            Use weighted user type mix for profile size
-          </label>
-          <p className="text-xs text-gray-400 mt-1">Applies to every host pool.</p>
-        </Field>
+            {isNotLocal && (
+              <div className="rounded-md border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+                Estimated reference only — profile storage is not hosted on this Azure Local cluster.
+              </div>
+            )}
 
-        <Field label="Profile storage growth buffer %" hint="#27 — applied to total profile storage">
-          <input type="number" min={0} max={100} step={5} className="input" value={avd.growthBufferPct}
-            onChange={(e) => setAvd({ growthBufferPct: num(e, avd.growthBufferPct) })} />
-        </Field>
+            <div className={isNotLocal ? 'opacity-50 pointer-events-none select-none' : ''}>
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="FSLogix profile size (GB)">
+                  {avd.userTypeMixEnabled ? (
+                    <div className="input bg-gray-100 dark:bg-gray-800 text-gray-500 text-sm py-2">
+                      {selectedPoolResult.effectiveProfileSizeGB} GB (computed from user type mix)
+                    </div>
+                  ) : (
+                    <input type="number" min={1} className="input" value={selectedPool.profileSizeGB}
+                      onChange={(e) => updateSelectedPool({ profileSizeGB: num(e, selectedPool.profileSizeGB) })} />
+                  )}
+                  {sofsEnabled && !isNotLocal && (
+                    <p className={`text-xs mt-1 ${profileSizeInSync ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                      {profileSizeInSync
+                        ? `SOFS linked aggregate profile size is ${sofs.profileSizeGB} GB.`
+                        : `SOFS planner currently differs (${sofs.profileSizeGB} GB). Editing SOFS-targeted pools updates the SOFS planner automatically.`}
+                    </p>
+                  )}
+                </Field>
 
-        <Field label="Office Container">
-          <label className="flex items-center gap-2 mt-2 text-sm">
-            <input type="checkbox" checked={selectedPool.officeContainerEnabled}
-              onChange={(e) => updateSelectedPool({ officeContainerEnabled: e.target.checked })} />
-            Enable FSLogix Office Container
-          </label>
-        </Field>
+                <Field label="Profile storage growth buffer %" hint="#27 — applied to total profile storage">
+                  <input type="number" min={0} max={100} step={5} className="input" value={avd.growthBufferPct}
+                    onChange={(e) => setAvd({ growthBufferPct: num(e, avd.growthBufferPct) })} />
+                </Field>
 
-        {selectedPool.officeContainerEnabled && (
-          <Field label="Office Container size (GB)">
-            <input type="number" min={1} className="input" value={selectedPool.officeContainerSizeGB}
-              onChange={(e) => updateSelectedPool({ officeContainerSizeGB: num(e, selectedPool.officeContainerSizeGB) })} />
-          </Field>
+                <Field label="User type mix" hint="#59">
+                  <label className="flex items-center gap-2 mt-2 text-sm">
+                    <input type="checkbox" checked={avd.userTypeMixEnabled}
+                      onChange={(e) => setAvd({ userTypeMixEnabled: e.target.checked })} />
+                    Use weighted user type mix for profile size
+                  </label>
+                  <p className="text-xs text-gray-400 mt-1">Applies to every host pool.</p>
+                </Field>
+
+                <Field label="Office Container">
+                  <label className="flex items-center gap-2 mt-2 text-sm">
+                    <input type="checkbox" checked={selectedPool.officeContainerEnabled}
+                      onChange={(e) => updateSelectedPool({ officeContainerEnabled: e.target.checked })} />
+                    Enable FSLogix Office Container
+                  </label>
+                </Field>
+
+                {selectedPool.officeContainerEnabled && (
+                  <Field label="Office Container size (GB)">
+                    <input type="number" min={1} className="input" value={selectedPool.officeContainerSizeGB}
+                      onChange={(e) => updateSelectedPool({ officeContainerSizeGB: num(e, selectedPool.officeContainerSizeGB) })} />
+                  </Field>
+                )}
+              </div>
+            </div>
+
+            {usingSofs && (
+              <div className={`rounded-lg border px-4 py-3 space-y-2 ${sofsInSync ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20' : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20'}`}>
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <p className={`text-sm font-semibold ${sofsInSync ? 'text-green-800 dark:text-green-300' : 'text-amber-800 dark:text-amber-300'}`}>
+                      {sofsInSync ? 'SOFS planner is in sync with AVD inputs' : 'SOFS planner needs AVD profile sizing'}
+                    </p>
+                    <p className={`text-xs mt-0.5 ${sofsInSync ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
+                      {sofsInSync
+                        ? `SOFS is enabled and sized for ${result.sofsLinkedUserCount} users with ${result.sofsLinkedProfileSizeGB} GB profiles across ${sofsPoolCount} SOFS-targeted session host group${sofsPoolCount === 1 ? '' : 's'}. Configure additional SOFS settings on the SOFS page.`
+                        : `You have ${sofsPoolCount} session host group${sofsPoolCount === 1 ? '' : 's'} targeting SOFS. Applying sync pushes aggregated user counts and weighted profile size into the SOFS planner.`}
+                    </p>
+                  </div>
+                  {!sofsInSync && (
+                    <button
+                      onClick={syncToSofs}
+                      className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-md bg-amber-600 hover:bg-amber-700 text-white transition-colors"
+                    >
+                      Apply to SOFS planner
+                    </button>
+                  )}
+                </div>
+                {!sofsInSync && (
+                  <div className="text-xs text-amber-600 dark:text-amber-400 space-y-1">
+                    <p>
+                      Applies: {result.sofsLinkedUserCount} total users, {result.sofsLinkedConcurrentUsers} concurrent, {result.sofsLinkedProfileSizeGB} GB weighted profile size.
+                      Does not overwrite SOFS guest VM count, mirror type, or redirected folder sizing.
+                    </p>
+                    <p>
+                      Open the <Link to="/sofs" className="font-semibold underline">SOFS planner</Link> to finish guest cluster sizing and redirected-folder assumptions.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="px-4 py-3 text-xs text-gray-400 dark:text-gray-500">
+            FSLogix is disabled for this host pool — no profile storage will be counted.
+            Session host OS disks and any data disks still contribute to cluster storage.
+          </div>
         )}
-
-        <Field label="Data / temp disk per host (GB)" hint="0 if not needed">
-          <input type="number" min={0} step={10} className="input" value={selectedPool.dataDiskPerHostGB}
-            onChange={(e) => updateSelectedPool({ dataDiskPerHostGB: num(e, selectedPool.dataDiskPerHostGB) })} />
-        </Field>
-
-        <Field label="FSLogix profile storage location">
-          <select className="input" value={selectedPool.profileStorageLocation}
-            onChange={(e) => updateSelectedPool({ profileStorageLocation: e.target.value as AvdProfileStorageLocation })}>
-            <option value="s2d">S2D (CSV on this cluster)</option>
-            <option value="sofs">SOFS (Scale-Out File Server)</option>
-            <option value="azure-files">Azure Files</option>
-            <option value="external">External NAS / SMB</option>
-          </select>
-        </Field>
       </div>
 
       {avd.userTypeMixEnabled && (
@@ -331,47 +422,6 @@ export default function AvdPlanner() {
               {' '}({(result.effectiveProfileSizeGB / 1024 * result.totalUsers * (1 + avd.growthBufferPct / 100)).toFixed(2)} TB total with growth buffer)
             </div>
           </div>
-        </div>
-      )}
-
-      <div className="rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 px-4 py-3 text-sm text-blue-700 dark:text-blue-300">
-        <span className="font-semibold">{selectedPool.name} profile storage ({selectedPool.profileStorageLocation}):</span>{' '}
-        {STORAGE_LOCATION_DESCRIPTIONS[selectedPool.profileStorageLocation]}
-      </div>
-
-      {usingSofs && (
-        <div className={`rounded-lg border px-4 py-3 space-y-2 ${sofsInSync ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-900/20' : 'border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20'}`}>
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className={`text-sm font-semibold ${sofsInSync ? 'text-green-800 dark:text-green-300' : 'text-amber-800 dark:text-amber-300'}`}>
-                {sofsInSync ? 'SOFS planner is in sync with AVD inputs' : 'SOFS planner needs AVD profile sizing'}
-              </p>
-              <p className={`text-xs mt-0.5 ${sofsInSync ? 'text-green-700 dark:text-green-400' : 'text-amber-700 dark:text-amber-400'}`}>
-                {sofsInSync
-                  ? `SOFS is enabled and sized for ${result.sofsLinkedUserCount} users with ${result.sofsLinkedProfileSizeGB} GB profiles across ${sofsPoolCount} SOFS-targeted session host group${sofsPoolCount === 1 ? '' : 's'}. Configure additional SOFS settings on the SOFS page.`
-                  : `You have ${sofsPoolCount} session host group${sofsPoolCount === 1 ? '' : 's'} targeting SOFS. Applying sync pushes aggregated user counts and weighted profile size into the SOFS planner.`}
-              </p>
-            </div>
-            {!sofsInSync && (
-              <button
-                onClick={syncToSofs}
-                className="shrink-0 px-3 py-1.5 text-xs font-semibold rounded-md bg-amber-600 hover:bg-amber-700 text-white transition-colors"
-              >
-                Apply to SOFS planner
-              </button>
-            )}
-          </div>
-          {!sofsInSync && (
-            <div className="text-xs text-amber-600 dark:text-amber-400 space-y-1">
-              <p>
-              Applies: {result.sofsLinkedUserCount} total users, {result.sofsLinkedConcurrentUsers} concurrent, {result.sofsLinkedProfileSizeGB} GB weighted profile size.
-              Does not overwrite SOFS guest VM count, mirror type, or redirected folder sizing.
-              </p>
-              <p>
-                Open the <Link to="/sofs" className="font-semibold underline">SOFS planner</Link> to finish guest cluster sizing and redirected-folder assumptions.
-              </p>
-            </div>
-          )}
         </div>
       )}
 

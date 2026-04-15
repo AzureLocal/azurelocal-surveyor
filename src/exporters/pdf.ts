@@ -98,9 +98,13 @@ export function exportPdf(state: Pick<SurveyorState, 'hardware' | 'advanced' | '
   if (state.aks.enabled) { workloadSummary.totalVCpus += aks.totalVCpus; workloadSummary.totalMemoryGB += aks.totalMemoryGB; workloadSummary.totalStorageTB += aks.totalStorageTB }
   if (state.virtualMachines?.enabled) {
     const vm = state.virtualMachines
-    workloadSummary.totalVCpus += (vm.vmCount * vm.vCpusPerVm) / vm.vCpuOvercommitRatio
-    workloadSummary.totalMemoryGB += vm.vmCount * vm.memoryPerVmGB
-    workloadSummary.totalStorageTB += (vm.vmCount * vm.storagePerVmGB) / 1024
+    let rawVCpus = 0
+    for (const group of vm.groups) {
+      rawVCpus += group.vmCount * group.vCpusPerVm
+      workloadSummary.totalMemoryGB += group.vmCount * group.memoryPerVmGB
+      workloadSummary.totalStorageTB += (group.vmCount * group.storagePerVmGB) / 1024
+    }
+    workloadSummary.totalVCpus += rawVCpus / vm.vCpuOvercommitRatio
   }
   if (state.sofsEnabled) { workloadSummary.totalVCpus += sofs.sofsVCpusTotal; workloadSummary.totalMemoryGB += sofs.sofsMemoryTotalGB; workloadSummary.totalStorageTB += sofs.totalStorageTB }
   if (state.mabsEnabled) { workloadSummary.totalVCpus += mabsResult.mabsVCpus; workloadSummary.totalMemoryGB += mabsResult.mabsMemoryGB; workloadSummary.totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB }
@@ -179,7 +183,6 @@ export function exportPdf(state: Pick<SurveyorState, 'hardware' | 'advanced' | '
       ['Cache drives/node', state.hardware.cacheDrivesPerNode > 0 ? `${state.hardware.cacheDrivesPerNode} × ${state.hardware.cacheDriveSizeTB} TB (${state.hardware.cacheMediaType.toUpperCase()})` : 'None (all-flash)'],
       ['CPU per node', `${state.hardware.coresPerNode} cores${state.hardware.hyperthreadingEnabled ? ' (HT enabled)' : ''}`],
       ['RAM per node', `${state.hardware.memoryPerNodeGB} GB`],
-      ['Volume provisioning', state.hardware.volumeProvisioning],
     ],
     theme: 'striped',
     headStyles: { fillColor: BRAND_BLUE, textColor: [255, 255, 255], fontSize: 9 },
@@ -274,7 +277,10 @@ export function exportPdf(state: Pick<SurveyorState, 'hardware' | 'advanced' | '
   if (state.aks.enabled) enabledWorkloads.push(['AKS', String(aks.totalVCpus), `${aks.totalMemoryGB} GB`, `${round2(aks.totalStorageTB)} TB`])
   if (state.virtualMachines?.enabled) {
     const vm = state.virtualMachines
-    enabledWorkloads.push(['Virtual Machines', String(Math.round((vm.vmCount * vm.vCpusPerVm) / vm.vCpuOvercommitRatio)), `${vm.vmCount * vm.memoryPerVmGB} GB`, `${round2((vm.vmCount * vm.storagePerVmGB) / 1024)} TB`])
+    const vmVCpus = Math.round(vm.groups.reduce((s, g) => s + g.vmCount * g.vCpusPerVm, 0) / vm.vCpuOvercommitRatio)
+    const vmMemory = vm.groups.reduce((s, g) => s + g.vmCount * g.memoryPerVmGB, 0)
+    const vmStorage = round2(vm.groups.reduce((s, g) => s + (g.vmCount * g.storagePerVmGB) / 1024, 0))
+    enabledWorkloads.push(['Virtual Machines', String(vmVCpus), `${vmMemory} GB`, `${vmStorage} TB`])
   }
   if (state.sofsEnabled) enabledWorkloads.push(['SOFS', String(sofs.sofsVCpusTotal), `${sofs.sofsMemoryTotalGB} GB`, `${round2(sofs.totalStorageTB)} TB`])
   if (state.mabsEnabled) enabledWorkloads.push(['MABS', String(mabsResult.mabsVCpus), `${mabsResult.mabsMemoryGB} GB`, `${round2(mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB)} TB`])

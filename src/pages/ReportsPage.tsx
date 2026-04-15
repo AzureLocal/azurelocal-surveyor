@@ -52,8 +52,12 @@ export default function ReportsPage() {
   if (state.aks.enabled) { totalVCpus += aks.totalVCpus;  totalMemoryGB += aks.totalMemoryGB }
   if (state.virtualMachines?.enabled) {
     const vm = state.virtualMachines
-    totalVCpus    += (vm.vmCount * vm.vCpusPerVm) / vm.vCpuOvercommitRatio
-    totalMemoryGB += vm.vmCount * vm.memoryPerVmGB
+    let rawVmVCpus = 0
+    for (const g of vm.groups) {
+      rawVmVCpus    += g.vmCount * g.vCpusPerVm
+      totalMemoryGB += g.vmCount * g.memoryPerVmGB
+    }
+    totalVCpus += rawVmVCpus / vm.vCpuOvercommitRatio
   }
   if (state.sofsEnabled) { totalVCpus += sofs.sofsVCpusTotal; totalMemoryGB += sofs.sofsMemoryTotalGB }
   if (state.mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB }
