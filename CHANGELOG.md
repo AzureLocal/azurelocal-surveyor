@@ -5,11 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [Unreleased] — v2.1.1
+## [2.1.2] — 2026-04-15
 
 ### Bug Fixes
 
-- SOFS host volume suggestions should combine the guest VM OS disk and guest data on the same Azure Local host volume in both `shared` and `per-vm` layouts (#152)
+- About page links corrected — Surveyor Docs link now points to the in-app docs route and S2DCartographer link points to the documentation site (#153)
+
+---
+
+## [2.1.1] — 2026-04-15
+
+### Bug Fixes
+
+- SOFS host volume suggestions now combine the guest VM OS disk and guest data on the same Azure Local host volume in both `shared` and `per-vm` layouts (#152)
 
 ---
 

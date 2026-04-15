@@ -2,6 +2,20 @@ import { version } from '../../package.json'
 
 const RELEASE_HISTORY = [
   {
+    version: '2.1.2',
+    label: 'About Page Link Corrections',
+    items: [
+      'About page Docs link now routes to the in-app documentation page; S2DCartographer link points to the documentation site (#153)',
+    ],
+  },
+  {
+    version: '2.1.1',
+    label: 'SOFS Volume Layout Fix',
+    items: [
+      'SOFS host volume suggestions now combine guest OS disk and data on the same Azure Local volume for both shared and per-VM layouts (#152)',
+    ],
+  },
+  {
     version: '2.1.0',
     label: 'Planner Accuracy and Release Alignment',
     items: [
@@ -160,13 +174,6 @@ const RELEASE_HISTORY = [
 ]
 
 const ROADMAP = [
-  {
-    version: '2.1.1',
-    status: 'Planned',
-    items: [
-      { type: 'bug', text: 'SOFS host volume suggestions should combine each guest VM OS disk and data on the same Azure Local volume (#152)' },
-    ],
-  },
   {
     version: '2.5.0',
     status: 'Planned',

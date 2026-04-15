@@ -1,6 +1,6 @@
 {
   "name": "azurelocal-surveyor",
-  "version": "2.1.0",
+  "version": "2.1.2",
   "private": true,
   "description": "Azure Local Surveyor — plan your Azure Local cluster before you rack it",
   "type": "module",
