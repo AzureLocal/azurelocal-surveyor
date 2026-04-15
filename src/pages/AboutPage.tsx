@@ -2,6 +2,19 @@ import { version } from '../../package.json'
 
 const RELEASE_HISTORY = [
   {
+    version: '2.1.0',
+    label: 'Planner Accuracy and Release Alignment',
+    items: [
+      'Capacity Report now shows Two-Way Mirror and Three-Way Mirror efficiency and effective usable values side by side',
+      'SOFS auto-sizing now uses the SOFS guest VM count directly and is colocated with guest cluster configuration',
+      'Pool utilization display no longer shows 101% from rounding drift and only turns red on true over-capacity',
+      'HC_HIGH_UTILIZATION wording now distinguishes reserve drives from rebuild headroom inside the pool',
+      'AVD profile and Office Container volume suggestions are suppressed when FSLogix is hosted on SOFS',
+      'MABS planner now supports OS disk placement as either a dedicated volume or shared VM storage',
+      'ReFS deduplication and compression research documented for future capacity-model enhancements',
+    ],
+  },
+  {
     version: '2.0.0',
     label: 'Comprehensive Quality Overhaul',
     items: [
@@ -147,19 +160,6 @@ const RELEASE_HISTORY = [
 ]
 
 const ROADMAP = [
-  {
-    version: '2.1.0',
-    status: 'In Progress',
-    items: [
-      { type: 'bug', text: 'Pool utilization bar shows 100–101% and turns red on a fully-allocated valid layout (#146)' },
-      { type: 'bug', text: 'HC_HIGH_UTILIZATION warning conflates reserve drives with the 70% raw-capacity reserve — message rewrite (#147)' },
-      { type: 'bug', text: 'SOFS Auto-Sizing has a duplicate node count input; should read from Hardware page (#149)' },
-      { type: 'bug', text: 'AVD-Profiles and AVD-OfficeContainers volumes generated when SOFS is the profile store (#151)' },
-      { type: 'enhancement', text: 'Capacity Report: Two-Way and Three-Way efficiency percentages shown side by side (#145)' },
-      { type: 'enhancement', text: 'MABS: toggle for OS disk placement — dedicated volume vs folded into MABS metadata volume (#150)' },
-      { type: 'research', text: 'ReFS Deduplication and Compression — capacity-planning impact and savings guidance (#141)' },
-    ],
-  },
   {
     version: '2.5.0',
     status: 'Planned',
