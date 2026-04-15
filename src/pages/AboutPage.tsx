@@ -2,6 +2,13 @@ import { version } from '../../package.json'
 
 const RELEASE_HISTORY = [
   {
+    version: '2.1.3',
+    label: 'Generic Volume Suggestion Fix',
+    items: [
+      'Generic Hardware-Based volume suggestions now floor per-volume size to prevent Over Capacity error on add (#154)',
+    ],
+  },
+  {
     version: '2.1.2',
     label: 'About Page Link Corrections',
     items: [

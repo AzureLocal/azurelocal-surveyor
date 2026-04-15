@@ -98,7 +98,8 @@ export function generateGenericVolumes(capacity: CapacityResult): GenericSuggest
   if (effectiveUsableTB <= 0) return []
 
   const volumeCount = Math.min(nodeCount, 16)
-  const perVolumeTB = round2(effectiveUsableTB / volumeCount)
+  // Floor at 2 decimal places — rounding up causes pool footprint to exceed available pool
+  const perVolumeTB = Math.floor((effectiveUsableTB / volumeCount) * 100) / 100
   if (perVolumeTB <= 0) return []
 
   // Cap at 64 TB per volume (S2D limit)

@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.1.3] — 2026-04-15
+
+### Bug Fixes
+
+- Generic Hardware-Based volume suggestions round DOWN per-volume size to prevent pool footprint from exceeding available pool on add (#154)
+
+---
+
 ## [2.1.2] — 2026-04-15
 
 ### Bug Fixes
