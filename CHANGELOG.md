@@ -5,6 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — v2.1.0
+
+### Bug Fixes
+
+- Pool utilization bar shows 100–101% and turns red when all storage is committed to valid volumes — off-by-one in utilization percentage calculation (#146)
+- HC_HIGH_UTILIZATION warning message conflates the reserve-drive concept with the 70% raw-capacity utilization reserve — rewrite needed for clarity (#147)
+- SOFS Auto-Sizing has a duplicate node count input that should instead be read from the Hardware page (#149)
+- AVD-Profiles and AVD-OfficeContainers volume suggestions are incorrectly generated when SOFS is selected as the profile store (#151)
+
+### Enhancements
+
+- Capacity Report: display Two-Way Mirror and Three-Way Mirror efficiency percentages side by side so hardware configurations can be compared on a single screen (#145)
+- MABS: add a toggle to choose whether the MABS VM OS disk gets a dedicated volume placement or is folded into the MABS metadata volume (#150)
+
+### Research
+
+- ReFS Deduplication and Compression: investigate capacity-planning impact, quantify realistic savings rates, and document caveats for Surveyor guidance (#141)
+
+---
+
 ## [2.0.0] — Comprehensive Quality Overhaul (Epic #122)
 
 This release delivers a full-stack v2.0 overhaul across 14 phases. Every workload planner now

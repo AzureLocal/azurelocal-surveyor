@@ -146,6 +146,30 @@ const RELEASE_HISTORY = [
   },
 ]
 
+const ROADMAP = [
+  {
+    version: '2.1.0',
+    status: 'In Progress',
+    items: [
+      { type: 'bug', text: 'Pool utilization bar shows 100–101% and turns red on a fully-allocated valid layout (#146)' },
+      { type: 'bug', text: 'HC_HIGH_UTILIZATION warning conflates reserve drives with the 70% raw-capacity reserve — message rewrite (#147)' },
+      { type: 'bug', text: 'SOFS Auto-Sizing has a duplicate node count input; should read from Hardware page (#149)' },
+      { type: 'bug', text: 'AVD-Profiles and AVD-OfficeContainers volumes generated when SOFS is the profile store (#151)' },
+      { type: 'enhancement', text: 'Capacity Report: Two-Way and Three-Way efficiency percentages shown side by side (#145)' },
+      { type: 'enhancement', text: 'MABS: toggle for OS disk placement — dedicated volume vs folded into MABS metadata volume (#150)' },
+      { type: 'research', text: 'ReFS Deduplication and Compression — capacity-planning impact and savings guidance (#141)' },
+    ],
+  },
+  {
+    version: '2.5.0',
+    status: 'Planned',
+    items: [
+      { type: 'enhancement', text: 'Hardware Sizing Calculator — reverse planner: given a target workload, find the minimum hardware configuration (#140)' },
+      { type: 'testing', text: 'Custom Workloads JSON import — expanded test coverage across full schema and edge cases (#148)' },
+    ],
+  },
+]
+
 const LINKS = [
   {
     label: 'GitHub Repository',
@@ -252,6 +276,46 @@ export default function AboutPage() {
             &copy; 2026 Azure Local Cloud. Released under the{' '}
             <a href="https://github.com/AzureLocal/azurelocal-surveyor/blob/main/LICENSE" target="_blank" rel="noopener noreferrer" className="underline hover:text-gray-600 dark:hover:text-gray-300">MIT License</a>.
           </div>
+        </div>
+      </section>
+
+      {/* Roadmap */}
+      <section>
+        <h2 className="text-xl font-semibold mb-4">Roadmap</h2>
+        <div className="space-y-4">
+          {ROADMAP.map((milestone) => (
+            <div
+              key={milestone.version}
+              className="rounded-lg border border-gray-200 dark:border-gray-700 p-4"
+            >
+              <div className="flex items-center gap-3 mb-3">
+                <span className="font-mono text-sm font-bold text-brand-600 dark:text-brand-400">v{milestone.version}</span>
+                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                  milestone.status === 'In Progress'
+                    ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
+                    : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400'
+                }`}>{milestone.status}</span>
+              </div>
+              <ul className="space-y-1.5">
+                {milestone.items.map((item) => (
+                  <li key={item.text} className="text-xs text-gray-500 flex gap-2">
+                    <span className={`shrink-0 font-medium ${
+                      item.type === 'bug' ? 'text-red-400' :
+                      item.type === 'enhancement' ? 'text-blue-400' :
+                      item.type === 'research' ? 'text-purple-400' :
+                      'text-gray-400'
+                    }`}>{
+                      item.type === 'bug' ? 'fix' :
+                      item.type === 'enhancement' ? 'feat' :
+                      item.type === 'research' ? 'research' :
+                      'test'
+                    }</span>
+                    {item.text}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
         </div>
       </section>
 
