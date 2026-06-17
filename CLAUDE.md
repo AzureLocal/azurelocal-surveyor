@@ -40,7 +40,7 @@ Key rules:
 
 | Fact | Value |
 |---|---|
-| Primary language | Markdown / Python (MkDocs) |
+| Primary language | TypeScript / React / Vite |
 | GitHub org | AzureLocal |
 | Azure login | kris@hybridsolutions.cloud |
 | Key Vault | kv-hcs-vault-01 |
@@ -53,14 +53,16 @@ Key rules:
 | `AZURE_DEVOPS_EXT_PAT` | kv-hcs-vault-01 via Load-HCSEnvironment.ps1 | ADO CLI (`az boards`, `az devops`) |
 Load before starting a session:
 ```powershell
-. E:\git\platform\scripts\Load-HCSEnvironment.ps1
+. D:\git\platform\scripts\Load-HCSEnvironment.ps1
 ```
 
 ### Build and test commands
 
-```
-mkdocs build
-mkdocs serve  # http://127.0.0.1:8000
+```powershell
+npm run dev     # Vite dev server
+npm run build   # production build
+npm run lint    # ESLint
+npx tsc --noEmit  # type check
 ```
 
 ---
@@ -133,9 +135,11 @@ azurelocal-surveyor/
 
 ## Subagents available in this repo
 
-- `azurelocal-surveyor-engineer` (model: sonnet) — Expert in `azurelocal-surveyor`: deep knowledge of this repo's structure, conventions, and development workflow.
+- `azurelocal-surveyor-engineer` (model: sonnet) — React/TypeScript engineer for S2D capacity planning app: engine logic, Zustand state, Vite build, component work.
 
-User-level agents (available in every repo session): `triage-lookup`, `markdown-prose-editor`, `azurelocal-domain-expert`, `mkdocs-material-doctor`, `turner-module-scaffold-engineer`, `mms-2026-demo-presenter`.
+User-level agents (every repo): `triage-lookup`, `markdown-prose-editor`, `azurelocal-domain-expert`, `mkdocs-material-doctor`, `turner-module-scaffold-engineer`, `mms-2026-demo-presenter`.
+
+Platform repo agents (when working in `D:\git\platform`): `orchestration-pm`, `security-waf-caf`, `terraform-validator`, `bicep-validator`, `arm-validator`, `ansible-linter`, `powershell-linter`, `reviewer`, `security-reviewer`, `documenter`, `coder`, `planner`, `operator`, `investigator`, `test-writer`, `router`.
 
 ---
 
@@ -146,3 +150,15 @@ kris@hybridsolutions.cloud
 Senior Product Technology Architect, TierPoint | Microsoft MVP (Azure) | MCT
 Owner, Hybrid Cloud Solutions LLC — hybridsolutions.cloud
 Country Cloud Boy — thisismydemo.cloud
+
+---
+
+## HCS Orchestration Profile
+
+**Validation profile:** web — see `D:\git\platform\profiles\web.yaml`
+
+This repo is a **pilot** for the `web` type in the HCS multi-agent orchestration system.
+Run `/dispatch web` (or `/dispatch` for all pilots) to validate this repo.
+
+**Repo-specific notes for validators:**
+React + TypeScript + Vite + Zustand. `npm run lint` and `tsc --noEmit` must pass. `npm audit` for HIGH/CRITICAL vulnerabilities.
