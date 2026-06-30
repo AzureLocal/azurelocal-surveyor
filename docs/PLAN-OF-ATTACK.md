@@ -77,25 +77,27 @@ matches to the same precision. A golden-cluster fixture (Wave 3) enforces this i
 
 ## Waves
 
-| Wave | Theme | ADO items | Exit criteria |
-|---|---|---|---|
-| **0** | Canonical model + formula audit | AB#4633 (Epic) | This document ratified; every formula traced to a source; open questions answered |
-| **1** | Accuracy fixes (reconcile the math) | AB#4642, AB#4643, AB#4641, AB#4635, AB#4636, AB#4638, AB#4637 | Same cluster → numbers reconcile within tolerance |
-| **2** | Legibility (units, labels, thresholds) | AB#4640, AB#4645, AB#4639, AB#4644 | Every figure labeled TB/TiB + footprint/usable; 70% line drawn in both |
-| **3** | Validation + report correctness | AB#154, AB#263, AB#264, AB#265, AB#266, AB#279 | Golden-cluster reconciliation test in CI; reports render correct numbers |
-| **4** | Enrichment that feeds accuracy | AB#262, AB#414, AB#267, AB#268, AB#269 | Better drive/inventory data flows into the model; health-check scoring configurable |
-| **5** | Reporting UX & visualization | AB#270, AB#271, AB#272, AB#273, AB#274, AB#275, AB#276, AB#277, AB#280, AB#278 | Diagrams, PDF/Word layout, exports, progress, search, cost |
-| **6** | New capabilities + docs | AB#153, AB#155, AB#4646, AB#4647, AB#4648 | Reverse planner; settings UX; clear docs; VitePress migration |
+| Wave | Theme | ADO items | Exit criteria | Status |
+|---|---|---|---|---|
+| **0** | Canonical model + formula audit | AB#4633 (Epic) | This document ratified; every formula traced to a source; open questions answered | ✅ COMPLETE |
+| **1** | Accuracy fixes (reconcile the math) | AB#4642, AB#4643, AB#4641, AB#4635, AB#4636, AB#4638, AB#4637 | Same cluster → numbers reconcile within tolerance | ✅ COMPLETE — shipped 2.2.0 (2026-06-29) |
+| **2** | Legibility (units, labels, thresholds) | AB#4640, AB#4645, AB#4639, AB#4644 | Every figure labeled TB/TiB + footprint/usable; 70% line drawn in both | ✅ COMPLETE — shipped 2.3.0 (2026-06-29) |
+| **3** | Validation + report correctness | AB#154, AB#263, AB#264, AB#265, AB#266, AB#279 | Golden-cluster reconciliation test in CI; reports render correct numbers | ✅ COMPLETE — shipped 2.4.0 (2026-06-30) |
+| **4** | Enrichment that feeds accuracy | AB#262, AB#414, AB#267, AB#268, AB#269 | Better drive/inventory data flows into the model; health-check scoring configurable | |
+| **5** | Reporting UX & visualization | AB#270, AB#271, AB#272, AB#273, AB#274, AB#275, AB#276, AB#277, AB#280, AB#278 | Diagrams, PDF/Word layout, exports, progress, search, cost | |
+| **6** | New capabilities + docs | AB#153, AB#155, AB#4646, AB#4647, AB#4648 | Reverse planner; settings UX; clear docs; VitePress migration | |
 
 ---
 
-### Wave 0 — Canonical model & formula audit *(do first, blocks everything)*
+### Wave 0 — Canonical model & formula audit *(do first, blocks everything)* — ✅ COMPLETE
+
 **Epic AB#4633.** Ratify the model above. Walk every capacity formula in both codebases and trace it
 to a documented source or this spec. Answer the four open questions. Produce a one-page
 `capacity-model` reference (this section can graduate into it) that both engineering tracks code against.
 - **Exit:** no formula in either tool is unexplained; 0.92 and ÷3 are definitively classified.
 
-### Wave 1 — Accuracy fixes
+### Wave 1 — Accuracy fixes — ✅ COMPLETE (shipped 2.2.0 — 2026-06-29)
+
 Make each tool match the canonical model.
 - **Cartographer:** AB#4642 (use `NumberOfDataCopies`, not hardcoded ÷3) · AB#4643 (reserve on
   efficiency-adjusted, per-server-drive basis) · AB#4641 (insert the explicit efficiency-haircut stage).
@@ -104,14 +106,16 @@ Make each tool match the canonical model.
   exists) · AB#4637 (two-way/three-way toggle that recomputes suggested TiB from the pool target).
 - **Exit:** the reconciliation gate passes on at least one real golden cluster.
 
-### Wave 2 — Legibility
+### Wave 2 — Legibility — ✅ COMPLETE (shipped 2.3.0 — 2026-06-29)
+
 The numbers are now correct; make them unambiguous.
 - AB#4640 / AB#4645 — show TB **and** TiB; label every figure footprint vs usable; consistent
   decimal/binary usage.
 - AB#4639 / AB#4644 — draw the 70% line against available-for-volumes in both tools, identically.
 - **Exit:** a reader can tell, for every number, which unit and which space it is in.
 
-### Wave 3 — Validation & report correctness
+### Wave 3 — Validation & report correctness — ✅ COMPLETE (shipped 2.4.0 — 2026-06-30)
+
 Lock accuracy in so it can't regress.
 - AB#154 — expand Surveyor test coverage (Custom Workloads JSON import lifecycle).
 - **New (create as a child of AB#4633):** a *golden-cluster cross-tool reconciliation test* — a fixed
