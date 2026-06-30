@@ -5,6 +5,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.3.0] — 2026-06-29
+
+> **Wave 2 — Legibility.** The numbers are now correct (2.2.0); this release makes them
+> unambiguous. No capacity math changed.
+
+### Added
+
+- Every capacity figure is now labeled with both its unit (decimal **TB** and binary **TiB**) and
+  its space (**footprint** vs **usable data**); available-for-volumes shows e.g. "22.23 TB / 20.21
+  TiB". Glossary gains a "Footprint vs Usable" entry. (AB#4640)
+- 70% planning line drawn on the capacity bar and volume utilization bar, with an amber alert when
+  planned volume **footprint** exceeds **70% of available-for-volumes** (matches Cartographer's
+  definition exactly). (AB#4639)
+- Two-way / three-way resiliency toggle in the Suggested Volumes panel; suggested sizes recompute
+  from the pool target and options are gated by node count. (AB#4637)
+
+---
+
 ## [2.2.0] — 2026-06-29
 
 > **Wave 1 — Capacity accuracy.** Capacity figures are reconciled to the canonical model
