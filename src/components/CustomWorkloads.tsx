@@ -8,7 +8,7 @@
 import { useState, useRef } from 'react'
 import { Trash2, Plus, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
-import { computeAllCustomWorkloads } from '../engine/custom-workloads'
+import { computeAllCustomWorkloads, parseCustomWorkloadsJson } from '../engine/custom-workloads'
 import type { CustomWorkload } from '../engine/types'
 
 const JSON_TEMPLATE: Omit<CustomWorkload, 'id'> = {
@@ -70,46 +70,14 @@ export default function CustomWorkloads() {
 
   function handleImportJson(text: string) {
     setImportError(null)
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(text)
-    } catch {
-      setImportError('Invalid JSON — check the format and try again.')
+    const { workloads, error } = parseCustomWorkloadsJson(text)
+    if (error) {
+      setImportError(error)
       return
     }
-    if (typeof parsed !== 'object' || parsed === null) {
-      setImportError('JSON must be an object or array of workload objects.')
-      return
-    }
-    // Support both single object and array
-    const items: unknown[] = Array.isArray(parsed) ? parsed : [parsed]
-    let imported = 0
-    for (const item of items) {
-      if (typeof item !== 'object' || item === null) continue
-      const obj = item as Record<string, unknown>
-      // Validate required fields
-      if (typeof obj.name !== 'string' || !obj.name.trim()) {
-        setImportError('One or more workloads is missing a "name" field.')
-        return
-      }
-      const wl: CustomWorkload = {
-        id: `cw-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        name:             obj.name as string,
-        description:      typeof obj.description === 'string'          ? obj.description      : '',
-        enabled:          typeof obj.enabled === 'boolean'             ? obj.enabled          : true,
-        vmCount:          typeof obj.vmCount === 'number' && obj.vmCount >= 1 ? obj.vmCount : 1,
-        vCpusPerVm:       typeof obj.vCpusPerVm === 'number' && obj.vCpusPerVm >= 1 ? obj.vCpusPerVm : 4,
-        memoryPerVmGB:    typeof obj.memoryPerVmGB === 'number' && obj.memoryPerVmGB >= 1 ? obj.memoryPerVmGB : 16,
-        osDiskPerVmGB:    typeof obj.osDiskPerVmGB === 'number' && obj.osDiskPerVmGB >= 0 ? obj.osDiskPerVmGB : 200,
-        storageTB:        typeof obj.storageTB === 'number' && obj.storageTB >= 0 ? obj.storageTB : 0,
-        internalMirrorFactor: typeof obj.internalMirrorFactor === 'number' && obj.internalMirrorFactor >= 1 ? obj.internalMirrorFactor : 1,
-        bandwidthMbps:    typeof obj.bandwidthMbps === 'number' && obj.bandwidthMbps >= 0 ? obj.bandwidthMbps : 0,
-        // resiliency silently stripped if present in imported JSON
-      }
+    for (const wl of workloads) {
       addCustomWorkload(wl)
-      imported++
     }
-    if (imported === 0) setImportError('No valid workload objects found in JSON.')
   }
 
   function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
