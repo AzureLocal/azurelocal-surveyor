@@ -52,25 +52,6 @@ export interface AdvancedSettingsOverrides {
 }
 
 export interface AdvancedSettings {
-  /**
-   * DEPRECATED for pool-level use (AB#4641 / Wave 1).
-   *
-   * This field is NO LONGER applied to the storage pool in computeCapacity.
-   * The old 0.92 value was a blended constant that bundled ReFS overhead +
-   * NVMe wear-leveling + roughly half the TB→TiB unit conversion, causing
-   * the unit difference to be double-counted.
-   *
-   * Under the canonical model (docs/capacity-model.md):
-   *   - Raw capacity is the true drive byte count (no haircut at pool level).
-   *   - TB→TiB conversion is done exactly once, at display time.
-   *   - Any real ReFS/format overhead is a small, named, explicit factor applied
-   *     to VOLUME usable space only (not the pool) — planned for Wave 2.
-   *
-   * The field is retained so that the `overrides.driveUsableTb` path still
-   * works (user can override per-drive capacity explicitly) and to avoid
-   * breaking persisted state during the v9 migration window.
-   */
-  capacityEfficiencyFactor: number     // retained for state compat; NOT applied to pool (AB#4641)
   infraVolumeSizeTB: number            // logical size of infra (system) volume, default 0.25
   vCpuOversubscriptionRatio: number    // default 4
   systemReservedMemoryGB: number       // default 8 per node
@@ -80,7 +61,6 @@ export interface AdvancedSettings {
 }
 
 export const DEFAULT_ADVANCED_SETTINGS: AdvancedSettings = {
-  capacityEfficiencyFactor: 0.92,  // retained for state compat; NOT applied to pool (AB#4641)
   infraVolumeSizeTB: 0.25,
   vCpuOversubscriptionRatio: 4,
   systemReservedMemoryGB: 8,
@@ -107,6 +87,61 @@ export interface CapacityResult {
   // AB#4636 — resiliency gating (optional for backward compat with test fixtures)
   resiliencyClamped?: boolean          // true when requested resiliency was invalid and was clamped
   resiliencyRequested?: ResiliencyType // the originally-requested resiliency (before clamping)
+}
+
+// ─── Expansion Headroom (Capacity Report — Deliverable 2.4.1) ────────────────
+
+/**
+ * A single fill-target row in the expansion headroom table.
+ * All TB values are raw (unrounded); display rounds as needed.
+ */
+export interface ExpansionHeadroomRow {
+  /** Fill target fraction, e.g. 0.70, 0.80, 0.90, 1.00. */
+  targetFraction: number
+  /** Pool footprint budget at this fill level: targetFraction × A (TB). */
+  footprintBudgetTB: number
+  /** Same, in TiB: footprintBudgetTB / 1.099511627776. */
+  footprintBudgetTiB: number
+  /** Pool footprint headroom remaining: max(0, targetFraction × A − U) (TB). */
+  remainingFootprintTB: number
+  /** Same, in TiB. */
+  remainingFootprintTiB: number
+  /** New usable data space: remainingFootprintTB / copies (TB). */
+  remainingNewUsableTB: number
+  /** Same, in TiB. */
+  remainingNewUsableTiB: number
+  /** True when U > targetFraction × A (already past this line). */
+  pastLine: boolean
+}
+
+/**
+ * Full expansion headroom result — one row per standard fill target
+ * (70 / 80 / 90 / 100%) plus metadata describing the current utilization.
+ *
+ * Math (canonical — shared with Cartographer):
+ *   A      = availableForVolumesTB  (pool footprint space, excl. reserve + infra)
+ *   U      = totalPoolFootprintTB   (current planned workload-volume footprint)
+ *   copies = data copies for the prevailing new-volume resiliency (2 = two-way, 3 = three-way, 4 = nested-two-way)
+ *   currentUtilizationPct = U / A × 100
+ *   For each target X ∈ [0.70, 0.80, 0.90, 1.00]:
+ *     footprintBudgetTB    = X × A
+ *     remainingFootprintTB = max(0, X × A − U)
+ *     remainingNewUsableTB = remainingFootprintTB / copies
+ *     pastLine             = U > X × A
+ */
+export interface ExpansionHeadroomResult {
+  /** Available-for-volumes (pool footprint), TB — equals CapacityResult.availableForVolumesTB. */
+  availableForVolumesTB: number
+  /** Current planned workload-volume pool footprint, TB. */
+  totalPoolFootprintTB: number
+  /** Data copies for the resiliency used when sizing new volumes. */
+  copies: number
+  /** Human-readable label for the resiliency used (e.g. "two-way-mirror"). */
+  resiliencyLabel: ResiliencyType
+  /** Current pool utilization as a percentage (0–100+). */
+  currentUtilizationPct: number
+  /** One row per fill target: 70%, 80%, 90%, 100%. */
+  rows: ExpansionHeadroomRow[]
 }
 
 // ─── Volumes (Sheet: "Volume Detail") ────────────────────────────────────────

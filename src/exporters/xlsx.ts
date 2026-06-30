@@ -8,7 +8,7 @@
 
 import * as XLSX from 'xlsx'
 import type { SurveyorState } from '../state/store'
-import { computeCapacity, round2 } from '../engine/capacity'
+import { computeCapacity, computeExpansionHeadroom, round2 } from '../engine/capacity'
 import { computeVolumeSummary, computeQuickStart } from '../engine/volumes'
 import { computeCompute } from '../engine/compute'
 import { computeAvd } from '../engine/avd'
@@ -50,6 +50,11 @@ function makeSheet(header: string[], rows: Row[]): XLSX.WorkSheet {
 export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'workloads' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled' | 'servicePresets' | 'customWorkloads'>): void {
   const capacity = computeCapacity(state.hardware, state.advanced)
   const volumeSummary = computeVolumeSummary(state.volumes, capacity)
+  const expansionHeadroom = computeExpansionHeadroom(
+    capacity.availableForVolumesTB,
+    volumeSummary.totalPoolFootprintTB,
+    capacity.resiliencyType,
+  )
   const compute = computeCompute(state.hardware, state.advanced)
   const avd = computeAvd(state.avd, state.advanced.overrides)
   const sofs = computeSofs(state.sofs, state.advanced.overrides)
@@ -151,6 +156,26 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
       ['Pool Utilization', `${row.utilizationPct}%`, `of ${quickStart.availableForVolumesTB} TB available`],
     )
   }
+
+  // Expansion headroom
+  capRows.push(
+    [],
+    ['--- Expansion Headroom ---', '', ''],
+    ['Current Pool Footprint (TB)', round2(expansionHeadroom.totalPoolFootprintTB), 'Current planned volume pool footprint'],
+    ['Current Utilization (%)', round2(expansionHeadroom.currentUtilizationPct), `${expansionHeadroom.resiliencyLabel} (${expansionHeadroom.copies} copies)`],
+    [],
+    ['Fill target', 'Footprint budget (TB)', 'Remaining footprint (TB)', 'New usable data (TB)', 'Footprint budget (TiB)', 'Remaining footprint (TiB)', 'New usable data (TiB)', 'Past line?'],
+    ...expansionHeadroom.rows.map((r) => [
+      `${Math.round(r.targetFraction * 100)}%${r.targetFraction === 0.70 ? ' (planning line)' : ''}`,
+      round2(r.footprintBudgetTB),
+      round2(r.remainingFootprintTB),
+      round2(r.remainingNewUsableTB),
+      round2(r.footprintBudgetTiB),
+      round2(r.remainingFootprintTiB),
+      round2(r.remainingNewUsableTiB),
+      r.pastLine ? 'Yes' : 'No',
+    ]),
+  )
 
   XLSX.utils.book_append_sheet(wb, makeSheet(
     ['Metric', 'Value', 'Notes'],
@@ -504,7 +529,6 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   XLSX.utils.book_append_sheet(wb, makeSheet(
     ['Setting', 'Value', 'Default', 'Notes'],
     [
-      ['Capacity Efficiency Factor', state.advanced.capacityEfficiencyFactor, 0.92, 'RETAINED for state compatibility — NOT applied to pool (AB#4641). Use Drive Usable Override to adjust per-drive capacity.'],
       ['Infra Volume Size (TB)', state.advanced.infraVolumeSizeTB, 0.25, 'Azure Local system CSV logical size'],
       ['vCPU Oversubscription Ratio', state.advanced.vCpuOversubscriptionRatio, 4, 'Logical cores × ratio = total vCPUs'],
       ['System Reserved Memory / Node (GB)', state.advanced.systemReservedMemoryGB, 8, 'Hyper-V, Arc, OS reservation'],

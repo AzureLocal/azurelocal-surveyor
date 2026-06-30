@@ -292,10 +292,13 @@ export function normalizePersistedState(persisted: unknown): SurveyorPersistedSl
 
   return {
     hardware: mergeObject(DEFAULT_HARDWARE, state.hardware),
-    advanced: {
-      ...advanced,
-      overrides: mergeObject(DEFAULT_ADVANCED_SETTINGS.overrides, advanced.overrides),
-    },
+    advanced: (() => {
+      // Strip the removed capacityEfficiencyFactor field (deleted in 2.4.1).
+      // Old persisted state may still carry it; drop it on load so the type is clean.
+      const a = { ...advanced, overrides: mergeObject(DEFAULT_ADVANCED_SETTINGS.overrides, advanced.overrides) }
+      delete (a as Record<string, unknown>).capacityEfficiencyFactor
+      return a
+    })(),
     volumes,
     workloads: Array.isArray(state.workloads) ? state.workloads as WorkloadSpec[] : [],
     volumeMode: state.volumeMode === 'workload' ? ('workload' as VolumeMode) : ('generic' as VolumeMode),

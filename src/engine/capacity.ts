@@ -3,6 +3,8 @@ import type {
   AdvancedSettings,
   CapacityResult,
   ResiliencyType,
+  ExpansionHeadroomResult,
+  ExpansionHeadroomRow,
 } from './types'
 
 /**
@@ -104,11 +106,10 @@ export const POOL_METADATA_FACTOR = 0.99
  *   Stage 6 — Usable:     available × resiliencyFactor                (planning number)
  *   TiB conversion done ONCE at display: TB × TB_TO_TiB               (AB#4641)
  *
- * NOTE: The old `capacityEfficiencyFactor` (0.92) is NO LONGER applied to the pool.
- * It was a blended constant that double-counted the TB→TiB unit conversion
- * (documented in docs/capacity-model.md Q1 / AB#4641). The constant is preserved in
- * AdvancedSettings for the override path (`driveUsableTb`) and for any future
- * per-volume ReFS overhead (Wave 2). It is NOT applied in computeCapacity.
+ * NOTE: The `capacityEfficiencyFactor` (0.92) field has been removed from AdvancedSettings
+ * as of 2.4.1. It was a blended constant that double-counted the TB→TiB unit conversion
+ * (documented in docs/capacity-model.md Q1 / AB#4641) and was never applied to the pool.
+ * Per-drive override is still available via overrides.driveUsableTb.
  *
  * RESILIENCY GATING: If the selected resiliency requires more nodes than the
  * cluster has, it is clamped to the safest valid option and `resiliencyClamped`
@@ -202,4 +203,94 @@ export function round4(n: number): number {
 /** Round to 2 decimal places (display precision). */
 export function round2(n: number): number {
   return Math.round(n * 100) / 100
+}
+
+/**
+ * TiB conversion constant: 1 TB = 10^12 bytes; 1 TiB = 2^40 = 1099511627776 bytes.
+ * TB ÷ (2^40 / 10^12) = TB × (10^12 / 2^40).
+ * Equivalently: TiB = TB / 1.099511627776.
+ * (Same constant as TB_TO_TiB but stated as a divisor for clarity in the spec.)
+ */
+const TiB_DIVISOR = Math.pow(1024, 4) / 1e12  // = 1.099511627776
+
+/**
+ * Returns the number of data copies for a resiliency type.
+ *   two-way-mirror   → 2
+ *   three-way-mirror → 3
+ *   dual-parity      → 2 (dual-parity stores 2 full data copies across the parity set)
+ *   nested-two-way   → 4 (two mirrors nested = 4 physical copies)
+ * For new-volume sizing we use this as the divisor to go from footprint → usable.
+ */
+export function resiliencyDataCopies(resiliency: ResiliencyType): number {
+  switch (resiliency) {
+    case 'two-way-mirror':   return 2
+    case 'three-way-mirror': return 3
+    case 'dual-parity':      return 2
+    case 'nested-two-way':   return 4
+    default:                 return 3  // safe fallback
+  }
+}
+
+/**
+ * Compute expansion headroom — how much room remains to grow existing volumes
+ * or create new ones at each planning threshold (70 / 80 / 90 / 100% fill).
+ *
+ * Canonical math (shared with Cartographer — must remain identical):
+ *   A      = availableForVolumesTB      (pool footprint space, excl. reserve + infra)
+ *   U      = totalPoolFootprintTB       (current planned workload-volume pool footprint)
+ *   copies = data copies for the prevailing new-volume resiliency
+ *            (two-way=2, three-way=3, nested-two-way=4; derived from resiliencyType or defaultResiliency)
+ *
+ *   currentUtilizationPct = U / A × 100
+ *   For each X in [0.70, 0.80, 0.90, 1.00]:
+ *     footprintBudgetTB    = X × A
+ *     remainingFootprintTB = max(0, X × A − U)
+ *     remainingNewUsableTB = remainingFootprintTB / copies
+ *     pastLine             = U > X × A
+ *
+ * TiB = TB / 1.099511627776 (TB_TO_TiB inverse).
+ * All raw values are unrounded; the caller rounds for display.
+ *
+ * @param availableForVolumesTB - CapacityResult.availableForVolumesTB
+ * @param totalPoolFootprintTB  - VolumeSummaryResult.totalPoolFootprintTB (or 0 if no volumes)
+ * @param resiliencyForNewVolumes - ResiliencyType to use when estimating new-volume usable space.
+ *                                  Typically the cluster default (CapacityResult.resiliencyType).
+ */
+export function computeExpansionHeadroom(
+  availableForVolumesTB: number,
+  totalPoolFootprintTB: number,
+  resiliencyForNewVolumes: ResiliencyType,
+): ExpansionHeadroomResult {
+  const A = availableForVolumesTB
+  const U = totalPoolFootprintTB
+  const copies = resiliencyDataCopies(resiliencyForNewVolumes)
+  const currentUtilizationPct = A > 0 ? (U / A) * 100 : 0
+
+  const TARGETS = [0.70, 0.80, 0.90, 1.00]
+  const rows: ExpansionHeadroomRow[] = TARGETS.map((x) => {
+    const footprintBudgetTB    = x * A
+    const remainingFootprintTB = Math.max(0, footprintBudgetTB - U)
+    const remainingNewUsableTB = copies > 0 ? remainingFootprintTB / copies : 0
+    const pastLine             = U > footprintBudgetTB
+
+    return {
+      targetFraction:        x,
+      footprintBudgetTB,
+      footprintBudgetTiB:     footprintBudgetTB / TiB_DIVISOR,
+      remainingFootprintTB,
+      remainingFootprintTiB:  remainingFootprintTB / TiB_DIVISOR,
+      remainingNewUsableTB,
+      remainingNewUsableTiB:  remainingNewUsableTB / TiB_DIVISOR,
+      pastLine,
+    }
+  })
+
+  return {
+    availableForVolumesTB,
+    totalPoolFootprintTB,
+    copies,
+    resiliencyLabel: resiliencyForNewVolumes,
+    currentUtilizationPct,
+    rows,
+  }
 }

@@ -43,7 +43,6 @@ const BASE_HW: HardwareInputs = {
 }
 
 const BASE_SETTINGS: AdvancedSettings = {
-  capacityEfficiencyFactor: 0.92,
   infraVolumeSizeTB: 0.25,
   vCpuOversubscriptionRatio: 4,
   systemReservedVCpus: 4,

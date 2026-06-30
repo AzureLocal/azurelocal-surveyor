@@ -10,7 +10,7 @@
  */
 
 import type { SurveyorState } from '../state/store'
-import { computeCapacity, round2 } from '../engine/capacity'
+import { computeCapacity, computeExpansionHeadroom, round2 } from '../engine/capacity'
 import { computeVolumeSummary, computeQuickStart } from '../engine/volumes'
 import { computeCompute } from '../engine/compute'
 import { computeAvd } from '../engine/avd'
@@ -103,6 +103,26 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
   lines.push(`| Available for volumes | ${round2(capacity.availableForVolumesTB)} TB |`)
   lines.push(`| Resiliency | ${capacity.resiliencyType} (${(capacity.resiliencyFactor * 100).toFixed(0)}% efficiency) |`)
   lines.push(`| **Effective usable** | **${round2(capacity.effectiveUsableTB)} TB** |`)
+  lines.push('')
+
+  // ── Expansion Headroom ──
+  const headroom = computeExpansionHeadroom(
+    capacity.availableForVolumesTB,
+    summary.totalPoolFootprintTB,
+    capacity.resiliencyType,
+  )
+  lines.push('### Expansion Headroom')
+  lines.push('')
+  lines.push(`Current utilization: **${round2(headroom.currentUtilizationPct)}%** of ${round2(headroom.availableForVolumesTB)} TB available ` +
+    `(${round2(headroom.totalPoolFootprintTB)} TB footprint in use, resiliency: ${headroom.resiliencyLabel}, ${headroom.copies} copies)`)
+  lines.push('')
+  lines.push('| Fill target | Footprint budget | Remaining footprint | New usable data |')
+  lines.push('|---|---:|---:|---:|')
+  for (const row of headroom.rows) {
+    const pct = `${Math.round(row.targetFraction * 100)}%`
+    const past = row.pastLine ? ' *(past)* ' : (row.targetFraction === 0.70 ? ' *(planning line)* ' : '')
+    lines.push(`| ${pct}${past} | ${round2(row.footprintBudgetTB)} TB / ${round2(row.footprintBudgetTiB)} TiB | ${round2(row.remainingFootprintTB)} TB / ${round2(row.remainingFootprintTiB)} TiB | ${round2(row.remainingNewUsableTB)} TB / ${round2(row.remainingNewUsableTiB)} TiB |`)
+  }
   lines.push('')
 
   // ── Compute ──

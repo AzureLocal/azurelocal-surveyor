@@ -34,7 +34,7 @@ const DOCS: DocSection[] = [
     title: 'Capacity Concepts',
     content: [
       'Raw pool: the total TB across all capacity drives (drive size × drives per node × nodes). This is what the manufacturer advertises.',
-      'Usable: each drive loses ~8% to filesystem overhead and wear-leveling. Usable = raw × 0.92 per drive.',
+      'Pool after overhead: S2D reserves ~1% of the raw pool for internal metadata. The remaining pool space is what S2D can address.',
       'Reserve: S2D holds back min(nodeCount, 4) drives for automatic repair after a drive failure. These are not available for volumes.',
       'Available: usable pool minus reserve minus the system infrastructure volume (~250 GB).',
       'Effective usable: available pool × resiliency efficiency. This is your planning number — how much data fits with your chosen resiliency type.',

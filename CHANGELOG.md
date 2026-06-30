@@ -5,6 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.4.1] — 2026-06-30
+
+### Added
+
+- **Expansion Headroom** report section — at 70% / 80% / 90% / 100% pool-fill targets, shows the remaining
+  pool footprint and the **new usable data** you can still store (footprint ÷ resiliency copies), in both
+  TB and TiB, with a chart. The 70% row is flagged as the recommended planning line. Math is identical to
+  Cartographer's, so the two tools reconcile by construction.
+
+### Removed
+
+- Dead `capacityEfficiencyFactor` (0.92) Advanced Setting. It was approximately the TB→TiB unit constant
+  (0.90949) mislabeled as an efficiency haircut, and the engine already ignored it (uses a ~1% pool-metadata
+  factor). Removing it prevents it from ever being re-applied as a phantom deduction. **Capacity numbers are
+  unchanged.** Older saved scenarios import cleanly (the field is ignored on load).
+
 ## [2.4.0] — 2026-06-30
 
 > **Wave 3 — Validation & report correctness.** Locks accuracy so it can't regress: a shared

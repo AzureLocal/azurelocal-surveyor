@@ -31,9 +31,10 @@ import type {
   SofsResult,
   AksResult,
   MabsResult,
+  ExpansionHeadroomResult,
 } from '../engine/types'
 import type { ServicePresetInstance } from '../engine/service-presets'
-import { computeCapacity } from '../engine/capacity'
+import { computeCapacity, computeExpansionHeadroom } from '../engine/capacity'
 import { computeVolumeSummary } from '../engine/volumes'
 import { computeCompute } from '../engine/compute'
 import { computeAvd } from '../engine/avd'
@@ -101,6 +102,7 @@ export interface SurveyorPlan {
     volumeSummary: VolumeSummaryResult
     workloadTotals: WorkloadSummaryResult
     health: HealthCheckResult
+    expansionHeadroom: ExpansionHeadroomResult
     avd?: AvdResult
     sofs?: SofsResult
     aks?: AksResult
@@ -154,6 +156,11 @@ export function exportJson(state: ExportState, options?: ExportJsonOptions): voi
     compute,
     workloadSummary: workloadTotals,
   })
+  const expansionHeadroom = computeExpansionHeadroom(
+    capacity.availableForVolumesTB,
+    volumeSummary.totalPoolFootprintTB,
+    capacity.resiliencyType,
+  )
 
   // ── Assemble manifest ────────────────────────────────────────────────────
   const plan: SurveyorPlan = {
@@ -189,6 +196,7 @@ export function exportJson(state: ExportState, options?: ExportJsonOptions): voi
       volumeSummary,
       workloadTotals,
       health,
+      expansionHeadroom,
       ...(state.avdEnabled  && { avd }),
       ...(state.sofsEnabled && { sofs }),
       ...(state.aks.enabled && { aks }),

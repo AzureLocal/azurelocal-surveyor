@@ -33,13 +33,6 @@ export default function AdvancedSettings() {
       </p>
 
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Capacity efficiency factor" hint="default 0.92">
-          <input type="number" min={0.5} max={1} step={0.01} className="input"
-            value={advanced.capacityEfficiencyFactor}
-            onChange={(e) => setAdvanced({ capacityEfficiencyFactor: +e.target.value })} />
-          <p className="text-xs text-gray-400 mt-1">Applied per drive. Accounts for ReFS metadata and filesystem overhead.</p>
-        </Field>
-
         <Field label="Infra volume size (TB)" hint="default 0.25">
           <input type="number" min={0.1} max={2} step={0.05} className="input"
             value={advanced.infraVolumeSizeTB}

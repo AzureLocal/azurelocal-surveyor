@@ -4,7 +4,7 @@
  * Also hosts the export buttons: PDF, XLSX, PowerShell, Markdown.
  */
 import { useSurveyorStore } from '../state/store'
-import { computeCapacity } from '../engine/capacity'
+import { computeCapacity, computeExpansionHeadroom, round2 } from '../engine/capacity'
 import { computeVolumeSummary } from '../engine/volumes'
 import { computeCompute } from '../engine/compute'
 import { computeAvd } from '../engine/avd'
@@ -23,7 +23,7 @@ import { generatePowerShell } from '../exporters/powershell'
 import { generateMarkdown } from '../exporters/markdown'
 import { exportJson } from '../exporters/json'
 import { FileDown, Table2, Terminal, FileText, Braces, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
-import type { HardwareInputs, CapacityResult, ComputeResult, VolumeSpec, WorkloadSummaryResult } from '../engine/types'
+import type { HardwareInputs, CapacityResult, ComputeResult, VolumeSpec, WorkloadSummaryResult, ExpansionHeadroomResult } from '../engine/types'
 
 export default function FinalReport() {
   const state = useSurveyorStore()
@@ -94,6 +94,12 @@ export default function FinalReport() {
     workloadSummary,
   })
 
+  const expansionHeadroom = computeExpansionHeadroom(
+    capacity.availableForVolumesTB,
+    volumeSummary.totalPoolFootprintTB,
+    capacity.resiliencyType,
+  )
+
   const anyWorkloadEnabled = state.avdEnabled || state.aks.enabled
     || state.virtualMachines?.enabled || state.sofsEnabled || state.mabsEnabled
     || presetTotals.totalVCpus > 0 || customTotals.totalVCpus > 0
@@ -130,6 +136,11 @@ export default function FinalReport() {
       <section>
         <h2 className="text-lg font-semibold mb-3">Capacity</h2>
         <CapacityReport result={capacity} volumesUsedTB={volumeSummary.totalPlannedTB} />
+      </section>
+
+      <section>
+        <h2 className="text-lg font-semibold mb-3">Expansion Headroom</h2>
+        <ExpansionHeadroomSection headroom={expansionHeadroom} />
       </section>
 
       <section>
@@ -304,6 +315,120 @@ function ExportBtn({ icon, label, onClick }: { icon: React.ReactNode; label: str
       className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md text-sm hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors">
       {icon}{label}
     </button>
+  )
+}
+
+// ─── Expansion Headroom Section ──────────────────────────────────────────────
+
+function ExpansionHeadroomSection({ headroom }: { headroom: ExpansionHeadroomResult }) {
+  const { rows, currentUtilizationPct, availableForVolumesTB, totalPoolFootprintTB, resiliencyLabel, copies } = headroom
+
+  // Bar chart: show "new usable remaining" at each threshold as a proportional bar.
+  // Max bar width = 100% row (the 100% threshold new-usable value), or availableForVolumesTB if no volumes yet.
+  const maxUsable = rows[rows.length - 1].remainingNewUsableTB
+  const barMax = maxUsable > 0 ? maxUsable : 1
+
+  const COLORS = [
+    'bg-amber-500 dark:bg-amber-400',   // 70% — planning line
+    'bg-blue-400 dark:bg-blue-500',     // 80%
+    'bg-green-400 dark:bg-green-500',   // 90%
+    'bg-brand-500 dark:bg-brand-400',   // 100%
+  ]
+
+  return (
+    <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">
+        Expansion Headroom
+        <span className="ml-2 text-xs font-normal text-gray-500">
+          — current utilization: <strong>{round2(currentUtilizationPct)}%</strong> ({round2(totalPoolFootprintTB)} TB of {round2(availableForVolumesTB)} TB footprint; {resiliencyLabel}, {copies} copies)
+        </span>
+      </div>
+
+      {/* Mini bar chart: new usable remaining at each threshold */}
+      <div className="px-4 pt-3 pb-2">
+        <div className="text-xs font-medium text-gray-500 mb-2">New usable data remaining at each fill target ({resiliencyLabel})</div>
+        <div className="space-y-1.5">
+          {rows.map((row, i) => {
+            const pct = Math.round(row.targetFraction * 100)
+            const barWidthPct = barMax > 0 ? (row.remainingNewUsableTB / barMax) * 100 : 0
+            return (
+              <div key={row.targetFraction} className="flex items-center gap-2">
+                <div className={`w-12 shrink-0 text-xs text-right font-medium ${row.targetFraction === 0.70 ? 'text-amber-600 dark:text-amber-400' : 'text-gray-500'}`}>
+                  {pct}%{row.targetFraction === 0.70 ? '*' : ''}
+                </div>
+                <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-sm h-4 relative overflow-hidden">
+                  <div
+                    className={`h-full rounded-sm transition-all ${row.pastLine ? 'bg-gray-300 dark:bg-gray-600' : COLORS[i]}`}
+                    style={{ width: `${Math.max(0, Math.min(100, barWidthPct))}%` }}
+                    title={`${round2(row.remainingNewUsableTB)} TB / ${round2(row.remainingNewUsableTiB)} TiB new usable`}
+                  />
+                </div>
+                <div className="w-28 shrink-0 text-xs font-mono text-right text-gray-600 dark:text-gray-400">
+                  {row.pastLine
+                    ? <span className="text-amber-600 dark:text-amber-400">past line</span>
+                    : <>{round2(row.remainingNewUsableTB)} TB</>}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+        <div className="mt-1 text-xs text-amber-600 dark:text-amber-400">* 70% = recommended planning line</div>
+      </div>
+
+      {/* Detail table */}
+      <div className="border-t border-gray-100 dark:border-gray-800 overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50 dark:bg-gray-800 text-left text-xs text-gray-500">
+              <th className="px-4 py-2">Fill target</th>
+              <th className="px-4 py-2 text-right">Footprint budget</th>
+              <th className="px-4 py-2 text-right">Remaining footprint</th>
+              <th className="px-4 py-2 text-right">New usable data</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const pct = Math.round(row.targetFraction * 100)
+              const isPlanning = row.targetFraction === 0.70
+              return (
+                <tr
+                  key={row.targetFraction}
+                  className={`border-t border-gray-100 dark:border-gray-800 ${isPlanning ? 'bg-amber-50 dark:bg-amber-900/10' : ''}`}
+                >
+                  <td className={`px-4 py-2 font-medium ${isPlanning ? 'text-amber-700 dark:text-amber-400' : ''}`}>
+                    {pct}%
+                    {isPlanning && <span className="ml-1 text-xs font-normal">(planning line)</span>}
+                    {row.pastLine && <span className="ml-1 text-xs font-normal text-amber-600 dark:text-amber-400">— past</span>}
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono text-xs">
+                    {round2(row.footprintBudgetTB)} TB
+                    <div className="text-gray-400">{round2(row.footprintBudgetTiB)} TiB</div>
+                  </td>
+                  <td className="px-4 py-2 text-right font-mono text-xs">
+                    {row.pastLine
+                      ? <span className="text-amber-600 dark:text-amber-400">—</span>
+                      : <>{round2(row.remainingFootprintTB)} TB
+                        <div className="text-gray-400">{round2(row.remainingFootprintTiB)} TiB</div>
+                      </>}
+                  </td>
+                  <td className={`px-4 py-2 text-right font-mono text-xs ${!row.pastLine && row.remainingNewUsableTB > 0 ? 'font-semibold text-brand-700 dark:text-brand-300' : ''}`}>
+                    {row.pastLine
+                      ? <span className="text-amber-600 dark:text-amber-400">—</span>
+                      : <>{round2(row.remainingNewUsableTB)} TB
+                        <div className="text-gray-400 font-normal">{round2(row.remainingNewUsableTiB)} TiB</div>
+                      </>}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
+      </div>
+      <div className="px-4 py-2 text-xs text-gray-400 border-t border-gray-100 dark:border-gray-800">
+        Footprint = pool space consumed (data × copies). New usable = remaining footprint ÷ {copies} copies ({resiliencyLabel}).
+        Matches Cartographer expansion headroom calculation.
+      </div>
+    </div>
   )
 }
 

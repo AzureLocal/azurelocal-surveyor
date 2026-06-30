@@ -18,10 +18,9 @@
  *   (docs/capacity-model.md Q1 / AB#4641). The reserve now uses the largest
  *   raw drive size, not efficiency-adjusted usable (AB#4643).
  *
- * Scenario 17 (efficiency override): Previously tested capacityEfficiencyFactor=0.85.
- * Under the canonical model, this setting is NOT applied to the pool. The test is
- * updated to reflect the canonical behaviour (same as Scenario 02, three-way-mirror).
- * The override path (driveUsableTb) still functions and is tested in resiliency-gating tests.
+ * Scenario 17: capacityEfficiencyFactor was removed in 2.4.1 (field deleted from AdvancedSettings).
+ * The field was never applied to the pool (AB#4641). Scenario 17 equals Scenario 02.
+ * Per-drive override is still available via overrides.driveUsableTb.
  *
  * Dual Parity efficiency is node-count dependent:
  *   4–6 nodes → 0.5, 7–8 nodes → 0.667, 9–15 nodes → 0.75, 16 nodes → 0.8
@@ -212,15 +211,14 @@ describe('Capacity parity — 20 golden scenarios (canonical model, Wave 1)', ()
     { rawPoolTB: 138.24, effectiveUsableTB: 60.50 }
   )
 
-  // ── Scenario 17: 4-node, 6×3.84TB, three-way mirror, capacityEfficiencyFactor=0.85 ──
-  // CANONICAL MODEL CHANGE (AB#4641): capacityEfficiencyFactor is no longer applied to the pool.
-  // This scenario now equals Scenario 02 — the 0.85 setting is retained in AdvancedSettings
-  // for state compatibility but has no effect on the pool calculation.
+  // ── Scenario 17: 4-node, 6×3.84TB, three-way mirror ──
+  // capacityEfficiencyFactor was removed in 2.4.1 (AB#4641: never applied to pool).
+  // Scenario now equals Scenario 02 — three-way-mirror defaults.
   // To test per-drive override, use overrides.driveUsableTb instead.
   // raw=92.16, poolMeta=91.2384, reserve=15.36, infra=0.75, available=75.1284, effective=25.04
-  scenario('17 — 4-node, 6×3.84TB, three-way, efficiency=0.85 (canonical: ignored at pool level)',
+  scenario('17 — 4-node, 6×3.84TB, three-way (capacityEfficiencyFactor removed; equals Scenario 02)',
     { ...BASE_HW },
-    { defaultResiliency: 'three-way-mirror', capacityEfficiencyFactor: 0.85 },
+    { defaultResiliency: 'three-way-mirror' },
     { rawPoolTB: 92.16, effectiveUsableTB: 25.04 }
   )
 
