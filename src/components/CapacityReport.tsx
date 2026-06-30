@@ -152,15 +152,6 @@ export default function CapacityReport({
           {/* AB#4643: reserve uses raw drive size, not efficiency-adjusted */}
           <Row label={`Reserve — ${result.reserveDrives} drives × largest raw drive (min(${result.nodeCount}, 4) nodes)`} value={`− ${result.reserveTB} TB`} sub="footprint" />
           <Row label="Infrastructure volume (system CSV footprint)" value={`− ${round2(result.infraVolumeTB)} TB`} sub="footprint — logical size ÷ resiliency factor" />
-          {(result.maintenanceReserveNodes ?? 0) > 0 && (
-            <>
-              <Row
-                label={`Maintenance reserve (WAF N+${result.maintenanceReserveNodes}) — ${result.maintenanceReserveNodes} node${(result.maintenanceReserveNodes ?? 1) > 1 ? 's' : ''} held back for patching`}
-                value={`− ${round2(result.maintenanceReserveTB ?? 0)} TB / − ${round2((result.maintenanceReserveTB ?? 0) * TB_TO_TiB)} TiB`}
-                sub={`footprint — node raw capacity × ${result.maintenanceReserveNodes}; pre-deduction available: ${round2(result.availableBeforeMaintenanceTB ?? result.availableForVolumesTB)} TB`}
-              />
-            </>
-          )}
 
           <Section label="Available for User Volumes" />
           {/* AB#4640 — dual TB/TiB display; footprint space label (canonical stage 5) */}

@@ -102,7 +102,7 @@ export const POOL_METADATA_FACTOR = 0.99
  *   Stage 2 — Pool meta:  raw × POOL_METADATA_FACTOR (~1% overhead)
  *   Stage 3 — Reserve:    min(nodeCount, 4) × largestRawDriveSizeTB   (AB#4643)
  *   Stage 4 — Infra vol:  infraVolumeSizeTB / resiliencyFactor
- *   Stage 5 — Available:  poolAfterMeta − reserve − infraVolume
+ *   Stage 5 — Available:  poolAfterMeta − reserve − infraVolume        (no WAF maintenance deduction — compute only)
  *   Stage 6 — Usable:     available × resiliencyFactor                (planning number)
  *   TiB conversion done ONCE at display: TB × TB_TO_TiB               (AB#4641)
  *
@@ -156,20 +156,12 @@ export function computeCapacity(
   // (system CSV always created with the cluster's default resiliency)
   const infraVolumeTB = infraVolumeSizeTB / resiliencyFactor
 
-  // Stage 5a — Pre-maintenance available (pool footprint space before maintenance reserve).
-  const availableBeforeMaintenanceTB = Math.max(0, poolAfterMetaTB - reserveTB - infraVolumeTB)
-
-  // Stage 5b — WAF maintenance reserve (N+1 / N+2).
-  // One node's raw capacity = capacityDriveSizeTB × capacityDrivesPerNode.
-  // This deduction is ADDITIVE to the S2D rebuild reserve from Stage 3.
-  // When mode='none', maintenanceReserveTB=0 and all outputs are byte-identical to the baseline.
-  const nodeRawTB = capacityDriveSizeTB * capacityDrivesPerNode
-  const reserveMode = settings.maintenanceReserveMode ?? 'none'
-  const maintenanceReserveNodes = reserveMode === 'n+1' ? 1 : reserveMode === 'n+2' ? 2 : 0
-  const maintenanceReserveTB = nodeRawTB * maintenanceReserveNodes
-
-  // Stage 5 — Final available for user volumes (footprint space in the pool).
-  const availableForVolumesTB = Math.max(0, availableBeforeMaintenanceTB - maintenanceReserveTB)
+  // Stage 5 — Available for user volumes (pool footprint space).
+  // NOTE: The WAF N+1/N+2 maintenance reserve is a COMPUTE resiliency concept (CPU + memory
+  // headroom so nodes can be drained for updates or survive a node loss). It does NOT reduce
+  // storage capacity. The only MS-documented storage reserves are the per-drive rebuild reserve
+  // (Stage 3) and keeping volume footprints within the available pool (HC_OVER_CAPACITY).
+  const availableForVolumesTB = Math.max(0, poolAfterMetaTB - reserveTB - infraVolumeTB)
 
   // Stage 6 — Planning number: usable data capacity with selected resiliency.
   const effectiveUsableTB = availableForVolumesTB * resiliencyFactor
@@ -197,9 +189,6 @@ export function computeCapacity(
     reserveDrives,
     reserveTB: round4(reserveTB),
     infraVolumeTB: round4(infraVolumeTB),
-    availableBeforeMaintenanceTB: round4(availableBeforeMaintenanceTB),
-    maintenanceReserveNodes,
-    maintenanceReserveTB: round4(maintenanceReserveTB),
     availableForVolumesTB: round4(availableForVolumesTB),
     availableForVolumesTiB: round4(availableForVolumesTiB),
     resiliencyType: effectiveResiliency,
@@ -287,6 +276,15 @@ export function computeExpansionHeadroom(
     const remainingFootprintTB = Math.max(0, footprintBudgetTB - U)
     const remainingNewUsableTB = copies > 0 ? remainingFootprintTB / copies : 0
     const pastLine             = U > footprintBudgetTB
+    const remainingNewUsableTiB = remainingNewUsableTB / TiB_DIVISOR
+
+    // sizeToEnterTiB: the value a user types into New-Volume -Size or WAC.
+    // PowerShell and WAC read size suffixes as binary (1 TB = 1 TiB), so this
+    // equals the TiB value, rounded DOWN to 2 decimal places so the new volume
+    // always fits. Set to 0 when past the fill line.
+    const sizeToEnterTiB = pastLine
+      ? 0
+      : Math.floor(remainingNewUsableTiB * 100) / 100
 
     return {
       targetFraction:        x,
@@ -295,8 +293,9 @@ export function computeExpansionHeadroom(
       remainingFootprintTB,
       remainingFootprintTiB:  remainingFootprintTB / TiB_DIVISOR,
       remainingNewUsableTB,
-      remainingNewUsableTiB:  remainingNewUsableTB / TiB_DIVISOR,
+      remainingNewUsableTiB,
       pastLine,
+      sizeToEnterTiB,
     }
   })
 

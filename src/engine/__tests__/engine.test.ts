@@ -288,6 +288,104 @@ describe('Health check engine', () => {
     expect(codes.some(c => c.startsWith('HC_VCPU'))).toBe(false)
     expect(codes.some(c => c.startsWith('HC_MEMORY'))).toBe(false)
   })
+
+  // ── HC_HIGH_UTILIZATION provisioning-aware tests (2.6.0) ──────────────────
+  //
+  // When util > 70%:
+  //   - ANY thin volume present → severity 'warning'
+  //   - ALL fixed (no thin)     → severity 'info'
+  //
+  // availableForVolumesTB = 10 TB in these fixtures; volumes sized to push >70%.
+
+  it('HC_HIGH_UTILIZATION: thin volume >70% → severity warning', () => {
+    // availableForVolumesTB = 10 TB; thin volume 4TB 2-way-mirror = 8TB footprint = 80% util
+    const capacitySmall = {
+      nodeCount: 4, rawPoolTB: 92.16, usablePerDriveTB: 3.5328, totalUsableTB: 84.7872,
+      reserveDrives: 4, reserveTB: 14.1312, infraVolumeTB: 0.75,
+      availableForVolumesTB: 10, availableForVolumesTiB: 9.09,
+      resiliencyType: 'two-way-mirror' as const, resiliencyFactor: 0.5, effectiveUsableTB: 5,
+    }
+    const vols: VolumeSpec[] = [
+      // footprint = 4 / 0.5 = 8 TB → 80% of 10 TB
+      { id: '1', name: 'ThinVol', resiliency: 'two-way-mirror', provisioning: 'thin', plannedSizeTB: 4 },
+    ]
+    const compute = computeCompute(hw4, DEFAULT_ADVANCED_SETTINGS)
+    const result = runHealthCheck({
+      hardware: hw4, settings: DEFAULT_ADVANCED_SETTINGS,
+      volumes: vols, capacity: capacitySmall, compute,
+      workloadSummary: { totalVCpus: 0, totalMemoryGB: 0, totalStorageTB: 0 },
+    })
+    const issue = result.issues.find(i => i.code === 'HC_HIGH_UTILIZATION')
+    expect(issue).toBeDefined()
+    expect(issue?.severity).toBe('warning')
+  })
+
+  it('HC_HIGH_UTILIZATION: all-fixed volume >70% → severity info', () => {
+    // availableForVolumesTB = 10 TB; fixed volume 4TB 2-way-mirror = 8TB footprint = 80% util
+    const capacitySmall = {
+      nodeCount: 4, rawPoolTB: 92.16, usablePerDriveTB: 3.5328, totalUsableTB: 84.7872,
+      reserveDrives: 4, reserveTB: 14.1312, infraVolumeTB: 0.75,
+      availableForVolumesTB: 10, availableForVolumesTiB: 9.09,
+      resiliencyType: 'two-way-mirror' as const, resiliencyFactor: 0.5, effectiveUsableTB: 5,
+    }
+    const vols: VolumeSpec[] = [
+      // footprint = 4 / 0.5 = 8 TB → 80% of 10 TB
+      { id: '1', name: 'FixedVol', resiliency: 'two-way-mirror', provisioning: 'fixed', plannedSizeTB: 4 },
+    ]
+    const compute = computeCompute(hw4, DEFAULT_ADVANCED_SETTINGS)
+    const result = runHealthCheck({
+      hardware: hw4, settings: DEFAULT_ADVANCED_SETTINGS,
+      volumes: vols, capacity: capacitySmall, compute,
+      workloadSummary: { totalVCpus: 0, totalMemoryGB: 0, totalStorageTB: 0 },
+    })
+    const issue = result.issues.find(i => i.code === 'HC_HIGH_UTILIZATION')
+    expect(issue).toBeDefined()
+    expect(issue?.severity).toBe('info')
+  })
+
+  it('HC_HIGH_UTILIZATION: mixed (fixed + thin) >70% → severity warning (thin present)', () => {
+    // availableForVolumesTB = 10 TB; mix of fixed + thin volumes totalling >70% footprint
+    const capacitySmall = {
+      nodeCount: 4, rawPoolTB: 92.16, usablePerDriveTB: 3.5328, totalUsableTB: 84.7872,
+      reserveDrives: 4, reserveTB: 14.1312, infraVolumeTB: 0.75,
+      availableForVolumesTB: 10, availableForVolumesTiB: 9.09,
+      resiliencyType: 'two-way-mirror' as const, resiliencyFactor: 0.5, effectiveUsableTB: 5,
+    }
+    const vols: VolumeSpec[] = [
+      // fixed footprint = 2/0.5 = 4TB; thin footprint = 2/0.5 = 4TB; total = 8TB = 80% util
+      { id: '1', name: 'FixedVol', resiliency: 'two-way-mirror', provisioning: 'fixed', plannedSizeTB: 2 },
+      { id: '2', name: 'ThinVol', resiliency: 'two-way-mirror', provisioning: 'thin', plannedSizeTB: 2 },
+    ]
+    const compute = computeCompute(hw4, DEFAULT_ADVANCED_SETTINGS)
+    const result = runHealthCheck({
+      hardware: hw4, settings: DEFAULT_ADVANCED_SETTINGS,
+      volumes: vols, capacity: capacitySmall, compute,
+      workloadSummary: { totalVCpus: 0, totalMemoryGB: 0, totalStorageTB: 0 },
+    })
+    const issue = result.issues.find(i => i.code === 'HC_HIGH_UTILIZATION')
+    expect(issue).toBeDefined()
+    expect(issue?.severity).toBe('warning')
+  })
+
+  it('HC_HIGH_UTILIZATION: ≤70% utilization → no issue emitted', () => {
+    // availableForVolumesTB = 10 TB; 3TB 2-way-mirror = 6TB footprint = 60% util — no warning
+    const capacitySmall = {
+      nodeCount: 4, rawPoolTB: 92.16, usablePerDriveTB: 3.5328, totalUsableTB: 84.7872,
+      reserveDrives: 4, reserveTB: 14.1312, infraVolumeTB: 0.75,
+      availableForVolumesTB: 10, availableForVolumesTiB: 9.09,
+      resiliencyType: 'two-way-mirror' as const, resiliencyFactor: 0.5, effectiveUsableTB: 5,
+    }
+    const vols: VolumeSpec[] = [
+      { id: '1', name: 'Vol', resiliency: 'two-way-mirror', provisioning: 'fixed', plannedSizeTB: 3 },
+    ]
+    const compute = computeCompute(hw4, DEFAULT_ADVANCED_SETTINGS)
+    const result = runHealthCheck({
+      hardware: hw4, settings: DEFAULT_ADVANCED_SETTINGS,
+      volumes: vols, capacity: capacitySmall, compute,
+      workloadSummary: { totalVCpus: 0, totalMemoryGB: 0, totalStorageTB: 0 },
+    })
+    expect(result.issues.some(i => i.code === 'HC_HIGH_UTILIZATION')).toBe(false)
+  })
 })
 
 describe('Workload volume suggestions', () => {
@@ -527,7 +625,9 @@ describe('runComputeHealthCheck', () => {
     systemReservedVCpus: 12,
     usableVCpus: 100,
     usableVCpusN1: 75,
+    usableVCpusN2: 50,
     usableMemoryGBN1: 750,
+    usableMemoryGBN2: 500,
     physicalMemoryGB: 1024,
     systemReservedMemoryGB: 24,
     usableMemoryGB: 1000,

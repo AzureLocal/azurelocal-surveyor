@@ -54,7 +54,7 @@ const DOCS: DocSection[] = [
     content: [
       'The health check engine validates your configuration against S2D requirements and best practices. There are three severity levels:',
       'Error (red): configuration will fail or cause data loss. Errors must be fixed before deployment.',
-      'Warning (amber): configuration works but is outside best practice thresholds (e.g., utilization > 70%, thin provisioning in use).',
+      'Warning (amber): configuration works but is outside best practice thresholds (e.g., utilization > 70% with thin volumes present, thin provisioning in use).',
       'Info (blue): advisory suggestions for optimal configuration (e.g., volume count not a multiple of node count).',
     ],
   },
@@ -73,7 +73,7 @@ const DOCS: DocSection[] = [
       'Volume count: use a multiple of your node count (e.g., 4 volumes on a 4-node cluster) for balanced slab distribution across nodes.',
       '64 TB limit: S2D volumes cannot exceed 64 TB. If you need more than 64 TB of logical storage, create multiple volumes.',
       'Thick vs thin: use thick (fixed) provisioning in production. Thin provisioning risks VMs crashing silently when the pool fills.',
-      'Utilization: keep pool utilization below 70% to ensure S2D has headroom to auto-repair after a drive failure.',
+      'Utilization: 70% is a recommended operational headroom guideline — mainly relevant for thin-provisioned volumes (a full pool takes them offline, risking VM crashes). For all-fixed/thick volumes the firm limit is whether volume footprints fit the pool; the 70% line is advisory, not a Microsoft hard limit.',
       'Resiliency: use Three-Way Mirror for all production VM volumes. Dual Parity is appropriate for bulk/archive storage with infrequent writes.',
     ],
   },

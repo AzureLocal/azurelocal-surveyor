@@ -1,5 +1,5 @@
 import { runComputeHealthCheck } from '../engine/healthcheck'
-import type { ComputeResult, HealthIssue } from '../engine/types'
+import type { ComputeResult, HealthIssue, MaintenanceReserveMode } from '../engine/types'
 import { AlertTriangle, AlertCircle, Info } from 'lucide-react'
 
 // ─── Utilization gauge (#10) ──────────────────────────────────────────────────
@@ -36,10 +36,11 @@ function UtilizationBar({
   )
 }
 
-export default function ComputeReport({ result, totalVCpus, totalMemoryGB }: {
+export default function ComputeReport({ result, totalVCpus, totalMemoryGB, maintenanceReserveMode }: {
   result: ComputeResult
   totalVCpus?: number
   totalMemoryGB?: number
+  maintenanceReserveMode?: MaintenanceReserveMode
 }) {
   // Overcommit sensitivity — show usable vCPUs at common ratios
   const overcommitRatios = [1, 2, 3, 4, 6, 8]
@@ -47,6 +48,10 @@ export default function ComputeReport({ result, totalVCpus, totalMemoryGB }: {
 
   const nPlusOneVCpuFit = totalVCpus !== undefined ? totalVCpus <= result.usableVCpusN1 : null
   const nPlusOneMemFit  = totalMemoryGB !== undefined ? totalMemoryGB <= result.usableMemoryGBN1 : null
+  const nPlusTwoVCpuFit = totalVCpus !== undefined ? totalVCpus <= result.usableVCpusN2 : null
+  const nPlusTwoMemFit  = totalMemoryGB !== undefined ? totalMemoryGB <= result.usableMemoryGBN2 : null
+  // WAF resiliency target from Advanced Settings
+  const reserveMode = maintenanceReserveMode ?? 'none'
 
   const computeIssues = runComputeHealthCheck({
     compute: result,
@@ -92,31 +97,58 @@ export default function ComputeReport({ result, totalVCpus, totalMemoryGB }: {
               value={result.hyperthreadingEnabled ? `${result.logicalCores} logical cores (×2)` : `${result.logicalCores} logical cores`} />
             <Row label="System reserved vCPUs" value={String(result.systemReservedVCpus)} />
             <Row label="Usable vCPUs (all nodes)" value={String(result.usableVCpus)} highlight />
-            <Row label={`Usable vCPUs (N+1, ${nodeCount - 1} nodes)`} value={String(result.usableVCpusN1)}
-              sub="Capacity available if one node fails" />
+            <Row
+              label={`Usable vCPUs — WAF N+1 (${Math.max(0, nodeCount - 1)} nodes active)`}
+              value={String(result.usableVCpusN1)}
+              sub={`WAF compute resiliency: one node drained/lost${reserveMode === 'n+1' ? ' — active target' : ''}`}
+              highlight={reserveMode === 'n+1'}
+            />
+            <Row
+              label={`Usable vCPUs — WAF N+2 (${Math.max(0, nodeCount - 2)} nodes active)`}
+              value={String(result.usableVCpusN2)}
+              sub={`WAF compute resiliency: two nodes drained/lost${reserveMode === 'n+2' ? ' — active target' : ''}`}
+              highlight={reserveMode === 'n+2'}
+            />
 
             <Section label="Memory" />
             <Row label="Physical memory" value={`${result.physicalMemoryGB} GB`} />
             <Row label="System reserved memory" value={`${result.systemReservedMemoryGB} GB`} />
             <Row label="Usable memory (all nodes)" value={`${result.usableMemoryGB} GB`} highlight />
-            <Row label={`Usable memory (N+1, ${nodeCount - 1} nodes)`} value={`${result.usableMemoryGBN1} GB`}
-              sub="Capacity available if one node fails" />
+            <Row
+              label={`Usable memory — WAF N+1 (${Math.max(0, nodeCount - 1)} nodes active)`}
+              value={`${result.usableMemoryGBN1} GB`}
+              sub={`WAF compute resiliency: one node drained/lost${reserveMode === 'n+1' ? ' — active target' : ''}`}
+              highlight={reserveMode === 'n+1'}
+            />
+            <Row
+              label={`Usable memory — WAF N+2 (${Math.max(0, nodeCount - 2)} nodes active)`}
+              value={`${result.usableMemoryGBN2} GB`}
+              sub={`WAF compute resiliency: two nodes drained/lost${reserveMode === 'n+2' ? ' — active target' : ''}`}
+              highlight={reserveMode === 'n+2'}
+            />
             <Row label="NUMA domains (estimate)" value={String(result.numaDomainsEstimate)} />
           </tbody>
         </table>
       </div>
 
-      {/* N+1 Failover Analysis (#23) */}
+      {/* WAF Compute Resiliency Analysis (#23) */}
       {(totalVCpus !== undefined || totalMemoryGB !== undefined) && (
         <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">N+1 Failover Analysis</div>
+          <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">
+            WAF Compute Resiliency — N+1 / N+2 Headroom
+          </div>
           <p className="px-4 pt-3 text-xs text-gray-500">
-            Can your workloads continue running if one node fails? With {nodeCount - 1} remaining node{nodeCount - 1 !== 1 ? 's' : ''},
-            the cluster has {result.usableVCpusN1} vCPUs and {result.usableMemoryGBN1} GB RAM available.
+            Per Microsoft WAF, N+1/N+2 reserves CPU and memory so nodes can be drained for updates or survive a node loss without dropping VMs.
+            This is a compute concept — it does not reduce storage capacity.
+            With {Math.max(0, nodeCount - 1)} node{Math.max(0, nodeCount - 1) !== 1 ? 's' : ''} active (N+1):
+            {' '}{result.usableVCpusN1} vCPUs and {result.usableMemoryGBN1} GB RAM available.
+            {nodeCount > 2 && (
+              <> With {Math.max(0, nodeCount - 2)} node{Math.max(0, nodeCount - 2) !== 1 ? 's' : ''} active (N+2): {result.usableVCpusN2} vCPUs and {result.usableMemoryGBN2} GB RAM available.</>
+            )}
           </p>
           <div className="grid grid-cols-2 gap-px bg-gray-200 dark:bg-gray-700 m-4 rounded-lg overflow-hidden">
             <div className={`px-4 py-3 ${nPlusOneVCpuFit === true ? 'bg-green-50 dark:bg-green-900/20' : nPlusOneVCpuFit === false ? 'bg-red-50 dark:bg-red-900/20' : 'bg-white dark:bg-gray-900'}`}>
-              <div className="text-xs text-gray-500 mb-1">vCPU headroom (N+1)</div>
+              <div className="text-xs text-gray-500 mb-1">vCPU headroom — N+1 ({Math.max(0, nodeCount - 1)} nodes)</div>
               {totalVCpus !== undefined ? (
                 <>
                   <div className={`text-lg font-bold ${nPlusOneVCpuFit ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
@@ -127,7 +159,7 @@ export default function ComputeReport({ result, totalVCpus, totalMemoryGB }: {
               ) : <div className="text-sm text-gray-400">No workloads planned</div>}
             </div>
             <div className={`px-4 py-3 ${nPlusOneMemFit === true ? 'bg-green-50 dark:bg-green-900/20' : nPlusOneMemFit === false ? 'bg-red-50 dark:bg-red-900/20' : 'bg-white dark:bg-gray-900'}`}>
-              <div className="text-xs text-gray-500 mb-1">Memory headroom (N+1)</div>
+              <div className="text-xs text-gray-500 mb-1">Memory headroom — N+1 ({Math.max(0, nodeCount - 1)} nodes)</div>
               {totalMemoryGB !== undefined ? (
                 <>
                   <div className={`text-lg font-bold ${nPlusOneMemFit ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
@@ -137,6 +169,32 @@ export default function ComputeReport({ result, totalVCpus, totalMemoryGB }: {
                 </>
               ) : <div className="text-sm text-gray-400">No workloads planned</div>}
             </div>
+            {nodeCount > 2 && (
+              <>
+                <div className={`px-4 py-3 ${nPlusTwoVCpuFit === true ? 'bg-green-50 dark:bg-green-900/20' : nPlusTwoVCpuFit === false ? 'bg-red-50 dark:bg-red-900/20' : 'bg-white dark:bg-gray-900'}`}>
+                  <div className="text-xs text-gray-500 mb-1">vCPU headroom — N+2 ({Math.max(0, nodeCount - 2)} nodes)</div>
+                  {totalVCpus !== undefined ? (
+                    <>
+                      <div className={`text-lg font-bold ${nPlusTwoVCpuFit ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                        {nPlusTwoVCpuFit ? 'Fits' : 'Overloaded'}
+                      </div>
+                      <div className="text-xs text-gray-500">{totalVCpus} needed / {result.usableVCpusN2} available</div>
+                    </>
+                  ) : <div className="text-sm text-gray-400">No workloads planned</div>}
+                </div>
+                <div className={`px-4 py-3 ${nPlusTwoMemFit === true ? 'bg-green-50 dark:bg-green-900/20' : nPlusTwoMemFit === false ? 'bg-red-50 dark:bg-red-900/20' : 'bg-white dark:bg-gray-900'}`}>
+                  <div className="text-xs text-gray-500 mb-1">Memory headroom — N+2 ({Math.max(0, nodeCount - 2)} nodes)</div>
+                  {totalMemoryGB !== undefined ? (
+                    <>
+                      <div className={`text-lg font-bold ${nPlusTwoMemFit ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+                        {nPlusTwoMemFit ? 'Fits' : 'Overloaded'}
+                      </div>
+                      <div className="text-xs text-gray-500">{totalMemoryGB} GB needed / {result.usableMemoryGBN2} GB available</div>
+                    </>
+                  ) : <div className="text-sm text-gray-400">No workloads planned</div>}
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

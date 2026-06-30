@@ -1,43 +1,44 @@
 /**
- * Maintenance Reserve tests — WAF N+1/N+2 optional deduction
+ * WAF N+1/N+2 — Compute resiliency, not storage
  *
- * Feature spec:
- *   nodeRawTB = capacityDriveSizeTB × capacityDrivesPerNode
- *   maintenanceReserveNodes = mode==='n+1' ? 1 : mode==='n+2' ? 2 : 0
- *   maintenanceReserveTB    = nodeRawTB × maintenanceReserveNodes
- *   availableBeforeMaintenanceTB = max(0, poolAfterMetaTB − reserveTB − infraVolumeTB)
- *   availableForVolumesTB        = max(0, availableBeforeMaintenanceTB − maintenanceReserveTB)
- *   effectiveUsableTB            = availableForVolumesTB × resiliencyFactor
+ * KEY INVARIANT (2.6.0 correction):
+ *   Per Microsoft WAF, N+1/N+2 is a COMPUTE resiliency concept (CPU + memory headroom
+ *   so nodes can be drained for updates or survive a node loss without dropping VMs).
+ *   It does NOT reduce storage capacity.
  *
- * Tests:
- *   1. mode='none' → outputs byte-identical to baseline (no regression).
- *   2. 2-node 8×3.84 POC (4 drives/node):
- *        nodeRawTB = 4 × 3.84 = 15.36
- *        availableBeforeMaintenanceTB = 22.2328
- *        N+1: maintenanceReserveTB = 15.36, availableForVolumes = 6.8728, nodes = 1
- *        N+2: maintenanceReserveTB = 30.72, availableForVolumes = 0 (clamped), nodes = 2
- *   3. expansionHeadroom re-computes against reduced availableForVolumesTB when N+1 active.
+ *   Therefore: availableForVolumesTB must be INVARIANT to maintenanceReserveMode.
+ *   The only MS-documented storage reserves are:
+ *     - Per-drive rebuild reserve: min(nodeCount, 4) drives
+ *     - Volume footprints must fit within availableForVolumesTB (HC_OVER_CAPACITY)
+ *
+ * Compute N+1/N+2 formulas:
+ *   nodesN1 = max(0, nodeCount - 1)
+ *   usableVCpusN1 = max(0, logicalCoresPerNode × nodesN1 × oversubRatio - sysReserved × nodesN1)
+ *   usableMemoryGBN1 = max(0, memPerNode × nodesN1 - sysReservedMem × nodesN1)
+ *   nodesN2 = max(0, nodeCount - 2)
+ *   usableVCpusN2 = max(0, logicalCoresPerNode × nodesN2 × oversubRatio - sysReserved × nodesN2)
+ *   usableMemoryGBN2 = max(0, memPerNode × nodesN2 - sysReservedMem × nodesN2)
  */
 
 import { describe, it, expect } from 'vitest'
 import {
   computeCapacity,
-  computeExpansionHeadroom,
   DEFAULT_ADVANCED_SETTINGS,
   type HardwareInputs,
   type AdvancedSettings,
 } from '../index'
+import { computeCompute } from '../compute'
 
-// Tolerance for golden value assertions (±0.02 TB as specified)
+// Tolerance for numeric assertions
 const TOL = 0.02
 
 function near(actual: number, expected: number, tol = TOL): boolean {
   return Math.abs(actual - expected) <= tol
 }
 
-// ─── Shared hardware: 2-node, 4 capacity drives/node, 3.84 TB each ──────────
+// ─── Shared hardware fixtures ─────────────────────────────────────────────────
 
-const HW_2NODE_4DRIVE: HardwareInputs = {
+const HW_2NODE: HardwareInputs = {
   nodeCount: 2,
   capacityDrivesPerNode: 4,
   capacityDriveSizeTB: 3.84,
@@ -50,237 +51,246 @@ const HW_2NODE_4DRIVE: HardwareInputs = {
   hyperthreadingEnabled: true,
 }
 
-// ─── 1. mode='none' is byte-identical to baseline ────────────────────────────
+const HW_4NODE: HardwareInputs = {
+  nodeCount: 4,
+  capacityDrivesPerNode: 6,
+  capacityDriveSizeTB: 3.84,
+  cacheDrivesPerNode: 0,
+  cacheDriveSizeTB: 0,
+  cacheMediaType: 'none',
+  capacityMediaType: 'nvme',
+  coresPerNode: 32,
+  memoryPerNodeGB: 256,
+  hyperthreadingEnabled: true,
+}
 
-describe('maintenance-reserve mode=none — byte-identical baseline', () => {
-  // Baseline: compute without the field set (backward compat — field optional)
-  const baselineSettings: AdvancedSettings = {
+const HW_8NODE: HardwareInputs = {
+  nodeCount: 8,
+  capacityDrivesPerNode: 4,
+  capacityDriveSizeTB: 7.68,
+  cacheDrivesPerNode: 0,
+  cacheDriveSizeTB: 0,
+  cacheMediaType: 'none',
+  capacityMediaType: 'nvme',
+  coresPerNode: 24,
+  memoryPerNodeGB: 384,
+  hyperthreadingEnabled: true,
+}
+
+// ─── 1. INVARIANT: availableForVolumesTB does NOT change with mode ────────────
+
+describe('maintenance-reserve: availableForVolumesTB is invariant to mode', () => {
+  const baseSettings: AdvancedSettings = {
     ...DEFAULT_ADVANCED_SETTINGS,
     defaultResiliency: 'two-way-mirror',
+    maintenanceReserveMode: 'none',
   }
-  // Explicitly set mode to 'none'
-  const noneSettings: AdvancedSettings = {
-    ...baselineSettings,
+  const n1Settings: AdvancedSettings = { ...baseSettings, maintenanceReserveMode: 'n+1' }
+  const n2Settings: AdvancedSettings = { ...baseSettings, maintenanceReserveMode: 'n+2' }
+
+  const none2 = computeCapacity(HW_2NODE, baseSettings)
+  const n1_2  = computeCapacity(HW_2NODE, n1Settings)
+  const n2_2  = computeCapacity(HW_2NODE, n2Settings)
+
+  it('2-node: mode=n+1 does NOT reduce availableForVolumesTB', () => {
+    expect(n1_2.availableForVolumesTB).toBe(none2.availableForVolumesTB)
+  })
+
+  it('2-node: mode=n+2 does NOT reduce availableForVolumesTB', () => {
+    expect(n2_2.availableForVolumesTB).toBe(none2.availableForVolumesTB)
+  })
+
+  const base4Settings: AdvancedSettings = { ...DEFAULT_ADVANCED_SETTINGS, defaultResiliency: 'three-way-mirror', maintenanceReserveMode: 'none' }
+  const none4 = computeCapacity(HW_4NODE, base4Settings)
+  const n1_4  = computeCapacity(HW_4NODE, { ...base4Settings, maintenanceReserveMode: 'n+1' })
+  const n2_4  = computeCapacity(HW_4NODE, { ...base4Settings, maintenanceReserveMode: 'n+2' })
+
+  it('4-node: mode=n+1 does NOT reduce availableForVolumesTB', () => {
+    expect(n1_4.availableForVolumesTB).toBe(none4.availableForVolumesTB)
+  })
+
+  it('4-node: mode=n+2 does NOT reduce availableForVolumesTB', () => {
+    expect(n2_4.availableForVolumesTB).toBe(none4.availableForVolumesTB)
+  })
+
+  const none8 = computeCapacity(HW_8NODE, baseSettings)
+  const n1_8  = computeCapacity(HW_8NODE, n1Settings)
+  const n2_8  = computeCapacity(HW_8NODE, n2Settings)
+
+  it('8-node: mode=n+1 does NOT reduce availableForVolumesTB', () => {
+    expect(n1_8.availableForVolumesTB).toBe(none8.availableForVolumesTB)
+  })
+
+  it('8-node: mode=n+2 does NOT reduce availableForVolumesTB', () => {
+    expect(n2_8.availableForVolumesTB).toBe(none8.availableForVolumesTB)
+  })
+})
+
+// ─── 2. INVARIANT: effectiveUsableTB does NOT change with mode ───────────────
+
+describe('maintenance-reserve: effectiveUsableTB is invariant to mode', () => {
+  const base: AdvancedSettings = {
+    ...DEFAULT_ADVANCED_SETTINGS,
+    defaultResiliency: 'two-way-mirror',
     maintenanceReserveMode: 'none',
   }
 
-  const baseline = computeCapacity(HW_2NODE_4DRIVE, baselineSettings)
-  const withNone = computeCapacity(HW_2NODE_4DRIVE, noneSettings)
+  const none = computeCapacity(HW_4NODE, { ...base, defaultResiliency: 'three-way-mirror' })
+  const n1   = computeCapacity(HW_4NODE, { ...base, defaultResiliency: 'three-way-mirror', maintenanceReserveMode: 'n+1' })
+  const n2   = computeCapacity(HW_4NODE, { ...base, defaultResiliency: 'three-way-mirror', maintenanceReserveMode: 'n+2' })
 
-  it('rawPoolTB identical', () => {
-    expect(withNone.rawPoolTB).toBe(baseline.rawPoolTB)
+  it('effectiveUsableTB same for none vs n+1', () => {
+    expect(n1.effectiveUsableTB).toBe(none.effectiveUsableTB)
   })
 
-  it('reserveTB identical', () => {
-    expect(withNone.reserveTB).toBe(baseline.reserveTB)
-  })
-
-  it('availableBeforeMaintenanceTB = availableForVolumesTB when mode=none', () => {
-    // When no maintenance reserve, pre-deduction equals post-deduction
-    expect(withNone.availableBeforeMaintenanceTB).toBe(withNone.availableForVolumesTB)
-  })
-
-  it('availableForVolumesTB identical', () => {
-    expect(withNone.availableForVolumesTB).toBe(baseline.availableForVolumesTB)
-  })
-
-  it('effectiveUsableTB identical', () => {
-    expect(withNone.effectiveUsableTB).toBe(baseline.effectiveUsableTB)
-  })
-
-  it('maintenanceReserveTB = 0', () => {
-    expect(withNone.maintenanceReserveTB).toBe(0)
-  })
-
-  it('maintenanceReserveNodes = 0', () => {
-    expect(withNone.maintenanceReserveNodes).toBe(0)
-  })
-
-  // Also verify with undefined (field omitted entirely — backward compat)
-  it('undefined maintenanceReserveMode treated as none', () => {
-    const undefinedMode: AdvancedSettings = { ...baselineSettings }
-    // Remove the field entirely
-    delete undefinedMode.maintenanceReserveMode
-    const result = computeCapacity(HW_2NODE_4DRIVE, undefinedMode)
-    expect(result.maintenanceReserveTB).toBe(0)
-    expect(result.availableForVolumesTB).toBe(baseline.availableForVolumesTB)
+  it('effectiveUsableTB same for none vs n+2', () => {
+    expect(n2.effectiveUsableTB).toBe(none.effectiveUsableTB)
   })
 })
 
-// ─── 2. 2-node 4-drive N+1 scenario ──────────────────────────────────────────
+// ─── 3. Compute N+1 values ────────────────────────────────────────────────────
 
-describe('maintenance-reserve N+1 — 2-node 4×3.84 TB (nodeRawTB=15.36)', () => {
+describe('compute.ts: N+1 compute fields — 4-node 32c/256GB HT enabled', () => {
   const settings: AdvancedSettings = {
-    ...DEFAULT_ADVANCED_SETTINGS,
-    defaultResiliency: 'two-way-mirror',
-    maintenanceReserveMode: 'n+1',
-  }
-  const result = computeCapacity(HW_2NODE_4DRIVE, settings)
-
-  // Reference values (manual):
-  //   rawPoolTB = 3.84 × 4 × 2 = 30.72
-  //   poolAfterMeta = 30.72 × 0.99 = 30.4128
-  //   reserveDrives = min(2,4) = 2  → reserveTB = 2 × 3.84 = 7.68
-  //   infraVolumeTB = 0.25 / 0.5 = 0.5
-  //   availableBeforeMaintenance = 30.4128 - 7.68 - 0.5 = 22.2328
-  //   nodeRawTB = 3.84 × 4 = 15.36
-  //   maintenanceReserveTB (N+1) = 15.36
-  //   availableForVolumesTB = 22.2328 - 15.36 = 6.8728
-  //   effectiveUsableTB (two-way, factor=0.5) = 6.8728 × 0.5 = 3.4364
-
-  it('maintenanceReserveNodes = 1', () => {
-    expect(result.maintenanceReserveNodes).toBe(1)
-  })
-
-  it('maintenanceReserveTB ≈ 15.36 (one node raw)', () => {
-    expect(near(result.maintenanceReserveTB!, 15.36)).toBe(true)
-  })
-
-  it('availableBeforeMaintenanceTB ≈ 22.2328', () => {
-    expect(near(result.availableBeforeMaintenanceTB!, 22.2328, 0.01)).toBe(true)
-  })
-
-  it('availableForVolumesTB ≈ 6.8728 (22.2328 − 15.36)', () => {
-    expect(near(result.availableForVolumesTB, 6.8728, 0.01)).toBe(true)
-  })
-
-  it('effectiveUsableTB ≈ 3.4364 (6.8728 × 0.5)', () => {
-    expect(near(result.effectiveUsableTB, 3.4364, 0.02)).toBe(true)
-  })
-
-  it('rawPoolTB unchanged at 30.72', () => {
-    expect(near(result.rawPoolTB, 30.72, 0.01)).toBe(true)
-  })
-
-  it('reserveTB unchanged at 7.68', () => {
-    expect(near(result.reserveTB, 7.68, 0.01)).toBe(true)
-  })
-})
-
-// ─── 3. 2-node 4-drive N+2 scenario ──────────────────────────────────────────
-
-describe('maintenance-reserve N+2 — 2-node 4×3.84 TB (nodeRawTB=15.36, clamps to 0)', () => {
-  const settings: AdvancedSettings = {
-    ...DEFAULT_ADVANCED_SETTINGS,
-    defaultResiliency: 'two-way-mirror',
-    maintenanceReserveMode: 'n+2',
-  }
-  const result = computeCapacity(HW_2NODE_4DRIVE, settings)
-
-  // Reference values:
-  //   availableBeforeMaintenance = 22.2328
-  //   maintenanceReserveTB (N+2) = 15.36 × 2 = 30.72
-  //   availableForVolumesTB = max(0, 22.2328 - 30.72) = 0  (clamped)
-  //   effectiveUsableTB = 0 × 0.5 = 0
-
-  it('maintenanceReserveNodes = 2', () => {
-    expect(result.maintenanceReserveNodes).toBe(2)
-  })
-
-  it('maintenanceReserveTB ≈ 30.72 (two nodes raw)', () => {
-    expect(near(result.maintenanceReserveTB!, 30.72)).toBe(true)
-  })
-
-  it('availableBeforeMaintenanceTB ≈ 22.2328', () => {
-    expect(near(result.availableBeforeMaintenanceTB!, 22.2328, 0.01)).toBe(true)
-  })
-
-  it('availableForVolumesTB = 0 (clamped — reserve exceeds available)', () => {
-    expect(result.availableForVolumesTB).toBe(0)
-  })
-
-  it('effectiveUsableTB = 0', () => {
-    expect(result.effectiveUsableTB).toBe(0)
-  })
-})
-
-// ─── 4. expansionHeadroom re-computes against reduced availableForVolumesTB ──
-
-describe('maintenance-reserve N+1 — expansionHeadroom uses reduced availableForVolumesTB', () => {
-  const baseSettings: AdvancedSettings = {
-    ...DEFAULT_ADVANCED_SETTINGS,
-    defaultResiliency: 'two-way-mirror',
-  }
-  const n1Settings: AdvancedSettings = {
-    ...baseSettings,
-    maintenanceReserveMode: 'n+1',
-  }
-
-  const baseResult   = computeCapacity(HW_2NODE_4DRIVE, baseSettings)
-  const n1Result     = computeCapacity(HW_2NODE_4DRIVE, n1Settings)
-
-  // Headroom with N+1 uses the reduced A (6.8728 TB)
-  const baseHeadroom = computeExpansionHeadroom(baseResult.availableForVolumesTB, 0, 'two-way-mirror')
-  const n1Headroom   = computeExpansionHeadroom(n1Result.availableForVolumesTB,   0, 'two-way-mirror')
-
-  it('N+1 availableForVolumesTB is less than baseline', () => {
-    expect(n1Result.availableForVolumesTB).toBeLessThan(baseResult.availableForVolumesTB)
-  })
-
-  it('N+1 headroom availableForVolumesTB ≈ 6.87 (reduced from ~22.23)', () => {
-    expect(near(n1Headroom.availableForVolumesTB, 6.8728, 0.02)).toBe(true)
-  })
-
-  it('N+1 headroom 100% budget ≈ 6.87 TB (vs baseline 100% budget ≈ 22.23 TB)', () => {
-    const n1Row100   = n1Headroom.rows.find((r) => r.targetFraction === 1.00)!
-    const baseRow100 = baseHeadroom.rows.find((r) => r.targetFraction === 1.00)!
-    expect(n1Row100.footprintBudgetTB).toBeLessThan(baseRow100.footprintBudgetTB)
-    expect(near(n1Row100.footprintBudgetTB, 6.8728, 0.02)).toBe(true)
-  })
-
-  it('N+1 headroom 100% new usable ≈ 3.44 TB (6.87 / 2 copies)', () => {
-    const n1Row100 = n1Headroom.rows.find((r) => r.targetFraction === 1.00)!
-    // 6.8728 / 2 = 3.4364
-    expect(near(n1Row100.remainingNewUsableTB, 3.44, 0.05)).toBe(true)
-  })
-})
-
-// ─── 5. Larger cluster — N+1 does not over-restrict ──────────────────────────
-
-describe('maintenance-reserve N+1 — 4-node 6×3.84 TB cluster (standard size)', () => {
-  const hw: HardwareInputs = {
-    nodeCount: 4,
-    capacityDrivesPerNode: 6,
-    capacityDriveSizeTB: 3.84,
-    cacheDrivesPerNode: 0,
-    cacheDriveSizeTB: 0,
-    cacheMediaType: 'none',
-    capacityMediaType: 'nvme',
-    coresPerNode: 32,
-    memoryPerNodeGB: 256,
-    hyperthreadingEnabled: true,
-  }
-
-  const baseSettings: AdvancedSettings = {
     ...DEFAULT_ADVANCED_SETTINGS,
     defaultResiliency: 'three-way-mirror',
   }
-  const n1Settings: AdvancedSettings = {
-    ...baseSettings,
-    maintenanceReserveMode: 'n+1',
+  const result = computeCompute(HW_4NODE, settings)
+
+  // With HT: logicalCoresPerNode = 32 × 2 = 64
+  // vCpuOversubscriptionRatio = 4 (DEFAULT)
+  // systemReservedVCpus = 4/node (DEFAULT)
+  // nodesN1 = max(0, 4-1) = 3
+  // usableVCpusN1 = max(0, 64 × 3 × 4 - 4 × 3) = max(0, 768 - 12) = 756
+  // systemReservedMemoryGB = 8/node (DEFAULT)
+  // usableMemoryGBN1 = max(0, 256 × 3 - 8 × 3) = max(0, 768 - 24) = 744
+
+  it('usableVCpusN1 ≈ 756 (3 nodes, 64 lCPU/node × 4 oversub, 4 reserved/node)', () => {
+    expect(near(result.usableVCpusN1, 756, 2)).toBe(true)
+  })
+
+  it('usableMemoryGBN1 ≈ 744 GB (3 nodes, 256 GB/node, 8 reserved/node)', () => {
+    expect(near(result.usableMemoryGBN1, 744, 5)).toBe(true)
+  })
+})
+
+// ─── 4. Compute N+2 values ────────────────────────────────────────────────────
+
+describe('compute.ts: N+2 compute fields — 4-node 32c/256GB HT enabled', () => {
+  const settings: AdvancedSettings = {
+    ...DEFAULT_ADVANCED_SETTINGS,
+    defaultResiliency: 'three-way-mirror',
+  }
+  const result = computeCompute(HW_4NODE, settings)
+
+  // nodesN2 = max(0, 4-2) = 2
+  // usableVCpusN2 = max(0, 64 × 2 × 4 - 4 × 2) = max(0, 512 - 8) = 504
+  // usableMemoryGBN2 = max(0, 256 × 2 - 8 × 2) = max(0, 512 - 16) = 496
+
+  it('usableVCpusN2 ≈ 504 (2 nodes, 64 lCPU/node × 4 oversub, 4 reserved/node)', () => {
+    expect(near(result.usableVCpusN2, 504, 2)).toBe(true)
+  })
+
+  it('usableMemoryGBN2 ≈ 496 GB (2 nodes, 256 GB/node, 8 reserved/node)', () => {
+    expect(near(result.usableMemoryGBN2, 496, 5)).toBe(true)
+  })
+})
+
+// ─── 5. Edge case: 2-node N+2 compute → 0 (can't go below 0 active nodes) ───
+
+describe('compute.ts: N+2 on 2-node cluster → 0 (floor at 0 active nodes)', () => {
+  const settings: AdvancedSettings = {
+    ...DEFAULT_ADVANCED_SETTINGS,
+    defaultResiliency: 'two-way-mirror',
+  }
+  const result = computeCompute(HW_2NODE, settings)
+
+  // nodesN2 = max(0, 2-2) = 0
+  // usableVCpusN2 = 0, usableMemoryGBN2 = 0
+
+  it('usableVCpusN2 = 0 on 2-node cluster', () => {
+    expect(result.usableVCpusN2).toBe(0)
+  })
+
+  it('usableMemoryGBN2 = 0 on 2-node cluster', () => {
+    expect(result.usableMemoryGBN2).toBe(0)
+  })
+
+  it('usableVCpusN1 > 0 on 2-node cluster', () => {
+    expect(result.usableVCpusN1).toBeGreaterThan(0)
+  })
+})
+
+// ─── 6. 1-node cluster: both N+1 and N+2 → 0 ────────────────────────────────
+
+describe('compute.ts: 1-node cluster — both N+1 and N+2 floor to 0', () => {
+  const hw1: HardwareInputs = { ...HW_2NODE, nodeCount: 1 }
+  const settings: AdvancedSettings = { ...DEFAULT_ADVANCED_SETTINGS, defaultResiliency: 'two-way-mirror' }
+  const result = computeCompute(hw1, settings)
+
+  it('usableVCpusN1 = 0 (1 node − 1 = 0 active)', () => {
+    expect(result.usableVCpusN1).toBe(0)
+  })
+
+  it('usableVCpusN2 = 0 (1 node − 2 clamped to 0)', () => {
+    expect(result.usableVCpusN2).toBe(0)
+  })
+
+  it('usableMemoryGBN1 = 0', () => {
+    expect(result.usableMemoryGBN1).toBe(0)
+  })
+
+  it('usableMemoryGBN2 = 0', () => {
+    expect(result.usableMemoryGBN2).toBe(0)
+  })
+})
+
+// ─── 7. N+2 strictly ≤ N+1 (always) ─────────────────────────────────────────
+
+describe('compute.ts: usableVCpusN2 ≤ usableVCpusN1 for any node count', () => {
+  const settings: AdvancedSettings = { ...DEFAULT_ADVANCED_SETTINGS }
+
+  it('8-node: N+2 < N+1 vCPUs', () => {
+    const r = computeCompute(HW_8NODE, settings)
+    expect(r.usableVCpusN2).toBeLessThan(r.usableVCpusN1)
+  })
+
+  it('4-node: N+2 < N+1 vCPUs', () => {
+    const r = computeCompute(HW_4NODE, settings)
+    expect(r.usableVCpusN2).toBeLessThan(r.usableVCpusN1)
+  })
+
+  it('2-node: N+2 = 0 ≤ N+1', () => {
+    const r = computeCompute(HW_2NODE, settings)
+    expect(r.usableVCpusN2).toBeLessThanOrEqual(r.usableVCpusN1)
+    expect(r.usableVCpusN2).toBe(0)
+  })
+})
+
+// ─── 8. undefined/none mode: backward compat — storage unchanged ──────────────
+
+describe('maintenance-reserve: undefined mode treated as none (backward compat)', () => {
+  const settingsWithUndefined: AdvancedSettings = {
+    ...DEFAULT_ADVANCED_SETTINGS,
+    defaultResiliency: 'two-way-mirror',
+  }
+  // Remove the field entirely to test pre-2.5.0 state objects
+  delete settingsWithUndefined.maintenanceReserveMode
+
+  const settingsWithNone: AdvancedSettings = {
+    ...DEFAULT_ADVANCED_SETTINGS,
+    defaultResiliency: 'two-way-mirror',
+    maintenanceReserveMode: 'none',
   }
 
-  const baseResult = computeCapacity(hw, baseSettings)
-  const n1Result   = computeCapacity(hw, n1Settings)
+  const undefinedResult = computeCapacity(HW_4NODE, settingsWithUndefined)
+  const noneResult      = computeCapacity(HW_4NODE, settingsWithNone)
 
-  // nodeRawTB = 3.84 × 6 = 23.04
-  // N+1 deducts 23.04 from availableBeforeMaintenance
-
-  it('maintenanceReserveTB ≈ 23.04 (one node, 6 drives × 3.84)', () => {
-    expect(near(n1Result.maintenanceReserveTB!, 23.04, 0.01)).toBe(true)
+  it('availableForVolumesTB identical', () => {
+    expect(undefinedResult.availableForVolumesTB).toBe(noneResult.availableForVolumesTB)
   })
 
-  it('availableForVolumesTB is reduced by 23.04 vs baseline', () => {
-    const diff = baseResult.availableForVolumesTB - n1Result.availableForVolumesTB
-    expect(near(diff, 23.04, 0.01)).toBe(true)
-  })
-
-  it('availableForVolumesTB > 0 (cluster large enough to absorb N+1)', () => {
-    expect(n1Result.availableForVolumesTB).toBeGreaterThan(0)
-  })
-
-  it('effectiveUsableTB < baseline (but > 0)', () => {
-    expect(n1Result.effectiveUsableTB).toBeGreaterThan(0)
-    expect(n1Result.effectiveUsableTB).toBeLessThan(baseResult.effectiveUsableTB)
+  it('effectiveUsableTB identical', () => {
+    expect(undefinedResult.effectiveUsableTB).toBe(noneResult.effectiveUsableTB)
   })
 })

@@ -5,6 +5,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.6.0] — 2026-06-30
+
+### Changed
+
+- **Provisioning-aware 70% headroom guidance** — `HC_HIGH_UTILIZATION` health check is now
+  provisioning-aware. When utilization exceeds 70% and thin-provisioned volumes are present, the
+  issue remains severity `warning` (a full pool takes thin volumes offline). When all volumes are
+  fixed/thick, it downgrades to `info` — fixed volumes commit their footprint up front, so the
+  binding constraint is that footprints fit the pool (enforced by `HC_OVER_CAPACITY`). Messaging
+  throughout (health check, docs page, best-practice notes) now frames 70% as a recommended
+  operational headroom convention rather than a Microsoft hard limit.
+
+### Added
+
+- **"Size to enter" column in Expansion Headroom tables** — surfaces the exact TB value to type
+  into `New-Volume -Size` or Windows Admin Center. PowerShell and WAC read size suffixes as binary
+  (1 TB = 1 TiB), so this equals the TiB column, rounded **down** to 2 decimal places so the
+  new volume always fits. Appears in the Final Report table, Markdown export, and XLSX export.
+  Column header: "Size to enter / New-Volume / WAC". Past-line rows show "—". Matches the
+  identical column being added to Cartographer 1.9.0 for cross-tool consistency.
+
+- **WAF N+1/N+2 re-framed as compute resiliency** — corrected behavior: per Microsoft WAF, N+1/N+2
+  reserves CPU and memory so nodes can be drained for updates or survive a node loss without
+  dropping VMs. It is a **compute** concept and does **not** reduce storage capacity. The 2.5.0
+  storage-pool deduction has been removed; `availableForVolumesTB` is now invariant to
+  `maintenanceReserveMode`. The control is relabeled "WAF compute resiliency target" in Advanced
+  Settings. The Compute Report now shows N+1 and N+2 headroom rows for both vCPU and memory, with
+  the selected target highlighted. N+2 compute fields (`usableVCpusN2`, `usableMemoryGBN2`) are
+  exported in Markdown and XLSX.
+
 ## [2.5.0] — 2026-06-30
 
 ### Added

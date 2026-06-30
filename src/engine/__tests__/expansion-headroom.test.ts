@@ -106,6 +106,7 @@ describe('computeExpansionHeadroom — Scenario A: A=22.2328, U=15.56, copies=2'
   const A = 22.2328
   const U = 15.56
   const result = computeExpansionHeadroom(A, U, 'two-way-mirror')
+  const TiB_DIV = Math.pow(1024, 4) / 1e12
 
   it('copies = 2 (two-way-mirror)', () => {
     expect(result.copies).toBe(2)
@@ -153,6 +154,19 @@ describe('computeExpansionHeadroom — Scenario A: A=22.2328, U=15.56, copies=2'
     expect(near(row100.remainingNewUsableTB, 3.34, 0.02)).toBe(true)
   })
 
+  it('sizeToEnterTiB: 70% row ≈ 0 (≈past line, negligible remaining)', () => {
+    // U=15.56, budget≈15.563 → remainingNewUsable ≈ 0.0015 TB → TiB ≈ 0.00136 → floor2 = 0.00
+    const row70 = result.rows.find((r) => r.targetFraction === 0.70)!
+    expect(row70.sizeToEnterTiB).toBe(0)
+  })
+
+  it('sizeToEnterTiB: 100% row floor-rounds DOWN to 2 decimals', () => {
+    // remainingNewUsable = 6.6728/2 = 3.3364 TB → 3.3364/TiB_DIV ≈ 3.034 TiB → floor2 = 3.03
+    const row100 = result.rows.find((r) => r.targetFraction === 1.00)!
+    const expectedTiB = Math.floor((row100.remainingNewUsableTB / TiB_DIV) * 100) / 100
+    expect(row100.sizeToEnterTiB).toBe(expectedTiB)
+  })
+
   it('all rows have TiB values computed via TB / 1.099511627776', () => {
     const TiB_DIV = Math.pow(1024, 4) / 1e12
     for (const row of result.rows) {
@@ -173,6 +187,7 @@ describe('computeExpansionHeadroom — Scenario B: A=22.44, U=14.28, copies=2 (C
   const A = 22.44
   const U = 14.28
   const result = computeExpansionHeadroom(A, U, 'two-way-mirror')
+  const TiB_DIV = Math.pow(1024, 4) / 1e12
 
   it('copies = 2', () => {
     expect(result.copies).toBe(2)
@@ -218,6 +233,29 @@ describe('computeExpansionHeadroom — Scenario B: A=22.44, U=14.28, copies=2 (C
   it('pastLine=true only when U > budget (none here since U=14.28 < 0.70*A=15.708)', () => {
     for (const row of result.rows) {
       expect(row.pastLine).toBe(false)
+    }
+  })
+
+  it('sizeToEnterTiB: 70% row floors remainingNewUsableTiB to 2 decimals', () => {
+    // remainingNewUsable = (15.708 - 14.28)/2 = 0.714 TB → 0.714/TiB_DIV ≈ 0.6494 TiB → floor2 = 0.64
+    const row70 = result.rows.find((r) => r.targetFraction === 0.70)!
+    const expectedTiB = Math.floor((row70.remainingNewUsableTB / TiB_DIV) * 100) / 100
+    expect(row70.sizeToEnterTiB).toBe(expectedTiB)
+    // Verify it is floor (not round), i.e. value is ≤ the raw TiB value
+    expect(row70.sizeToEnterTiB).toBeLessThanOrEqual(row70.remainingNewUsableTiB)
+  })
+
+  it('sizeToEnterTiB: 100% row floors remainingNewUsableTiB to 2 decimals', () => {
+    // remainingNewUsable = 8.16/2 = 4.08 TB → 4.08/TiB_DIV ≈ 3.7107 TiB → floor2 = 3.71
+    const row100 = result.rows.find((r) => r.targetFraction === 1.00)!
+    const expectedTiB = Math.floor((row100.remainingNewUsableTB / TiB_DIV) * 100) / 100
+    expect(row100.sizeToEnterTiB).toBe(expectedTiB)
+    expect(near(row100.sizeToEnterTiB, 3.71, 0.01)).toBe(true)
+  })
+
+  it('sizeToEnterTiB: never exceeds raw remainingNewUsableTiB for any row', () => {
+    for (const row of result.rows) {
+      expect(row.sizeToEnterTiB).toBeLessThanOrEqual(row.remainingNewUsableTiB + 0.001)
     }
   })
 })

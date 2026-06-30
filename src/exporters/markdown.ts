@@ -100,9 +100,6 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
   lines.push(`|---|---|`)
   lines.push(`| Raw pool | ${capacity.rawPoolTB} TB |`)
   lines.push(`| Pool reserve (${capacity.reserveDrives} drives) | ${capacity.reserveTB} TB |`)
-  if ((capacity.maintenanceReserveNodes ?? 0) > 0) {
-    lines.push(`| Maintenance reserve (WAF N+${capacity.maintenanceReserveNodes}) | ${round2(capacity.maintenanceReserveTB ?? 0)} TB (${capacity.maintenanceReserveNodes} node${(capacity.maintenanceReserveNodes ?? 1) > 1 ? 's' : ''}) |`)
-  }
   lines.push(`| Available for volumes | ${round2(capacity.availableForVolumesTB)} TB |`)
   lines.push(`| Resiliency | ${capacity.resiliencyType} (${(capacity.resiliencyFactor * 100).toFixed(0)}% efficiency) |`)
   lines.push(`| **Effective usable** | **${round2(capacity.effectiveUsableTB)} TB** |`)
@@ -119,22 +116,28 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
   lines.push(`Current utilization: **${round2(headroom.currentUtilizationPct)}%** of ${round2(headroom.availableForVolumesTB)} TB available ` +
     `(${round2(headroom.totalPoolFootprintTB)} TB footprint in use, resiliency: ${headroom.resiliencyLabel}, ${headroom.copies} copies)`)
   lines.push('')
-  lines.push('| Fill target | Footprint budget | Remaining footprint | New usable data |')
-  lines.push('|---|---:|---:|---:|')
+  lines.push('| Fill target | Footprint budget | Remaining footprint | New usable data | Size to enter (New-Volume / WAC) |')
+  lines.push('|---|---:|---:|---:|---:|')
   for (const row of headroom.rows) {
     const pct = `${Math.round(row.targetFraction * 100)}%`
     const past = row.pastLine ? ' *(past)* ' : (row.targetFraction === 0.70 ? ' *(planning line)* ' : '')
-    lines.push(`| ${pct}${past} | ${round2(row.footprintBudgetTB)} TB / ${round2(row.footprintBudgetTiB)} TiB | ${round2(row.remainingFootprintTB)} TB / ${round2(row.remainingFootprintTiB)} TiB | ${round2(row.remainingNewUsableTB)} TB / ${round2(row.remainingNewUsableTiB)} TiB |`)
+    const sizeToEnter = row.pastLine ? '—' : `${row.sizeToEnterTiB}TB`
+    lines.push(`| ${pct}${past} | ${round2(row.footprintBudgetTB)} TB / ${round2(row.footprintBudgetTiB)} TiB | ${round2(row.remainingFootprintTB)} TB / ${round2(row.remainingFootprintTiB)} TiB | ${round2(row.remainingNewUsableTB)} TB / ${round2(row.remainingNewUsableTiB)} TiB | ${sizeToEnter} |`)
   }
+  lines.push('')
+  lines.push('> Size to enter is the value to type into New-Volume -Size or WAC. PowerShell and WAC read size suffixes as binary (1 TB = 1 TiB), so this equals the TiB column, rounded down so the new volume always fits.')
   lines.push('')
 
   // ── Compute ──
+  const reserveMode = state.advanced.maintenanceReserveMode ?? 'none'
   lines.push('## Compute')
   lines.push('')
-  lines.push(`| Metric | All Nodes | N+1 |`)
-  lines.push(`|---|---:|---:|`)
-  lines.push(`| Usable vCPUs | ${compute.usableVCpus} | ${compute.usableVCpusN1} |`)
-  lines.push(`| Usable RAM (GB) | ${compute.usableMemoryGB} | ${compute.usableMemoryGBN1} |`)
+  lines.push(`> WAF compute resiliency target: **${reserveMode === 'none' ? 'None' : reserveMode.toUpperCase()}**. N+1/N+2 reserves CPU and memory for node drain/failover — does not reduce storage capacity.`)
+  lines.push('')
+  lines.push(`| Metric | All Nodes | N+1 (WAF) | N+2 (WAF) |`)
+  lines.push(`|---|---:|---:|---:|`)
+  lines.push(`| Usable vCPUs | ${compute.usableVCpus} | ${compute.usableVCpusN1} | ${compute.usableVCpusN2} |`)
+  lines.push(`| Usable RAM (GB) | ${compute.usableMemoryGB} | ${compute.usableMemoryGBN1} | ${compute.usableMemoryGBN2} |`)
   lines.push('')
 
   // ── Volumes ──

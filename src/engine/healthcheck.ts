@@ -94,38 +94,49 @@ export function runHealthCheck(params: {
     ? (aggPoolFootprintTB / capacity.availableForVolumesTB) * 100
     : 0
 
-  // Fixed volumes must physically fit in the pool (12H)
+  // Fixed volumes must physically fit in the pool (12H) — this is the firm do-not-cross line.
+  // HC_OVER_CAPACITY is an error because fixed volumes commit their footprint up front;
+  // exceeding available pool space means the volume cannot be created.
   if (fixedPoolFootprintTB > capacity.availableForVolumesTB) {
     addIssue({
       code: 'HC_OVER_CAPACITY',
       severity: 'error',
-      message: `Fixed volumes require ${fixedPoolFootprintTB.toFixed(2)} TB pool footprint but only ${capacity.availableForVolumesTB.toFixed(2)} TB is available.`,
+      message: `Fixed volumes require ${fixedPoolFootprintTB.toFixed(2)} TB pool footprint but only ${capacity.availableForVolumesTB.toFixed(2)} TB is available. This is the firm capacity limit — fixed volumes commit their footprint up front and cannot be created if the pool is full.`,
       details: [
         detail({
           label: 'Fixed volume pool capacity',
           status: 'fail',
           calculation: `${fixedPoolFootprintTB.toFixed(2)} TB pool footprint from fixed volumes vs ${capacity.availableForVolumesTB.toFixed(2)} TB available pool.`,
-          threshold: 'Fixed volumes\' pool footprint must stay at or below available raw pool space.',
-          outcome: `Fixed volumes exceed available pool by ${(fixedPoolFootprintTB - capacity.availableForVolumesTB).toFixed(2)} TB.`,
+          threshold: 'Fixed volumes\' pool footprint must stay at or below available pool space. This is a hard limit — unlike 70% which is an advisory headroom guideline.',
+          outcome: `Fixed volumes exceed available pool by ${(fixedPoolFootprintTB - capacity.availableForVolumesTB).toFixed(2)} TB. The rebuild reserve must also stay intact.`,
           ruleSource: 'Azure Local volume pool capacity — fixed provisioning requires physical space up front',
         }),
       ],
     })
   } else if (utilizationPct > 70) {
-    // S2D needs rebuild headroom (#58)
-    // #147: updated message to distinguish reserve drives (physical spare disks) from
-    // rebuild headroom (free space inside the pool for block shuffling during repair).
+    // 70% utilization advisory — provisioning-aware (#S2D-2.6.0):
+    // - With ANY thin volumes: keep severity 'warning'. A full pool takes thin volumes offline,
+    //   so the 70% headroom guideline is specifically relevant here.
+    // - All-fixed volumes: downgrade to 'info'. Fixed volumes commit their footprint up front,
+    //   so the binding constraint is that footprints fit the pool (HC_OVER_CAPACITY above).
+    //   The 70% line is advisory in this case, not a Microsoft hard limit.
+    const highUtilSeverity: 'warning' | 'info' = hasThinVolumes ? 'warning' : 'info'
+
     addIssue({
       code: 'HC_HIGH_UTILIZATION',
-      severity: 'warning',
-      message: `Pool utilization is ${utilizationPct.toFixed(1)}% of available pool space. Reserve drives (configured on the Hardware page) provide physical destination disks for rebuild — but S2D also needs free space inside the pool to shuffle blocks during the repair process. Microsoft recommends keeping pool utilization below 70% so a rebuild can complete without stalling. Consider reducing volume sizes or adding more drives to leave rebuild headroom.`,
+      severity: highUtilSeverity,
+      message: hasThinVolumes
+        ? `Pool utilization is ${utilizationPct.toFixed(1)}%. With thin-provisioned volumes present, 70% is a recommended operational headroom guideline — a full pool takes thin volumes offline. Reserve drives (Hardware page) provide physical destinations for rebuild; the pool also needs free space to shuffle blocks during repair. Consider reducing volume sizes or adding drives.`
+        : `Pool utilization is ${utilizationPct.toFixed(1)}%. All volumes are fixed (thick), so their footprints are committed up front. The 70% guideline is a recommended operational headroom convention — mainly relevant for thin-provisioned volumes, where a full pool takes them offline. It is not a Microsoft hard limit. For all-fixed configurations, the firm constraints are that volume footprints fit the pool (enforced by HC_OVER_CAPACITY) and the rebuild reserve stays intact.`,
       details: [
         detail({
-          label: 'Rebuild headroom guardrail',
-          status: 'warning',
+          label: 'Pool utilization headroom',
+          status: highUtilSeverity,
           calculation: `${aggPoolFootprintTB.toFixed(2)} TB pool footprint ÷ ${capacity.availableForVolumesTB.toFixed(2)} TB available pool = ${utilizationPct.toFixed(1)}% utilization.`,
-          threshold: 'Stay at or below 70% pool utilization for healthier rebuild headroom. Note: reserve drives handle physical spare capacity; the 70% guideline covers free space S2D needs inside the pool during the repair shuffle.',
-          outcome: `The plan is ${(utilizationPct - 70).toFixed(1)} percentage points above the recommended headroom threshold. Both reserve drives and pool free-space headroom are required — one does not substitute for the other.`,
+          threshold: '70% is a recommended operational headroom guideline — mainly relevant for thin-provisioned volumes, where a full pool takes thin volumes offline. It is not a Microsoft hard limit. The firm limits are that volume footprints fit the pool and the rebuild reserve stays intact.',
+          outcome: hasThinVolumes
+            ? `The plan is ${(utilizationPct - 70).toFixed(1)} percentage points above the 70% guideline. Thin volumes are present — a full pool would take them offline. Reserve drives and pool free-space headroom are both required; one does not substitute for the other.`
+            : `The plan is ${(utilizationPct - 70).toFixed(1)} percentage points above the 70% advisory level. All volumes are fixed/thick — the firm constraint is that footprints fit the pool (checked by HC_OVER_CAPACITY). The 70% level is advisory for this all-fixed configuration.`,
           ruleSource: 'Plan volumes — Azure Local (Microsoft Learn): https://learn.microsoft.com/azure-stack/hci/concepts/plan-volumes',
         }),
       ],
@@ -412,8 +423,8 @@ export function runHealthCheck(params: {
         outcome: poolCheckStatus === 'fail'
           ? `The full plan exceeds available pool space by ${(totalPoolFootprintTB - availablePoolTB).toFixed(2)} TB.`
           : poolCheckStatus === 'warning'
-            ? `The plan still fits, but total utilization is ${utilizationPct.toFixed(1)}%, which is above the 70% rebuild-headroom recommendation.`
-            : 'The full plan fits within available pool space and stays inside the rebuild-headroom guardrail.',
+            ? `The plan fits (${utilizationPct.toFixed(1)}% utilization), but thin volumes are present and above the 70% operational headroom guideline. A full pool takes thin volumes offline.`
+            : 'The full plan fits within available pool space and the rebuild reserve stays intact.',
         ruleSource: 'Azure Local available volume pool and rebuild-headroom guidance',
       }),
     ]

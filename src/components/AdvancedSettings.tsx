@@ -92,21 +92,22 @@ export default function AdvancedSettings() {
           )}
         </Field>
 
-        <Field label="Maintenance reserve (WAF N+1/N+2)">
+        <Field label="WAF compute resiliency target (N+1/N+2)">
           <select
             className="input"
             value={advanced.maintenanceReserveMode ?? 'none'}
             onChange={(e) => setAdvanced({ maintenanceReserveMode: e.target.value as MaintenanceReserveMode })}
           >
-            <option value="none">None — no maintenance reserve</option>
-            <option value="n+1">N+1 — reserve one node&apos;s capacity</option>
-            <option value="n+2">N+2 — reserve two nodes&apos; capacity (critical)</option>
+            <option value="none">None — no specific failover target highlighted</option>
+            <option value="n+1">N+1 — plan to survive one node loss / drain</option>
+            <option value="n+2">N+2 — plan to survive two node losses / drains</option>
           </select>
           <p className="text-xs text-gray-400 mt-1">
-            Reserves one (N+1) or two (N+2) nodes&apos; worth of raw capacity so a node can be drained
-            for updates. Additive to the rebuild reserve. On a 2-node two-way mirror each node already
-            holds a full copy, so this is conservative headroom for operating with a node offline,
-            not data-loss protection.
+            Per Microsoft WAF, N+1/N+2 reserves one (N+1) or two (N+2) nodes&apos; worth of <strong>CPU and
+            memory</strong> so nodes can be drained for updates or survive a node loss without dropping VMs.
+            This is a <strong>compute resiliency</strong> concept — it does <strong>not</strong> reduce storage
+            capacity. The storage reserves are the per-drive rebuild reserve and keeping volume footprints within
+            the pool. Setting this target highlights the N+1 or N+2 compute headroom rows in the Compute Report.
           </p>
         </Field>
       </div>

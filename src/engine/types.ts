@@ -52,13 +52,15 @@ export interface AdvancedSettingsOverrides {
 }
 
 /**
- * WAF maintenance reserve mode.
- *  'none' — no reserve (default; all outputs byte-identical to pre-feature baseline)
- *  'n+1'  — reserve one node's raw capacity so a node can be drained for patching
- *  'n+2'  — reserve two nodes' raw capacity for critical workloads
+ * WAF N+1/N+2 compute resiliency mode.
+ *  'none' — no specific failover target highlighted in the compute report
+ *  'n+1'  — target: one node reserved for drain/patch; compute report highlights N+1 headroom
+ *  'n+2'  — target: two nodes reserved for drain; compute report highlights N+2 headroom
  *
- * Additive to the S2D rebuild reserve (Stage 3).  Applied at Stage 5 before
- * effectiveUsableTB is computed.  Per docs/capacity-model.md WAF guidance.
+ * Per Microsoft WAF and Azure Local baseline: N+1/N+2 is a COMPUTE resiliency concept —
+ * it reserves CPU and memory capacity so nodes can be drained for updates or survive a node loss
+ * without dropping VMs. It does NOT reduce storage capacity. The storage-pool reserves are the
+ * per-drive rebuild reserve (Stage 3) and keeping volume footprints within the available pool.
  */
 export type MaintenanceReserveMode = 'none' | 'n+1' | 'n+2'
 
@@ -93,24 +95,7 @@ export interface CapacityResult {
   reserveDrives: number                // min(nodeCount, 4)
   reserveTB: number                    // reserveDrives × largestRawDriveSizeTB (AB#4643)
   infraVolumeTB: number                // infra volume pool footprint
-  /**
-   * Pool space available before the maintenance reserve deduction (pre-Stage 5b).
-   * Optional for backward compat with hand-constructed test fixtures (always populated by computeCapacity).
-   */
-  availableBeforeMaintenanceTB?: number
-  /**
-   * Number of nodes reserved for WAF maintenance (0 when mode='none').
-   * Optional for backward compat with hand-constructed test fixtures.
-   */
-  maintenanceReserveNodes?: number
-  /**
-   * Raw capacity held back for WAF maintenance reserve (TB).
-   * = nodeRawTB × maintenanceReserveNodes
-   * 0 when mode='none' — byte-identical to pre-feature baseline in that case.
-   * Optional for backward compat with hand-constructed test fixtures.
-   */
-  maintenanceReserveTB?: number
-  availableForVolumesTB: number        // totalUsable − reserve − infraVolume − maintenanceReserve (pool footprint space)
+  availableForVolumesTB: number        // totalUsable − reserve − infraVolume (pool footprint space)
   availableForVolumesTiB: number       // availableForVolumesTB × TB_TO_TiB — OS-visible (one conversion)
   resiliencyType: ResiliencyType       // effective resiliency (may differ from requested if clamped)
   resiliencyFactor: number
@@ -143,6 +128,14 @@ export interface ExpansionHeadroomRow {
   remainingNewUsableTiB: number
   /** True when U > targetFraction × A (already past this line). */
   pastLine: boolean
+  /**
+   * Value to type into New-Volume -Size or WAC.
+   * Equals remainingNewUsableTiB rounded DOWN to 2 decimal places.
+   * Intentionally pre-rounded DOWN (not nearest) so the entered value never exceeds available space.
+   * PowerShell and WAC parse size suffixes as binary (1 TB = 1 TiB), so this equals the TiB value.
+   * Set to 0 when pastLine is true.
+   */
+  sizeToEnterTiB: number
 }
 
 /**
@@ -473,16 +466,19 @@ export interface SofsResult {
 // ─── Compute (Sheet: "Compute Report") ───────────────────────────────────────
 
 export interface ComputeResult {
-  nodeCount: number                  // passed through for N+1 and per-node calculations
+  nodeCount: number                  // passed through for N+1/N+2 and per-node calculations
   physicalCores: number
   logicalCores: number               // physicalCores × 2 if hyperthreading enabled
   logicalCoresPerNode: number        // logicalCores / nodeCount
   hyperthreadingEnabled: boolean
   systemReservedVCpus: number
   usableVCpus: number
-  // N+1 failover: capacity with one node down
+  // N+1 failover: capacity with one node down (WAF compute resiliency — node drain / failure)
   usableVCpusN1: number              // usableVCpus minus one node's contribution
   usableMemoryGBN1: number           // usableMemoryGB minus one node's contribution
+  // N+2 failover: capacity with two nodes down (WAF compute resiliency — two-node drain)
+  usableVCpusN2: number              // max(0, (nodeCount - 2) nodes' contribution)
+  usableMemoryGBN2: number           // max(0, (nodeCount - 2) nodes' contribution)
   physicalMemoryGB: number
   systemReservedMemoryGB: number
   usableMemoryGB: number

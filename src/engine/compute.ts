@@ -31,10 +31,17 @@ export function computeCompute(
   const rawVCpus = logicalCores * vCpuOversubscriptionRatio
   const usableVCpus = Math.max(0, rawVCpus - systemReservedVCpusTotal)
 
-  // N+1 failover: capacity with one node down
-  const rawVCpusN1 = logicalCoresPerNode * (nodeCount - 1) * vCpuOversubscriptionRatio
-  const systemReservedN1 = systemReservedVCpus * (nodeCount - 1)
+  // N+1 failover: capacity with one node down (WAF compute resiliency — node drain / failure)
+  const nodesN1 = Math.max(0, nodeCount - 1)
+  const rawVCpusN1 = logicalCoresPerNode * nodesN1 * vCpuOversubscriptionRatio
+  const systemReservedN1 = systemReservedVCpus * nodesN1
   const usableVCpusN1 = Math.max(0, rawVCpusN1 - systemReservedN1)
+
+  // N+2 failover: capacity with two nodes down (WAF compute resiliency — two-node drain)
+  const nodesN2 = Math.max(0, nodeCount - 2)
+  const rawVCpusN2 = logicalCoresPerNode * nodesN2 * vCpuOversubscriptionRatio
+  const systemReservedN2 = systemReservedVCpus * nodesN2
+  const usableVCpusN2 = Math.max(0, rawVCpusN2 - systemReservedN2)
 
   // Memory
   const physicalMemoryGB = memoryPerNodeGB * nodeCount
@@ -42,9 +49,14 @@ export function computeCompute(
   const usableMemoryGB = Math.max(0, physicalMemoryGB - systemReservedMemoryGBTotal)
 
   // N+1 memory
-  const physicalMemoryN1 = memoryPerNodeGB * (nodeCount - 1)
-  const systemReservedMemoryN1 = systemReservedMemoryGB * (nodeCount - 1)
+  const physicalMemoryN1 = memoryPerNodeGB * nodesN1
+  const systemReservedMemoryN1 = systemReservedMemoryGB * nodesN1
   const usableMemoryGBN1 = Math.max(0, physicalMemoryN1 - systemReservedMemoryN1)
+
+  // N+2 memory
+  const physicalMemoryN2 = memoryPerNodeGB * nodesN2
+  const systemReservedMemoryN2 = systemReservedMemoryGB * nodesN2
+  const usableMemoryGBN2 = Math.max(0, physicalMemoryN2 - systemReservedMemoryN2)
 
   // NUMA — modern Intel/AMD server CPUs typically have 2 NUMA domains per node
   const numaDomainsEstimate = nodeCount * 2
@@ -58,7 +70,9 @@ export function computeCompute(
     systemReservedVCpus: systemReservedVCpusTotal,
     usableVCpus,
     usableVCpusN1,
+    usableVCpusN2,
     usableMemoryGBN1,
+    usableMemoryGBN2,
     physicalMemoryGB,
     systemReservedMemoryGB: systemReservedMemoryGBTotal,
     usableMemoryGB,

@@ -145,7 +145,7 @@ export default function FinalReport() {
 
       <section>
         <h2 className="text-lg font-semibold mb-3">Compute</h2>
-        <ComputeReport result={compute} totalVCpus={workloadSummary.totalVCpus} totalMemoryGB={workloadSummary.totalMemoryGB} />
+        <ComputeReport result={compute} totalVCpus={workloadSummary.totalVCpus} totalMemoryGB={workloadSummary.totalMemoryGB} maintenanceReserveMode={state.advanced.maintenanceReserveMode} />
       </section>
 
       {state.volumes.length > 0 && (
@@ -372,7 +372,7 @@ function ExpansionHeadroomSection({ headroom }: { headroom: ExpansionHeadroomRes
             )
           })}
         </div>
-        <div className="mt-1 text-xs text-amber-600 dark:text-amber-400">* 70% = recommended planning line</div>
+        <div className="mt-1 text-xs text-amber-600 dark:text-amber-400">* 70% = recommended operational headroom guideline (mainly for thin-provisioned volumes, not a hard limit)</div>
       </div>
 
       {/* Detail table */}
@@ -384,6 +384,7 @@ function ExpansionHeadroomSection({ headroom }: { headroom: ExpansionHeadroomRes
               <th className="px-4 py-2 text-right">Footprint budget</th>
               <th className="px-4 py-2 text-right">Remaining footprint</th>
               <th className="px-4 py-2 text-right">New usable data</th>
+              <th className="px-4 py-2 text-right">Size to enter<div className="font-normal">New-Volume / WAC</div></th>
             </tr>
           </thead>
           <tbody>
@@ -418,6 +419,11 @@ function ExpansionHeadroomSection({ headroom }: { headroom: ExpansionHeadroomRes
                         <div className="text-gray-400 font-normal">{round2(row.remainingNewUsableTiB)} TiB</div>
                       </>}
                   </td>
+                  <td className="px-4 py-2 text-right font-mono text-xs">
+                    {row.pastLine
+                      ? <span className="text-gray-400">—</span>
+                      : <span className="font-semibold text-brand-700 dark:text-brand-300">{row.sizeToEnterTiB}TB</span>}
+                  </td>
                 </tr>
               )
             })}
@@ -426,7 +432,8 @@ function ExpansionHeadroomSection({ headroom }: { headroom: ExpansionHeadroomRes
       </div>
       <div className="px-4 py-2 text-xs text-gray-400 border-t border-gray-100 dark:border-gray-800">
         Footprint = pool space consumed (data × copies). New usable = remaining footprint ÷ {copies} copies ({resiliencyLabel}).
-        Matches Cartographer expansion headroom calculation.
+        Matches Cartographer expansion headroom calculation.{' '}
+        Size to enter is the value to type into New-Volume -Size or WAC. PowerShell and WAC read size suffixes as binary (1 TB = 1 TiB), so this equals the TiB column, rounded down so the new volume always fits.
       </div>
     </div>
   )
@@ -478,11 +485,11 @@ function BestPracticeNotes({ hardware, capacity, compute, volumes, workloadSumma
 
   const checks: BPCheck[] = [
     {
-      label: 'Pool utilization below 70%',
+      label: 'Pool utilization below 70% (operational headroom guideline)',
       status: utilizationPct === 0 ? 'pass' : utilizationPct <= 70 ? 'pass' : utilizationPct <= 85 ? 'warn' : 'fail',
       detail: utilizationPct === 0
         ? 'No volumes planned yet.'
-        : `Current utilization: ${utilizationPct.toFixed(1)}%. S2D needs at least 30% free space to auto-repair after a drive failure.`,
+        : `Current utilization: ${utilizationPct.toFixed(1)}%. 70% is a recommended operational headroom guideline — mainly relevant for thin-provisioned volumes (a full pool takes them offline). For all-fixed volumes the firm limit is whether footprints fit the pool.`,
     },
     {
       label: 'Volume count is a multiple of node count',

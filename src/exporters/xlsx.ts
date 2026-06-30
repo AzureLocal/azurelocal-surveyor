@@ -134,10 +134,6 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
     ['Reserve Drives', capacity.reserveDrives, 'min(nodeCount, 4) — S2D rebuild reserve'],
     ['Reserve (TB)', capacity.reserveTB, 'Reserve drives × largest raw drive size (AB#4643)'],
     ['Infra Volume Pool Footprint (TB)', round2(capacity.infraVolumeTB), 'System CSV pool footprint'],
-    ...((capacity.maintenanceReserveNodes ?? 0) > 0 ? [
-      ['Available Before Maintenance Reserve (TB)', round2(capacity.availableBeforeMaintenanceTB ?? 0), 'Pool space before WAF maintenance reserve deduction'],
-      [`Maintenance Reserve N+${capacity.maintenanceReserveNodes} (TB)`, round2(capacity.maintenanceReserveTB ?? 0), `WAF: ${capacity.maintenanceReserveNodes} node${(capacity.maintenanceReserveNodes ?? 1) > 1 ? 's' : ''} × node raw capacity; additive to rebuild reserve`],
-    ] as Row[] : []),
     ['Available for Volumes (TB)', round2(capacity.availableForVolumesTB), 'Pool space for user volumes'],
     ['Available for Volumes (TiB)', round2(capacity.availableForVolumesTiB), 'OS-visible value (WAC/PowerShell)'],
     ['Resiliency Type', capacity.resiliencyType, ''],
@@ -168,7 +164,7 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
     ['Current Pool Footprint (TB)', round2(expansionHeadroom.totalPoolFootprintTB), 'Current planned volume pool footprint'],
     ['Current Utilization (%)', round2(expansionHeadroom.currentUtilizationPct), `${expansionHeadroom.resiliencyLabel} (${expansionHeadroom.copies} copies)`],
     [],
-    ['Fill target', 'Footprint budget (TB)', 'Remaining footprint (TB)', 'New usable data (TB)', 'Footprint budget (TiB)', 'Remaining footprint (TiB)', 'New usable data (TiB)', 'Past line?'],
+    ['Fill target', 'Footprint budget (TB)', 'Remaining footprint (TB)', 'New usable data (TB)', 'Footprint budget (TiB)', 'Remaining footprint (TiB)', 'New usable data (TiB)', 'Size to enter (New-Volume / WAC)', 'Past line?'],
     ...expansionHeadroom.rows.map((r) => [
       `${Math.round(r.targetFraction * 100)}%${r.targetFraction === 0.70 ? ' (planning line)' : ''}`,
       round2(r.footprintBudgetTB),
@@ -177,8 +173,11 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
       round2(r.footprintBudgetTiB),
       round2(r.remainingFootprintTiB),
       round2(r.remainingNewUsableTiB),
+      r.pastLine ? '—' : `${r.sizeToEnterTiB}TB`,
       r.pastLine ? 'Yes' : 'No',
     ]),
+    [],
+    ['Note', 'Size to enter is the value to type into New-Volume -Size or WAC. PowerShell and WAC read size suffixes as binary (1 TB = 1 TiB), so this equals the TiB column, rounded down so the new volume always fits.', '', '', '', '', '', '', ''],
   )
 
   XLSX.utils.book_append_sheet(wb, makeSheet(
@@ -214,11 +213,13 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
       ['Logical Cores Per Node', compute.logicalCoresPerNode, ''],
       ['System Reserved vCPUs (all nodes)', compute.systemReservedVCpus, 'Hyper-V, Arc VM agent, OS processes'],
       ['Usable vCPUs (all nodes)', compute.usableVCpus, 'Available for workloads'],
-      ['Usable vCPUs N+1 (one node down)', compute.usableVCpusN1, 'Capacity with one node failed'],
+      ['Usable vCPUs — WAF N+1 (one node down)', compute.usableVCpusN1, 'WAF compute resiliency — CPU headroom if one node is drained or lost'],
+      ['Usable vCPUs — WAF N+2 (two nodes down)', compute.usableVCpusN2, 'WAF compute resiliency — CPU headroom if two nodes are drained or lost'],
       ['Physical Memory (GB)', compute.physicalMemoryGB, ''],
       ['System Reserved Memory (GB)', compute.systemReservedMemoryGB, ''],
       ['Usable Memory (GB)', compute.usableMemoryGB, 'Available for workloads'],
-      ['Usable Memory N+1 (GB)', compute.usableMemoryGBN1, 'Capacity with one node failed'],
+      ['Usable Memory — WAF N+1 (GB)', compute.usableMemoryGBN1, 'WAF compute resiliency — memory headroom if one node is drained or lost'],
+      ['Usable Memory — WAF N+2 (GB)', compute.usableMemoryGBN2, 'WAF compute resiliency — memory headroom if two nodes are drained or lost'],
       ['NUMA Domains (estimate)', compute.numaDomainsEstimate, ''],
     ],
   ), 'Compute Report')
