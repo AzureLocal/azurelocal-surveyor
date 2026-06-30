@@ -34,6 +34,7 @@ export function getResiliencyFactor(resiliency: ResiliencyType, nodeCount: numbe
 
 /**
  * Returns the minimum node count required for a resiliency type.
+ * See docs/capacity-model.md — Locked S2D facts.
  */
 export function minNodesForResiliency(resiliency: ResiliencyType): number {
   switch (resiliency) {
@@ -46,16 +47,72 @@ export function minNodesForResiliency(resiliency: ResiliencyType): number {
 }
 
 /**
- * Core capacity calculation — mirrors the Excel formula chain exactly.
+ * Returns the safest valid resiliency type for a given node count.
+ * Preference order: honour the requested type if valid; else fall back
+ * to two-way-mirror (always valid for ≥2 nodes).
  *
- *   1. usablePerDriveTB  = driveSizeTB × efficiencyFactor  (applied PER DRIVE, not pool)
- *   2. totalUsableTB     = usablePerDrive × drivesPerNode × nodeCount
- *   3. reserveDrives     = min(nodeCount, 4)               (S2D formula — not user-configurable)
- *   4. reserveTB         = reserveDrives × usablePerDriveTB
- *   5. infraVolumeTB     = infraVolumeSizeTB / resiliencyFactor  (pool footprint of system CSV)
- *   6. availableForVolumesTB = totalUsable − reserve − infraVolume
- *   7. effectiveUsableTB = availableForVolumesTB × resiliencyFactor  (planning number)
- *   8. TiB equivalent    = TB × (1 000 000 000 000 / 1 099 511 627 776) ≈ × 0.909099
+ * Per docs/capacity-model.md: for 2-node, nested-two-way is the
+ * production recommendation, but two-way-mirror is also valid.
+ */
+export function clampResiliency(
+  requested: ResiliencyType,
+  nodeCount: number
+): { resiliency: ResiliencyType; clamped: boolean } {
+  if (nodeCount >= minNodesForResiliency(requested)) {
+    return { resiliency: requested, clamped: false }
+  }
+  // For 2-node: two-way-mirror is simplest valid fallback
+  // nested-two-way is ≥2 as well, but two-way is the safer default
+  const fallback: ResiliencyType = 'two-way-mirror'
+  return { resiliency: fallback, clamped: true }
+}
+
+/**
+ * Returns a list of resiliency types that are valid for the given node count.
+ */
+export function validResiliencyOptions(nodeCount: number): ResiliencyType[] {
+  const all: ResiliencyType[] = ['two-way-mirror', 'nested-two-way', 'three-way-mirror', 'dual-parity']
+  return all.filter((r) => nodeCount >= minNodesForResiliency(r))
+}
+
+/**
+ * TB ↔ TiB conversion constant.
+ * 1 TB = 10^12 bytes; 1 TiB = 2^40 bytes.
+ * TB_TO_TiB ≈ 0.909099
+ */
+export const TB_TO_TiB = 1e12 / Math.pow(1024, 4)
+
+/**
+ * Pool metadata overhead factor (~1%).
+ * S2D reserves a small amount of pool space for internal metadata.
+ * Canonical pipeline stage 2 (docs/capacity-model.md): raw × 0.99.
+ * Use live StoragePool.Size when available (Cartographer); else this estimate.
+ */
+export const POOL_METADATA_FACTOR = 0.99
+
+/**
+ * Core capacity calculation — implements the canonical pipeline from docs/capacity-model.md.
+ *
+ * Pipeline (all internal values are decimal TB for backward compatibility;
+ * bytes-first internal representation is a Wave 2 item per AB#4640):
+ *
+ *   Stage 1 — Raw:        driveSizeTB × drivesPerNode × nodeCount
+ *   Stage 2 — Pool meta:  raw × POOL_METADATA_FACTOR (~1% overhead)
+ *   Stage 3 — Reserve:    min(nodeCount, 4) × largestRawDriveSizeTB   (AB#4643)
+ *   Stage 4 — Infra vol:  infraVolumeSizeTB / resiliencyFactor
+ *   Stage 5 — Available:  poolAfterMeta − reserve − infraVolume
+ *   Stage 6 — Usable:     available × resiliencyFactor                (planning number)
+ *   TiB conversion done ONCE at display: TB × TB_TO_TiB               (AB#4641)
+ *
+ * NOTE: The old `capacityEfficiencyFactor` (0.92) is NO LONGER applied to the pool.
+ * It was a blended constant that double-counted the TB→TiB unit conversion
+ * (documented in docs/capacity-model.md Q1 / AB#4641). The constant is preserved in
+ * AdvancedSettings for the override path (`driveUsableTb`) and for any future
+ * per-volume ReFS overhead (Wave 2). It is NOT applied in computeCapacity.
+ *
+ * RESILIENCY GATING: If the selected resiliency requires more nodes than the
+ * cluster has, it is clamped to the safest valid option and `resiliencyClamped`
+ * is set to true on the result so the UI can surface a warning. (AB#4636)
  */
 /** Sanitize a number — replace NaN/Infinity/negative with a safe fallback. */
 function safe(n: number, fallback = 0): number {
@@ -69,39 +126,55 @@ export function computeCapacity(
   const nodeCount            = Math.max(1, safe(inputs.nodeCount, 1))
   const capacityDrivesPerNode = Math.max(0, safe(inputs.capacityDrivesPerNode, 0))
   const capacityDriveSizeTB  = Math.max(0, safe(inputs.capacityDriveSizeTB, 0))
-  const { capacityEfficiencyFactor, infraVolumeSizeTB, defaultResiliency } = settings
+  const { infraVolumeSizeTB } = settings
 
-  // Step 1: per-drive usable (filesystem overhead applied here, not at pool level)
-  // #64: use manual override when set (non-zero)
-  const usablePerDriveTB =
-    settings.overrides?.driveUsableTb && settings.overrides.driveUsableTb > 0
-      ? settings.overrides.driveUsableTb
-      : capacityDriveSizeTB * capacityEfficiencyFactor
+  // AB#4636 — Resiliency gating: clamp to a valid resiliency for this node count.
+  // minNodesForResiliency is now called here (was previously unused).
+  const { resiliency: effectiveResiliency, clamped: resiliencyClamped } =
+    clampResiliency(settings.defaultResiliency, nodeCount)
 
-  // Step 2: total usable raw → all drives across all nodes after per-drive overhead
+  // Stage 1 — Raw pool (true drive bytes, no blended efficiency factor).
+  // AB#4641: raw capacity is the true drive byte count; the old 0.92 blended
+  // factor is decomposed — the TB→TiB unit conversion happens ONCE at display.
   const rawPoolTB = capacityDriveSizeTB * capacityDrivesPerNode * nodeCount
-  const totalUsableTB = usablePerDriveTB * capacityDrivesPerNode * nodeCount
 
-  // Step 3–4: reserve — S2D keeps min(nodeCount, 4) drives for rebuild
+  // Stage 2 — Pool metadata overhead (~1%).
+  // See docs/capacity-model.md stage 2: raw × 0.99.
+  const poolAfterMetaTB = rawPoolTB * POOL_METADATA_FACTOR
+
+  // Stage 3 — Reserve: min(nodeCount, 4) × largest raw drive size.
+  // AB#4643: basis is largest raw drive bytes, NOT efficiency-adjusted.
+  // For symmetric clusters (all drives same size) this is simply driveSizeTB.
   const reserveDrives = Math.min(nodeCount, 4)
-  const reserveTB = reserveDrives * usablePerDriveTB
+  const largestRawDriveSizeTB = capacityDriveSizeTB  // symmetric assumption; Wave 2 for asymmetric
+  const reserveTB = reserveDrives * largestRawDriveSizeTB
 
-  // Step 5: resiliency factor (dual-parity is node-count dependent)
-  const resiliencyFactor = getResiliencyFactor(defaultResiliency, nodeCount)
-
+  // Stage 4 — Resiliency factor and infra volume pool footprint.
+  const resiliencyFactor = getResiliencyFactor(effectiveResiliency, nodeCount)
   // Infra volume pool footprint: logical size ÷ resiliency factor
   // (system CSV always created with the cluster's default resiliency)
   const infraVolumeTB = infraVolumeSizeTB / resiliencyFactor
 
-  // Step 6: pool space available for user volumes
-  const availableForVolumesTB = Math.max(0, totalUsableTB - reserveTB - infraVolumeTB)
+  // Stage 5 — Available for user volumes (footprint space in the pool).
+  const availableForVolumesTB = Math.max(0, poolAfterMetaTB - reserveTB - infraVolumeTB)
 
-  // Step 7: planning number — how much data fits with the selected resiliency
+  // Stage 6 — Planning number: usable data capacity with selected resiliency.
   const effectiveUsableTB = availableForVolumesTB * resiliencyFactor
 
-  // Step 8: TiB conversion (1 TB = 10^12 bytes; 1 TiB = 2^40 bytes)
-  const TB_TO_TiB = 1e12 / Math.pow(1024, 4)  // ≈ 0.909099
+  // TiB conversion — done ONCE here, not mixed into pool calculations (AB#4641).
   const availableForVolumesTiB = availableForVolumesTB * TB_TO_TiB
+
+  // usablePerDriveTB retained in the result for UI display continuity.
+  // Under the canonical model this is simply the raw drive size (no 0.92 haircut).
+  // The override path is preserved: if driveUsableTb is set, it shows the override value.
+  const usablePerDriveTB =
+    settings.overrides?.driveUsableTb && settings.overrides.driveUsableTb > 0
+      ? settings.overrides.driveUsableTb
+      : capacityDriveSizeTB  // raw size — no blended efficiency factor
+
+  // totalUsableTB: pool after metadata overhead (Stage 2 result, labeled clearly in UI).
+  // This replaces the old "usablePerDrive × drives × nodes" which baked in the 0.92 factor.
+  const totalUsableTB = poolAfterMetaTB
 
   return {
     nodeCount,
@@ -113,9 +186,11 @@ export function computeCapacity(
     infraVolumeTB: round4(infraVolumeTB),
     availableForVolumesTB: round4(availableForVolumesTB),
     availableForVolumesTiB: round4(availableForVolumesTiB),
-    resiliencyType: defaultResiliency,
+    resiliencyType: effectiveResiliency,
     resiliencyFactor,
     effectiveUsableTB: round4(effectiveUsableTB),
+    resiliencyClamped,
+    resiliencyRequested: settings.defaultResiliency,
   }
 }
 

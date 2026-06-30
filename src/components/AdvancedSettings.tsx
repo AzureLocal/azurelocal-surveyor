@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
 import { DEFAULT_ADVANCED_SETTINGS } from '../engine/types'
 import type { AdvancedSettingsOverrides, ResiliencyType } from '../engine/types'
+import { validResiliencyOptions, minNodesForResiliency } from '../engine/capacity'
 
 export default function AdvancedSettings() {
   const { advanced, setAdvanced, hardware, setHardware, resetAll } = useSurveyorStore()
@@ -70,13 +71,32 @@ export default function AdvancedSettings() {
         </Field>
 
         <Field label="Default resiliency">
+          {/* AB#4636: only show resiliency options valid for the current node count */}
           <select className="input" value={advanced.defaultResiliency}
             onChange={(e) => setAdvanced({ defaultResiliency: e.target.value as ResiliencyType })}>
-            <option value="two-way-mirror">Two-Way Mirror (50%)</option>
-            <option value="three-way-mirror">Three-Way Mirror (33%)</option>
-            <option value="dual-parity">Dual Parity (50–80%, node-count dependent)</option>
-            <option value="nested-two-way">Nested Two-Way (25%)</option>
+            <option value="two-way-mirror" disabled={hardware.nodeCount < minNodesForResiliency('two-way-mirror')}>
+              Two-Way Mirror (50%){hardware.nodeCount < minNodesForResiliency('two-way-mirror') ? ' — requires 2+ nodes' : ''}
+            </option>
+            <option value="nested-two-way" disabled={hardware.nodeCount < minNodesForResiliency('nested-two-way')}>
+              Nested Two-Way (25%){hardware.nodeCount < minNodesForResiliency('nested-two-way') ? ' — requires 2+ nodes' : ''}
+            </option>
+            <option value="three-way-mirror" disabled={hardware.nodeCount < minNodesForResiliency('three-way-mirror')}>
+              Three-Way Mirror (33%){hardware.nodeCount < minNodesForResiliency('three-way-mirror') ? ` — requires 3+ nodes (you have ${hardware.nodeCount})` : ''}
+            </option>
+            <option value="dual-parity" disabled={hardware.nodeCount < minNodesForResiliency('dual-parity')}>
+              Dual Parity (50–80%, node-count dependent){hardware.nodeCount < minNodesForResiliency('dual-parity') ? ` — requires 4+ nodes (you have ${hardware.nodeCount})` : ''}
+            </option>
           </select>
+          {!validResiliencyOptions(hardware.nodeCount).includes(advanced.defaultResiliency) && (
+            <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
+              This resiliency requires more nodes than configured. The engine will use two-way mirror until the node count meets the minimum requirement.
+            </p>
+          )}
+          {hardware.nodeCount <= 2 && (
+            <p className="text-xs text-gray-400 mt-1">
+              For 2-node production clusters, consider <strong>Nested Two-Way Mirror</strong> for added resilience.
+            </p>
+          )}
         </Field>
       </div>
 

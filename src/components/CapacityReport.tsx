@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
 import type { CapacityResult } from '../engine/types'
 import { round2 } from '../engine/capacity'
 
@@ -65,7 +65,7 @@ const RESILIENCY_LABELS: Record<string, string> = {
 
 const GLOSSARY = [
   { term: 'Raw Capacity',      def: "Manufacturer's advertised TB across all capacity drives (drive size × drives/node × nodes)." },
-  { term: 'Usable Capacity',   def: 'Raw capacity minus ~8% overhead (TB-to-TiB conversion + NVMe wear-leveling reserve). Applied per drive.' },
+  { term: 'Pool After Overhead', def: 'Raw pool minus ~1% S2D metadata overhead. This is the addressable pool space before reserve and infra volume are deducted.' },
   { term: 'Pool Capacity',     def: 'All usable drives combined into the storage pool. Cache drives are excluded — they only accelerate reads/writes.' },
   { term: 'Reserve',           def: 'One drive equivalent per node (max 4 nodes) held back by S2D for automatic repair after a drive failure. Not user-configurable.' },
   { term: 'Infra Volume',      def: '~250 GB logical volume Azure Local creates automatically for internal system operations (the ClusterStorage CSV).' },
@@ -99,16 +99,29 @@ export default function CapacityReport({
       {/* Pool breakdown stacked bar chart (#10) */}
       <CapacityStackedBar capacity={result} volumesUsedTB={volumesUsedTB} />
       <div className="border-t border-gray-100 dark:border-gray-800" />
+      {/* AB#4636: resiliency clamping warning */}
+      {result.resiliencyClamped === true && (
+        <div className="mx-4 my-3 flex gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md text-xs text-amber-800 dark:text-amber-300">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+          <span>
+            <strong>{(result.resiliencyRequested ?? result.resiliencyType).replace(/-/g, ' ')}</strong> requires more nodes than this cluster has ({result.nodeCount}).
+            Capacity is shown using <strong>{result.resiliencyType.replace(/-/g, ' ')}</strong> — the safest valid option.
+            Adjust the default resiliency in Advanced Settings.
+          </span>
+        </div>
+      )}
       <table className="w-full text-sm">
         <tbody>
           <Section label="Raw Pool" />
-          <Row label="Raw pool (all drives × drive size)" value={`${result.rawPoolTB} TB`} />
-          <Row label="Usable per drive (× efficiency factor)" value={`${result.usablePerDriveTB} TB`} />
-          <Row label="Total usable (per-drive × drives × nodes)" value={`${result.totalUsableTB} TB`} />
+          <Row label="Raw pool — all capacity drives (drive size × drives/node × nodes)" value={`${result.rawPoolTB} TB`} />
+          <Row label="Raw drive size (per drive, no overhead)" value={`${result.usablePerDriveTB} TB`} />
+          {/* AB#4635: label fix — totalUsableTB is pool-after-metadata, not "per-drive × drives × nodes" */}
+          <Row label="Pool after metadata overhead (~1%)" value={`${result.totalUsableTB} TB`} sub="raw pool × 0.99 — space S2D can address" />
 
           <Section label="Deductions" />
-          <Row label={`Reserve drives (min(${result.nodeCount}, 4) = ${result.reserveDrives} drives)`} value={`− ${result.reserveTB} TB`} />
-          <Row label="Infrastructure volume (system CSV)" value={`− ${round2(result.infraVolumeTB)} TB`} />
+          {/* AB#4643: reserve uses raw drive size, not efficiency-adjusted */}
+          <Row label={`Reserve — ${result.reserveDrives} drives × largest raw drive (min(${result.nodeCount}, 4) nodes)`} value={`− ${result.reserveTB} TB`} />
+          <Row label="Infrastructure volume (system CSV footprint)" value={`− ${round2(result.infraVolumeTB)} TB`} />
 
           <Section label="Available for User Volumes" />
           <Row label="Available for volumes (pool space)" value={`${round2(result.availableForVolumesTB)} TB`} highlight />

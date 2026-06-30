@@ -124,10 +124,10 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   // ── Sheet 2: Capacity Report ──────────────────────────────────────────────
   const capRows: Row[] = [
     ['Raw Pool (TB)', capacity.rawPoolTB, 'All capacity drives × drive size'],
-    ['Usable Per Drive (TB)', capacity.usablePerDriveTB, `Drive size × ${state.advanced.capacityEfficiencyFactor} efficiency factor`],
-    ['Total Usable (TB)', capacity.totalUsableTB, 'Usable per drive × drives × nodes'],
+    ['Raw Drive Size (TB)', capacity.usablePerDriveTB, 'Per-drive raw size (no overhead applied at pool level)'],
+    ['Pool After Metadata Overhead (TB)', capacity.totalUsableTB, 'Raw pool × 0.99 — S2D addressable pool'],
     ['Reserve Drives', capacity.reserveDrives, 'min(nodeCount, 4) — S2D rebuild reserve'],
-    ['Reserve (TB)', capacity.reserveTB, 'Reserve drives × usable per drive'],
+    ['Reserve (TB)', capacity.reserveTB, 'Reserve drives × largest raw drive size (AB#4643)'],
     ['Infra Volume Pool Footprint (TB)', round2(capacity.infraVolumeTB), 'System CSV pool footprint'],
     ['Available for Volumes (TB)', round2(capacity.availableForVolumesTB), 'Pool space for user volumes'],
     ['Available for Volumes (TiB)', round2(capacity.availableForVolumesTiB), 'OS-visible value (WAC/PowerShell)'],
@@ -504,7 +504,7 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   XLSX.utils.book_append_sheet(wb, makeSheet(
     ['Setting', 'Value', 'Default', 'Notes'],
     [
-      ['Capacity Efficiency Factor', state.advanced.capacityEfficiencyFactor, 0.92, 'Applied per drive (ReFS + NVMe overhead)'],
+      ['Capacity Efficiency Factor', state.advanced.capacityEfficiencyFactor, 0.92, 'RETAINED for state compatibility — NOT applied to pool (AB#4641). Use Drive Usable Override to adjust per-drive capacity.'],
       ['Infra Volume Size (TB)', state.advanced.infraVolumeSizeTB, 0.25, 'Azure Local system CSV logical size'],
       ['vCPU Oversubscription Ratio', state.advanced.vCpuOversubscriptionRatio, 4, 'Logical cores × ratio = total vCPUs'],
       ['System Reserved Memory / Node (GB)', state.advanced.systemReservedMemoryGB, 8, 'Hyper-V, Arc, OS reservation'],

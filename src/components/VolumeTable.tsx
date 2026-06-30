@@ -1,9 +1,18 @@
 import { useState } from 'react'
 import { useSurveyorStore } from '../state/store'
-import { computeCapacity } from '../engine/capacity'
+import { computeCapacity, TB_TO_TiB } from '../engine/capacity'
 import { computeVolumeSummary } from '../engine/volumes'
 import type { ResiliencyType } from '../engine/types'
 import { Trash2, PlusCircle, AlertTriangle, Pencil, Check, X } from 'lucide-react'
+
+/**
+ * AB#4637 / AB#4640 — unit conversion.
+ * The volume table inputs are in TiB (binary, as Windows shows).
+ * The engine stores plannedSizeTB in decimal TB.
+ * Conversion: TB = TiB / TB_TO_TiB = TiB × (2^40 / 10^12)
+ */
+function tiBtoTB(tib: number): number { return tib / TB_TO_TiB }
+function tbToTiB(tb: number): number  { return tb  * TB_TO_TiB }
 
 const PROVISIONING_OPTIONS: { value: 'fixed' | 'thin'; label: string }[] = [
   { value: 'fixed', label: 'Fixed' },
@@ -39,7 +48,8 @@ export default function VolumeTable() {
 
   function handleAdd() {
     if (!newName.trim()) return
-    addVolume({ id: nextId(), name: newName.trim(), plannedSizeTB: newSizeTiB, resiliency: newResiliency, provisioning: newProvisioning })
+    // AB#4637/AB#4640: input is TiB; store as decimal TB
+    addVolume({ id: nextId(), name: newName.trim(), plannedSizeTB: tiBtoTB(newSizeTiB), resiliency: newResiliency, provisioning: newProvisioning })
     setNewName('')
     setNewSizeTiB(1)
   }
@@ -47,14 +57,16 @@ export default function VolumeTable() {
   function startEdit(v: typeof summary.volumes[0]) {
     setEditId(v.id)
     setEditName(v.name)
-    setEditSizeTiB(v.calculatorSizeTB)
+    // AB#4637/AB#4640: calculatorSizeTB is decimal TB; convert to TiB for the TiB input
+    setEditSizeTiB(Math.round(tbToTiB(v.calculatorSizeTB) * 100) / 100)
     setEditResiliency(v.resiliency)
     setEditProvisioning(v.provisioning)
   }
 
   function commitEdit() {
     if (!editId) return
-    updateVolume(editId, { name: editName.trim() || editName, plannedSizeTB: editSizeTiB, resiliency: editResiliency, provisioning: editProvisioning })
+    // AB#4637/AB#4640: input is TiB; store as decimal TB
+    updateVolume(editId, { name: editName.trim() || editName, plannedSizeTB: tiBtoTB(editSizeTiB), resiliency: editResiliency, provisioning: editProvisioning })
     setEditId(null)
   }
 
@@ -192,7 +204,8 @@ export default function VolumeTable() {
                   <td className="px-4 py-2">{v.name}</td>
                   <td className="px-4 py-2 text-gray-500 text-xs">{v.resiliency}</td>
                   <td className="px-4 py-2 text-gray-500 text-xs">{v.provisioning}</td>
-                  <td className="px-4 py-2 text-right">{v.calculatorSizeTB}</td>
+                  {/* AB#4637/AB#4640: display TiB (what Windows shows); calculatorSizeTB is decimal TB */}
+                  <td className="px-4 py-2 text-right">{(Math.round(tbToTiB(v.calculatorSizeTB) * 100) / 100).toFixed(2)}</td>
                   <td className="px-4 py-2 text-right font-mono font-semibold text-brand-700 dark:text-brand-300">
                     {v.wacSizeGB}
                   </td>
@@ -222,7 +235,8 @@ export default function VolumeTable() {
             <tfoot className="border-t-2 border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
               <tr>
                 <td colSpan={3} className="px-4 py-2 text-xs font-semibold text-gray-500">TOTAL</td>
-                <td className="px-4 py-2 text-right font-semibold">{summary.totalPlannedTB} TiB</td>
+                {/* AB#4637/AB#4640: totalPlannedTB is decimal TB; convert to TiB for display */}
+                <td className="px-4 py-2 text-right font-semibold">{(Math.round(tbToTiB(summary.totalPlannedTB) * 100) / 100).toFixed(2)} TiB</td>
                 <td className="px-4 py-2 text-right font-mono font-semibold text-brand-700 dark:text-brand-300">
                   {summary.volumes.reduce((s, v) => s + v.wacSizeGB, 0)} GiB
                 </td>

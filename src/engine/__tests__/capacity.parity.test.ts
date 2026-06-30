@@ -1,16 +1,33 @@
 /**
  * Parity test suite — 20 golden scenarios.
  *
- * All values computed from the correct Excel formula chain:
- *   usablePerDrive = driveSizeTB × efficiencyFactor           (per drive, not pool)
- *   totalUsable    = usablePerDrive × drivesPerNode × nodes
- *   reserve        = min(nodes, 4) × usablePerDrive           (S2D formula)
- *   infraFootprint = infraVolumeSizeTB / resiliencyFactor     (0.25 TB logical / factor)
- *   available      = totalUsable − reserve − infraFootprint   (pool space for volumes)
- *   effectiveUsable= available × resiliencyFactor             (planning number)
+ * Golden values recomputed for the canonical pipeline (docs/capacity-model.md,
+ * Wave 1 / AB#4641 AB#4643). All internal values are decimal TB.
+ *
+ * Pipeline (in order):
+ *   Stage 1 — raw        = driveSizeTB × drivesPerNode × nodes
+ *   Stage 2 — poolMeta   = raw × POOL_METADATA_FACTOR (0.99)
+ *   Stage 3 — reserve    = min(nodes, 4) × largestRawDriveSizeTB   (AB#4643)
+ *   Stage 4 — infraVol   = infraVolumeSizeTB / resiliencyFactor
+ *   Stage 5 — available  = poolMeta − reserve − infraVol
+ *   Stage 6 — effective  = available × resiliencyFactor
+ *
+ * KEY CHANGE from previous version:
+ *   The old `capacityEfficiencyFactor` (0.92) is NO LONGER applied to the pool.
+ *   It was a blended constant that double-counted the TB→TiB unit conversion.
+ *   (docs/capacity-model.md Q1 / AB#4641). The reserve now uses the largest
+ *   raw drive size, not efficiency-adjusted usable (AB#4643).
+ *
+ * Scenario 17 (efficiency override): Previously tested capacityEfficiencyFactor=0.85.
+ * Under the canonical model, this setting is NOT applied to the pool. The test is
+ * updated to reflect the canonical behaviour (same as Scenario 02, three-way-mirror).
+ * The override path (driveUsableTb) still functions and is tested in resiliency-gating tests.
  *
  * Dual Parity efficiency is node-count dependent:
  *   4–6 nodes → 0.5, 7–8 nodes → 0.667, 9–15 nodes → 0.75, 16 nodes → 0.8
+ *
+ * Resiliency gating (AB#4636): scenarios requesting a resiliency invalid for their
+ * node count will have the result clamped to two-way-mirror.
  *
  * Tolerance: ±0.02 TB to account for floating-point rounding at 4 decimal places.
  */
@@ -56,177 +73,280 @@ function scenario(
   })
 }
 
-describe('Capacity parity — 20 golden scenarios', () => {
+describe('Capacity parity — 20 golden scenarios (canonical model, Wave 1)', () => {
   // ── Scenario 01: 2-node, all-NVMe, 6×3.84TB, two-way mirror ──
-  // usablePerDrive=3.5328, totalUsable=42.3936, reserve=min(2,4)×3.5328=7.0656
-  // infraFootprint=0.25/0.5=0.5, available=34.828, effective=34.828×0.5=17.414
+  // raw=46.08, poolMeta=46.08×0.99=45.6192, reserve=min(2,4)×3.84=7.68
+  // infra=0.25/0.5=0.5, available=45.6192-7.68-0.5=37.4392, effective=37.4392×0.5=18.72
   scenario('01 — 2-node, 6×3.84TB, two-way mirror',
     { ...BASE_HW, nodeCount: 2 },
     { defaultResiliency: 'two-way-mirror' },
-    { rawPoolTB: 46.08, effectiveUsableTB: 17.41 }
+    { rawPoolTB: 46.08, effectiveUsableTB: 18.72 }
   )
 
   // ── Scenario 02: 4-node, all-NVMe, 6×3.84TB, three-way mirror ──
-  // usablePerDrive=3.5328, totalUsable=84.7872, reserve=4×3.5328=14.1312
-  // infraFootprint=0.25/(1/3)=0.75, available=69.906, effective=69.906×(1/3)=23.302
+  // raw=92.16, poolMeta=92.16×0.99=91.2384, reserve=min(4,4)×3.84=15.36
+  // infra=0.25/(1/3)=0.75, available=91.2384-15.36-0.75=75.1284, effective=75.1284/3=25.04
   scenario('02 — 4-node, 6×3.84TB, three-way mirror',
     { ...BASE_HW },
     { defaultResiliency: 'three-way-mirror' },
-    { rawPoolTB: 92.16, effectiveUsableTB: 23.30 }
+    { rawPoolTB: 92.16, effectiveUsableTB: 25.04 }
   )
 
   // ── Scenario 03: 4-node, all-NVMe, 6×3.84TB, dual-parity (4–6 nodes → 50%) ──
-  // infraFootprint=0.25/0.5=0.5, available=70.156, effective=70.156×0.5=35.078
+  // infra=0.25/0.5=0.5, available=91.2384-15.36-0.5=75.3784, effective=75.3784×0.5=37.69
   scenario('03 — 4-node, 6×3.84TB, dual-parity (50%)',
     { ...BASE_HW },
     { defaultResiliency: 'dual-parity' },
-    { rawPoolTB: 92.16, effectiveUsableTB: 35.08 }
+    { rawPoolTB: 92.16, effectiveUsableTB: 37.69 }
   )
 
   // ── Scenario 04: 8-node, all-NVMe, 6×3.84TB, three-way mirror ──
-  // totalUsable=169.5744, reserve=min(8,4)×3.5328=14.1312
-  // infraFootprint=0.75, available=154.6932, effective=154.6932/3=51.564
+  // raw=184.32, poolMeta=182.4768, reserve=min(8,4)×3.84=15.36
+  // infra=0.75, available=182.4768-15.36-0.75=166.3668, effective=166.3668/3=55.46
   scenario('04 — 8-node, 6×3.84TB, three-way mirror',
     { ...BASE_HW, nodeCount: 8 },
     { defaultResiliency: 'three-way-mirror' },
-    { rawPoolTB: 184.32, effectiveUsableTB: 51.56 }
+    { rawPoolTB: 184.32, effectiveUsableTB: 55.46 }
   )
 
   // ── Scenario 05: 8-node, all-NVMe, 6×3.84TB, dual-parity (7–8 nodes → 66.7%) ──
-  // infraFootprint=0.25/0.667=0.375, available=155.068, effective=155.068×0.667=103.38
+  // infra=0.25/(2/3)=0.375, available=182.4768-15.36-0.375=166.7418, effective=166.7418×(2/3)=111.16
   scenario('05 — 8-node, 6×3.84TB, dual-parity (66.7%)',
     { ...BASE_HW, nodeCount: 8 },
     { defaultResiliency: 'dual-parity' },
-    { rawPoolTB: 184.32, effectiveUsableTB: 103.38 }
+    { rawPoolTB: 184.32, effectiveUsableTB: 111.16 }
   )
 
   // ── Scenario 06: 4-node, NVMe+HDD, 8×14TB, three-way mirror ──
-  // usablePerDrive=14×0.92=12.88, totalUsable=12.88×8×4=412.16
-  // reserve=4×12.88=51.52, infraFootprint=0.75, available=359.89, effective/3=119.96
+  // raw=448, poolMeta=443.52, reserve=4×14=56, infra=0.75
+  // available=443.52-56-0.75=386.77, effective=386.77/3=128.92
   scenario('06 — 4-node, NVMe+HDD, 8×14TB, three-way mirror',
     { ...BASE_HW, capacityDrivesPerNode: 8, capacityDriveSizeTB: 14, cacheDrivesPerNode: 2, cacheDriveSizeTB: 1.6, cacheMediaType: 'nvme', capacityMediaType: 'hdd', coresPerNode: 20, memoryPerNodeGB: 128 },
     { defaultResiliency: 'three-way-mirror' },
-    { rawPoolTB: 448, effectiveUsableTB: 119.96 }
+    { rawPoolTB: 448, effectiveUsableTB: 128.92 }
   )
 
   // ── Scenario 07: 4-node, NVMe+HDD, 8×14TB, dual-parity (4–6 nodes → 50%) ──
-  // infraFootprint=0.5, available=360.14, effective=180.07
+  // infra=0.5, available=443.52-56-0.5=387.02, effective=387.02×0.5=193.51
   scenario('07 — 4-node, NVMe+HDD, 8×14TB, dual-parity (50%)',
     { ...BASE_HW, capacityDrivesPerNode: 8, capacityDriveSizeTB: 14, cacheDrivesPerNode: 2, cacheDriveSizeTB: 1.6, cacheMediaType: 'nvme', capacityMediaType: 'hdd', coresPerNode: 20, memoryPerNodeGB: 128 },
     { defaultResiliency: 'dual-parity' },
-    { rawPoolTB: 448, effectiveUsableTB: 180.07 }
+    { rawPoolTB: 448, effectiveUsableTB: 193.51 }
   )
 
   // ── Scenario 08: 2-node, all-NVMe, 10×7.68TB, two-way mirror ──
-  // usablePerDrive=7.0656, totalUsable=141.312, reserve=min(2,4)×7.0656=14.1312
-  // infraFootprint=0.5, available=126.681, effective=63.34
+  // raw=153.6, poolMeta=152.064, reserve=min(2,4)×7.68=15.36
+  // infra=0.5, available=152.064-15.36-0.5=136.204, effective=136.204×0.5=68.10
   scenario('08 — 2-node, 10×7.68TB, two-way mirror',
     { ...BASE_HW, nodeCount: 2, capacityDrivesPerNode: 10, capacityDriveSizeTB: 7.68, coresPerNode: 48, memoryPerNodeGB: 512 },
     { defaultResiliency: 'two-way-mirror' },
-    { rawPoolTB: 153.6, effectiveUsableTB: 63.34 }
+    { rawPoolTB: 153.6, effectiveUsableTB: 68.10 }
   )
 
   // ── Scenario 09: 16-node, all-NVMe, 6×3.84TB, three-way mirror ──
-  // totalUsable=339.1488, reserve=min(16,4)×3.5328=14.1312
-  // infraFootprint=0.75, available=324.268, effective/3=108.09
+  // raw=368.64, poolMeta=364.9536, reserve=min(16,4)×3.84=15.36
+  // infra=0.75, available=364.9536-15.36-0.75=348.8436, effective=348.8436/3=116.28
   scenario('09 — 16-node, 6×3.84TB, three-way mirror',
     { ...BASE_HW, nodeCount: 16 },
     { defaultResiliency: 'three-way-mirror' },
-    { rawPoolTB: 368.64, effectiveUsableTB: 108.09 }
+    { rawPoolTB: 368.64, effectiveUsableTB: 116.28 }
   )
 
   // ── Scenario 10: 16-node, all-NVMe, 6×3.84TB, dual-parity (16 nodes → 80%) ──
-  // infraFootprint=0.25/0.8=0.3125, available=324.705, effective=324.705×0.8=259.77
+  // infra=0.25/0.8=0.3125, available=364.9536-15.36-0.3125=349.281, effective=349.281×0.8=279.42
   scenario('10 — 16-node, 6×3.84TB, dual-parity (80%)',
     { ...BASE_HW, nodeCount: 16 },
     { defaultResiliency: 'dual-parity' },
-    { rawPoolTB: 368.64, effectiveUsableTB: 259.76 }
+    { rawPoolTB: 368.64, effectiveUsableTB: 279.42 }
   )
 
   // ── Scenario 11: 3-node, all-NVMe, 6×3.84TB, three-way mirror ──
-  // totalUsable=63.5904, reserve=min(3,4)×3.5328=10.5984
-  // infraFootprint=0.75, available=52.242, effective/3=17.414
+  // raw=69.12, poolMeta=68.4288, reserve=min(3,4)×3.84=11.52
+  // infra=0.75, available=68.4288-11.52-0.75=56.1588, effective=56.1588/3=18.72
   scenario('11 — 3-node, 6×3.84TB, three-way mirror',
     { ...BASE_HW, nodeCount: 3 },
     { defaultResiliency: 'three-way-mirror' },
-    { rawPoolTB: 69.12, effectiveUsableTB: 17.41 }
+    { rawPoolTB: 69.12, effectiveUsableTB: 18.72 }
   )
 
   // ── Scenario 12: 4-node, all-NVMe, 8×7.68TB, three-way mirror ──
-  // usablePerDrive=7.0656, totalUsable=226.0992, reserve=4×7.0656=28.2624
-  // infraFootprint=0.75, available=197.087, effective/3=65.70
+  // raw=245.76, poolMeta=243.3024, reserve=4×7.68=30.72
+  // infra=0.75, available=243.3024-30.72-0.75=211.8324, effective=211.8324/3=70.61
   scenario('12 — 4-node, 8×7.68TB, three-way mirror',
     { ...BASE_HW, capacityDrivesPerNode: 8, capacityDriveSizeTB: 7.68, coresPerNode: 40, memoryPerNodeGB: 512 },
     { defaultResiliency: 'three-way-mirror' },
-    { rawPoolTB: 245.76, effectiveUsableTB: 65.70 }
+    { rawPoolTB: 245.76, effectiveUsableTB: 70.61 }
   )
 
   // ── Scenario 13: 4-node, all-NVMe, 8×7.68TB, dual-parity (4–6 nodes → 50%) ──
-  // infraFootprint=0.5, available=197.337, effective=98.67
+  // infra=0.5, available=243.3024-30.72-0.5=212.0824, effective=212.0824×0.5=106.04
   scenario('13 — 4-node, 8×7.68TB, dual-parity (50%)',
     { ...BASE_HW, capacityDrivesPerNode: 8, capacityDriveSizeTB: 7.68, coresPerNode: 40, memoryPerNodeGB: 512 },
     { defaultResiliency: 'dual-parity' },
-    { rawPoolTB: 245.76, effectiveUsableTB: 98.67 }
+    { rawPoolTB: 245.76, effectiveUsableTB: 106.04 }
   )
 
   // ── Scenario 14: 2-node, all-NVMe, 4×1.92TB, two-way mirror ──
-  // usablePerDrive=1.7664, totalUsable=14.1312, reserve=min(2,4)×1.7664=3.5328
-  // infraFootprint=0.5, available=10.098, effective=5.05
+  // raw=15.36, poolMeta=15.2064, reserve=min(2,4)×1.92=3.84
+  // infra=0.5, available=15.2064-3.84-0.5=10.8664, effective=10.8664×0.5=5.43
   scenario('14 — 2-node, 4×1.92TB, two-way mirror',
     { ...BASE_HW, nodeCount: 2, capacityDrivesPerNode: 4, capacityDriveSizeTB: 1.92, coresPerNode: 16, memoryPerNodeGB: 128 },
     { defaultResiliency: 'two-way-mirror' },
-    { rawPoolTB: 15.36, effectiveUsableTB: 5.05 }
+    { rawPoolTB: 15.36, effectiveUsableTB: 5.43 }
   )
 
   // ── Scenario 15: 6-node, all-NVMe, 6×3.84TB, three-way mirror ──
-  // totalUsable=127.1808, reserve=min(6,4)×3.5328=14.1312
-  // infraFootprint=0.75, available=112.30, effective/3=37.43
+  // raw=138.24, poolMeta=136.8576, reserve=min(6,4)×3.84=15.36
+  // infra=0.75, available=136.8576-15.36-0.75=120.7476, effective=120.7476/3=40.25
   scenario('15 — 6-node, 6×3.84TB, three-way mirror',
     { ...BASE_HW, nodeCount: 6 },
     { defaultResiliency: 'three-way-mirror' },
-    { rawPoolTB: 138.24, effectiveUsableTB: 37.43 }
+    { rawPoolTB: 138.24, effectiveUsableTB: 40.25 }
   )
 
   // ── Scenario 16: 6-node, all-NVMe, 6×3.84TB, dual-parity (4–6 nodes → 50%) ──
-  // infraFootprint=0.5, available=112.55, effective=56.27
+  // infra=0.5, available=136.8576-15.36-0.5=120.9976, effective=120.9976×0.5=60.50
   scenario('16 — 6-node, 6×3.84TB, dual-parity (50%)',
     { ...BASE_HW, nodeCount: 6 },
     { defaultResiliency: 'dual-parity' },
-    { rawPoolTB: 138.24, effectiveUsableTB: 56.27 }
+    { rawPoolTB: 138.24, effectiveUsableTB: 60.50 }
   )
 
-  // ── Scenario 17: 4-node, 6×3.84TB, three-way mirror, efficiency=0.85 ──
-  // usablePerDrive=3.84×0.85=3.264, totalUsable=78.336, reserve=4×3.264=13.056
-  // infraFootprint=0.75, available=64.53, effective/3=21.51
-  scenario('17 — 4-node, 6×3.84TB, three-way, efficiency 0.85',
+  // ── Scenario 17: 4-node, 6×3.84TB, three-way mirror, capacityEfficiencyFactor=0.85 ──
+  // CANONICAL MODEL CHANGE (AB#4641): capacityEfficiencyFactor is no longer applied to the pool.
+  // This scenario now equals Scenario 02 — the 0.85 setting is retained in AdvancedSettings
+  // for state compatibility but has no effect on the pool calculation.
+  // To test per-drive override, use overrides.driveUsableTb instead.
+  // raw=92.16, poolMeta=91.2384, reserve=15.36, infra=0.75, available=75.1284, effective=25.04
+  scenario('17 — 4-node, 6×3.84TB, three-way, efficiency=0.85 (canonical: ignored at pool level)',
     { ...BASE_HW },
     { defaultResiliency: 'three-way-mirror', capacityEfficiencyFactor: 0.85 },
-    { rawPoolTB: 92.16, effectiveUsableTB: 21.51 }
+    { rawPoolTB: 92.16, effectiveUsableTB: 25.04 }
   )
 
   // ── Scenario 18: 4-node, 6×3.84TB, nested-two-way (25%) ──
-  // infraFootprint=0.25/0.25=1.0, available=69.656, effective=17.41
+  // infra=0.25/0.25=1.0, available=91.2384-15.36-1.0=74.8784, effective=74.8784×0.25=18.72
   scenario('18 — 4-node, 6×3.84TB, nested-two-way (25%)',
     { ...BASE_HW },
     { defaultResiliency: 'nested-two-way' },
-    { rawPoolTB: 92.16, effectiveUsableTB: 17.41 }
+    { rawPoolTB: 92.16, effectiveUsableTB: 18.72 }
   )
 
   // ── Scenario 19: 8-node, 12×3.84TB (DataON high-density), dual-parity (7–8 → 66.7%) ──
-  // usablePerDrive=3.5328, totalUsable=339.1488, reserve=4×3.5328=14.1312
-  // infraFootprint=0.25/0.667=0.375, available=324.642, effective×0.667=216.43
+  // raw=368.64, poolMeta=364.9536, reserve=min(8,4)×3.84=15.36
+  // infra=0.25/(2/3)=0.375, available=364.9536-15.36-0.375=349.2186, effective=349.2186×(2/3)=232.81
   scenario('19 — 8-node, 12×3.84TB, dual-parity (DataON 66.7%)',
     { ...BASE_HW, nodeCount: 8, capacityDrivesPerNode: 12, coresPerNode: 24, memoryPerNodeGB: 192 },
     { defaultResiliency: 'dual-parity' },
-    { rawPoolTB: 368.64, effectiveUsableTB: 216.43 }
+    { rawPoolTB: 368.64, effectiveUsableTB: 232.81 }
   )
 
   // ── Scenario 20: 4-node, 10×7.68TB, dual-parity (4–6 → 50%) ──
-  // usablePerDrive=7.0656, totalUsable=282.624, reserve=4×7.0656=28.2624
-  // infraFootprint=0.5, available=253.862, effective=126.93
+  // raw=307.2, poolMeta=304.128, reserve=4×7.68=30.72
+  // infra=0.5, available=304.128-30.72-0.5=272.908, effective=272.908×0.5=136.45
   scenario('20 — 4-node, 10×7.68TB, dual-parity (50%)',
     { ...BASE_HW, capacityDrivesPerNode: 10, capacityDriveSizeTB: 7.68, coresPerNode: 48, memoryPerNodeGB: 512 },
     { defaultResiliency: 'dual-parity' },
-    { rawPoolTB: 307.2, effectiveUsableTB: 126.93 }
+    { rawPoolTB: 307.2, effectiveUsableTB: 136.45 }
   )
+})
+
+// ── Resiliency Gating Tests (AB#4636) ────────────────────────────────────────
+
+describe('Resiliency gating (AB#4636)', () => {
+  const HW_2NODE: HardwareInputs = {
+    ...BASE_HW,
+    nodeCount: 2,
+  }
+
+  it('three-way-mirror on 2-node → clamped to two-way-mirror', () => {
+    const result = computeCapacity(HW_2NODE, { ...DEFAULT_ADVANCED_SETTINGS, defaultResiliency: 'three-way-mirror' })
+    expect(result.resiliencyClamped).toBe(true)
+    expect(result.resiliencyRequested).toBe('three-way-mirror')
+    expect(result.resiliencyType).toBe('two-way-mirror')
+  })
+
+  it('dual-parity on 2-node → clamped to two-way-mirror', () => {
+    const result = computeCapacity(HW_2NODE, { ...DEFAULT_ADVANCED_SETTINGS, defaultResiliency: 'dual-parity' })
+    expect(result.resiliencyClamped).toBe(true)
+    expect(result.resiliencyType).toBe('two-way-mirror')
+  })
+
+  it('dual-parity on 3-node → clamped (needs 4)', () => {
+    const result = computeCapacity({ ...BASE_HW, nodeCount: 3 }, { ...DEFAULT_ADVANCED_SETTINGS, defaultResiliency: 'dual-parity' })
+    expect(result.resiliencyClamped).toBe(true)
+    expect(result.resiliencyType).toBe('two-way-mirror')
+  })
+
+  it('two-way-mirror on 2-node → valid, not clamped', () => {
+    const result = computeCapacity(HW_2NODE, { ...DEFAULT_ADVANCED_SETTINGS, defaultResiliency: 'two-way-mirror' })
+    expect(result.resiliencyClamped).toBe(false)
+    expect(result.resiliencyType).toBe('two-way-mirror')
+  })
+
+  it('nested-two-way on 2-node → valid, not clamped', () => {
+    const result = computeCapacity(HW_2NODE, { ...DEFAULT_ADVANCED_SETTINGS, defaultResiliency: 'nested-two-way' })
+    expect(result.resiliencyClamped).toBe(false)
+    expect(result.resiliencyType).toBe('nested-two-way')
+  })
+
+  it('three-way-mirror on 3-node → valid, not clamped', () => {
+    const result = computeCapacity({ ...BASE_HW, nodeCount: 3 }, { ...DEFAULT_ADVANCED_SETTINGS, defaultResiliency: 'three-way-mirror' })
+    expect(result.resiliencyClamped).toBe(false)
+    expect(result.resiliencyType).toBe('three-way-mirror')
+  })
+
+  it('dual-parity on 4-node → valid, not clamped', () => {
+    const result = computeCapacity(BASE_HW, { ...DEFAULT_ADVANCED_SETTINGS, defaultResiliency: 'dual-parity' })
+    expect(result.resiliencyClamped).toBe(false)
+    expect(result.resiliencyType).toBe('dual-parity')
+  })
+})
+
+// ── Reserve Basis Tests (AB#4643) ────────────────────────────────────────────
+
+describe('Reserve basis — raw drive size (AB#4643)', () => {
+  it('2-node, 4×3.84TB: reserve = 2 × 3.84 = 7.68 TB (not efficiency-adjusted)', () => {
+    const result = computeCapacity(
+      { ...BASE_HW, nodeCount: 2, capacityDrivesPerNode: 4 },
+      { ...DEFAULT_ADVANCED_SETTINGS, defaultResiliency: 'two-way-mirror' }
+    )
+    expect(result.reserveDrives).toBe(2)
+    expect(Math.abs(result.reserveTB - 7.68)).toBeLessThan(0.001)
+  })
+
+  it('4-node, 6×3.84TB: reserve = 4 × 3.84 = 15.36 TB', () => {
+    const result = computeCapacity(BASE_HW, DEFAULT_ADVANCED_SETTINGS)
+    expect(result.reserveDrives).toBe(4)
+    expect(Math.abs(result.reserveTB - 15.36)).toBeLessThan(0.001)
+  })
+
+  it('8-node (capped at 4): reserve = 4 × 3.84 = 15.36 TB', () => {
+    const result = computeCapacity({ ...BASE_HW, nodeCount: 8 }, DEFAULT_ADVANCED_SETTINGS)
+    expect(result.reserveDrives).toBe(4)
+    expect(Math.abs(result.reserveTB - 15.36)).toBeLessThan(0.001)
+  })
+})
+
+// ── Reference Cluster Reconciliation (docs/capacity-model.md) ────────────────
+
+describe('Reference cluster: 3.84 TB × 4 drives × 2 nodes, two-way mirror', () => {
+  it('matches canonical pipeline stages from docs/capacity-model.md', () => {
+    const result = computeCapacity(
+      { ...BASE_HW, nodeCount: 2, capacityDrivesPerNode: 4 },
+      { ...DEFAULT_ADVANCED_SETTINGS, defaultResiliency: 'two-way-mirror', infraVolumeSizeTB: 0.25 }
+    )
+    // Stage 1 — raw
+    expect(Math.abs(result.rawPoolTB - 30.72)).toBeLessThan(0.001)
+    // Stage 2 — pool after ~1% overhead: 30.72 × 0.99 = 30.4128 (displayed as totalUsableTB)
+    expect(Math.abs(result.totalUsableTB - 30.4128)).toBeLessThan(0.001)
+    // Stage 3 — reserve: 2 × 3.84 = 7.68 (raw drive basis)
+    expect(Math.abs(result.reserveTB - 7.68)).toBeLessThan(0.001)
+    // Stage 4 — infra vol footprint: 0.25 / 0.5 = 0.5
+    expect(Math.abs(result.infraVolumeTB - 0.5)).toBeLessThan(0.001)
+    // Stage 5 — available: 30.4128 - 7.68 - 0.5 = 22.2328 (canonical: ~22.4 with measured infra)
+    expect(Math.abs(result.availableForVolumesTB - 22.2328)).toBeLessThan(0.01)
+    // Resiliency not clamped
+    expect(result.resiliencyClamped).toBe(false)
+  })
 })

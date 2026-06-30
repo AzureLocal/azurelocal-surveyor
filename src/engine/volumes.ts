@@ -93,8 +93,33 @@ export interface GenericSuggestion {
   description: string
 }
 
-export function generateGenericVolumes(capacity: CapacityResult, targetUtilization = 0.7): GenericSuggestion[] {
-  const { nodeCount, effectiveUsableTB, resiliencyType } = capacity
+/**
+ * Generate equal-split volume suggestions from a capacity result.
+ *
+ * AB#4637 — resiliency toggle: pass `resiliencyOverride` to compute suggestions
+ * for a different resiliency than the capacity's default. The override must be
+ * valid for the cluster's node count; the caller is responsible for that check
+ * (use `validResiliencyOptions` from capacity.ts). The effective resiliency
+ * in the result always reflects what was actually used.
+ *
+ * Sizes are in decimal TB (stored as `plannedSizeTB`). The VolumeTable UI
+ * labels inputs "TiB" but must convert: TB = TiB × (2^40 / 10^12).
+ * See AB#4637 and docs/capacity-model.md.
+ */
+export function generateGenericVolumes(
+  capacity: CapacityResult,
+  targetUtilization = 0.7,
+  resiliencyOverride?: ResiliencyType
+): GenericSuggestion[] {
+  const { nodeCount, availableForVolumesTB } = capacity
+  if (availableForVolumesTB <= 0) return []
+
+  // AB#4637: use override resiliency if provided (e.g. from two-way/three-way toggle)
+  const resiliencyType: ResiliencyType = resiliencyOverride ?? capacity.resiliencyType
+  const resiliencyFactor = getResiliencyFactor(resiliencyType, nodeCount)
+  // Recompute effective usable from available pool using the chosen resiliency
+  const effectiveUsableTB = availableForVolumesTB * resiliencyFactor
+
   if (effectiveUsableTB <= 0) return []
 
   const volumeCount = Math.min(nodeCount, 16)
@@ -115,7 +140,7 @@ export function generateGenericVolumes(capacity: CapacityResult, targetUtilizati
       resiliency: resiliencyType,
       provisioning: 'fixed',
       plannedSizeTB: sizeTB,
-      description: `Equal-split at ${pctLabel}: ${effectiveUsableTB.toFixed(2)} TB × ${pctLabel} ÷ ${volumeCount} volumes = ${sizeTB} TB each (${capacity.resiliencyFactor > 0 ? RESILIENCY_LABELS[resiliencyType] : 'Unknown'})`,
+      description: `Equal-split at ${pctLabel}: ${effectiveUsableTB.toFixed(2)} TB × ${pctLabel} ÷ ${volumeCount} volumes = ${sizeTB} TB each (${resiliencyFactor > 0 ? RESILIENCY_LABELS[resiliencyType] : 'Unknown'})`,
     })
   }
   return suggestions

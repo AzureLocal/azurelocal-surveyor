@@ -18,12 +18,12 @@ export default function LayoutCompare() {
   const rows = Array.from({ length: 16 }, (_, i) => i + 1).map((drivesPerNode) => {
     const driveSizeTB  = drivesPerNode > 0 ? round2(currentRawTB / (drivesPerNode * nodeCount)) : 0
     const totalDrives  = drivesPerNode * nodeCount
-    const usablePerDriveTB = round2(driveSizeTB * advanced.capacityEfficiencyFactor)
+    // AB#4641/AB#4643: usable/drive is raw drive size (no 0.92); reserve uses raw drive size
+    const usablePerDriveTB = driveSizeTB  // raw — the 0.92 blended factor is no longer applied
     const reserveDrives = Math.min(nodeCount, 4)
-    const reserveTB    = round2(reserveDrives * usablePerDriveTB)
+    const reserveTB    = round2(reserveDrives * driveSizeTB)  // AB#4643: raw drive size basis
 
-    // Available pool = (total drives × usable/drive) − reserve − infra volume footprint
-    // Infra footprint uses default resiliency factor from advanced settings
+    // computeCapacity now implements the canonical pipeline (AB#4641, AB#4643)
     const altHw: HardwareInputs = {
       ...hardware,
       capacityDrivesPerNode: drivesPerNode,
@@ -44,7 +44,7 @@ export default function LayoutCompare() {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden text-sm">
         <Stat label="Cluster nodes" value={`${nodeCount}`} />
         <Stat label="Total raw capacity" value={`${round2(currentRawTB)} TB`} note="held constant across all rows" />
-        <Stat label="Efficiency factor" value={`${advanced.capacityEfficiencyFactor}`} />
+        <Stat label="Pool metadata overhead" value="~1% (S2D internal)" note="raw × 0.99 per canonical model" />
         <Stat label="Reserve drives" value={`${Math.min(nodeCount, 4)} (min(nodes, 4))`} />
       </div>
 

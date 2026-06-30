@@ -52,7 +52,25 @@ export interface AdvancedSettingsOverrides {
 }
 
 export interface AdvancedSettings {
-  capacityEfficiencyFactor: number     // default 0.92 — filesystem overhead per drive
+  /**
+   * DEPRECATED for pool-level use (AB#4641 / Wave 1).
+   *
+   * This field is NO LONGER applied to the storage pool in computeCapacity.
+   * The old 0.92 value was a blended constant that bundled ReFS overhead +
+   * NVMe wear-leveling + roughly half the TB→TiB unit conversion, causing
+   * the unit difference to be double-counted.
+   *
+   * Under the canonical model (docs/capacity-model.md):
+   *   - Raw capacity is the true drive byte count (no haircut at pool level).
+   *   - TB→TiB conversion is done exactly once, at display time.
+   *   - Any real ReFS/format overhead is a small, named, explicit factor applied
+   *     to VOLUME usable space only (not the pool) — planned for Wave 2.
+   *
+   * The field is retained so that the `overrides.driveUsableTb` path still
+   * works (user can override per-drive capacity explicitly) and to avoid
+   * breaking persisted state during the v9 migration window.
+   */
+  capacityEfficiencyFactor: number     // retained for state compat; NOT applied to pool (AB#4641)
   infraVolumeSizeTB: number            // logical size of infra (system) volume, default 0.25
   vCpuOversubscriptionRatio: number    // default 4
   systemReservedMemoryGB: number       // default 8 per node
@@ -62,7 +80,7 @@ export interface AdvancedSettings {
 }
 
 export const DEFAULT_ADVANCED_SETTINGS: AdvancedSettings = {
-  capacityEfficiencyFactor: 0.92,
+  capacityEfficiencyFactor: 0.92,  // retained for state compat; NOT applied to pool (AB#4641)
   infraVolumeSizeTB: 0.25,
   vCpuOversubscriptionRatio: 4,
   systemReservedMemoryGB: 8,
@@ -75,17 +93,20 @@ export const DEFAULT_ADVANCED_SETTINGS: AdvancedSettings = {
 
 export interface CapacityResult {
   nodeCount: number                    // carried through for downstream resiliency calcs
-  rawPoolTB: number                    // total raw drives (no overhead)
-  usablePerDriveTB: number             // driveSizeTB × efficiencyFactor
-  totalUsableTB: number                // usablePerDrive × drives × nodes
+  rawPoolTB: number                    // total raw drives — true byte count, no overhead (Stage 1)
+  usablePerDriveTB: number             // raw drive size (no 0.92 haircut); or override value if set
+  totalUsableTB: number                // pool after ~1% metadata overhead (Stage 2; = rawPoolTB × 0.99)
   reserveDrives: number                // min(nodeCount, 4)
-  reserveTB: number                    // reserveDrives × usablePerDriveTB
+  reserveTB: number                    // reserveDrives × largestRawDriveSizeTB (AB#4643)
   infraVolumeTB: number                // infra volume pool footprint
-  availableForVolumesTB: number        // totalUsable − reserve − infraVolume (pool space)
-  availableForVolumesTiB: number       // availableForVolumesTB × 0.909099 (OS-visible)
-  resiliencyType: ResiliencyType
+  availableForVolumesTB: number        // totalUsable − reserve − infraVolume (pool footprint space)
+  availableForVolumesTiB: number       // availableForVolumesTB × TB_TO_TiB — OS-visible (one conversion)
+  resiliencyType: ResiliencyType       // effective resiliency (may differ from requested if clamped)
   resiliencyFactor: number
   effectiveUsableTB: number            // availableForVolumes × resiliencyFactor — the planning number
+  // AB#4636 — resiliency gating (optional for backward compat with test fixtures)
+  resiliencyClamped?: boolean          // true when requested resiliency was invalid and was clamped
+  resiliencyRequested?: ResiliencyType // the originally-requested resiliency (before clamping)
 }
 
 // ─── Volumes (Sheet: "Volume Detail") ────────────────────────────────────────
