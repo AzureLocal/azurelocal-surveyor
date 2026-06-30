@@ -9,6 +9,23 @@ This page mirrors it for in-site browsing.
 
 ---
 
+## [2.7.0] — 2026-06-30
+
+### Added
+
+- **RVTools import (AB#414)** — seed the Workload Planner from an existing VMware estate. The new
+  **Import RVTools** button accepts a full RVTools `.xlsx` export or the `vInfo` tab saved as `.csv`,
+  parses the `vInfo` sheet, and creates custom workloads. VMs are grouped by their **(vCPU, memory)**
+  signature — each distinct spec becomes one workload with `vmCount` set to the matching-VM count, so a
+  fleet of identical hosts collapses into a single row while group totals stay exact. Memory is read
+  from `Memory` (MiB → GB); storage from `Provisioned` (falling back to `In Use`) is summed per group
+  into logical storage (MiB → TB), with `osDiskPerVmGB = 0` so storage is never double-counted and
+  `internalMirrorFactor = 1` (the provisioned figure is a single allocation). Template VMs are skipped;
+  powered-off VMs are included and surfaced in an import summary alongside VM count, group count, and
+  aggregate vCPU/RAM/storage. Reuses the bundled `xlsx` dependency (no new packages). Robust to RVTools
+  quirks: `MB`-labelled columns are treated as MiB, thousands separators in CSV cells are tolerated, and
+  malformed or non-vInfo files produce a clear error.
+
 ## [2.6.0] — 2026-06-30
 
 ### Changed

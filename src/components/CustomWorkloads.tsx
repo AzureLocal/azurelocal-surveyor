@@ -6,9 +6,10 @@
  * mirror compounding (like SOFS/MABS) for accurate volume suggestions.
  */
 import { useState, useRef } from 'react'
-import { Trash2, Plus, ChevronDown, ChevronUp, Download, Upload } from 'lucide-react'
+import { Trash2, Plus, ChevronDown, ChevronUp, Download, Upload, FileSpreadsheet } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
 import { computeAllCustomWorkloads, parseCustomWorkloadsJson } from '../engine/custom-workloads'
+import { parseRvToolsWorkbook } from '../engine/rvtools'
 import type { CustomWorkload } from '../engine/types'
 
 const JSON_TEMPLATE: Omit<CustomWorkload, 'id'> = {
@@ -53,7 +54,9 @@ export default function CustomWorkloads() {
   const { customWorkloads, addCustomWorkload, updateCustomWorkload, removeCustomWorkload } = useSurveyorStore()
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
+  const [importSummary, setImportSummary] = useState<string | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
+  const rvtoolsRef = useRef<HTMLInputElement>(null)
 
   const totals = computeAllCustomWorkloads(customWorkloads)
   const enabledCount = customWorkloads.filter((w) => w.enabled).length
@@ -70,6 +73,7 @@ export default function CustomWorkloads() {
 
   function handleImportJson(text: string) {
     setImportError(null)
+    setImportSummary(null)
     const { workloads, error } = parseCustomWorkloadsJson(text)
     if (error) {
       setImportError(error)
@@ -86,6 +90,36 @@ export default function CustomWorkloads() {
     const reader = new FileReader()
     reader.onload = (ev) => handleImportJson(ev.target?.result as string)
     reader.readAsText(file)
+    e.target.value = ''
+  }
+
+  function handleRvToolsUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setImportError(null)
+    setImportSummary(null)
+    const reader = new FileReader()
+    reader.onload = (ev) => {
+      const buffer = ev.target?.result as ArrayBuffer
+      const result = parseRvToolsWorkbook(buffer)
+      if (result.error) {
+        setImportError(result.error)
+        return
+      }
+      for (const wl of result.workloads) {
+        addCustomWorkload(wl)
+      }
+      const sourceLabel = result.storageSource === 'in-use' ? 'in-use' : 'provisioned'
+      const offNote = result.poweredOff > 0 ? `, ${result.poweredOff} powered-off` : ''
+      const tmplNote = result.skippedTemplates > 0 ? `, ${result.skippedTemplates} template${result.skippedTemplates !== 1 ? 's' : ''} skipped` : ''
+      setImportSummary(
+        `Imported ${result.vmCount} VM${result.vmCount !== 1 ? 's' : ''} as ` +
+        `${result.imported} workload group${result.imported !== 1 ? 's' : ''}` +
+        `${offNote}${tmplNote} — ${result.totalVCpus.toLocaleString()} vCPU · ` +
+        `${result.totalMemoryGB.toLocaleString()} GB RAM · ${result.totalStorageTB.toLocaleString()} TB ${sourceLabel} storage.`,
+      )
+    }
+    reader.readAsArrayBuffer(file)
     e.target.value = ''
   }
 
@@ -108,10 +142,23 @@ export default function CustomWorkloads() {
           Import JSON
         </button>
         <input ref={fileRef} type="file" accept=".json,application/json" className="hidden" onChange={handleFileUpload} />
+        <button
+          onClick={() => rvtoolsRef.current?.click()}
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-xs border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+          title="Import the vInfo tab from an RVTools export (.xlsx or .csv). VMs are grouped by vCPU/memory into workloads."
+        >
+          <FileSpreadsheet className="w-3.5 h-3.5" />
+          Import RVTools
+        </button>
+        <input ref={rvtoolsRef} type="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" className="hidden" onChange={handleRvToolsUpload} />
       </div>
 
       {importError && (
         <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20 rounded p-2">{importError}</p>
+      )}
+
+      {importSummary && (
+        <p className="text-xs text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 rounded p-2">{importSummary}</p>
       )}
 
       {/* Workload list */}
