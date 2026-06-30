@@ -5,6 +5,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.2.0] — 2026-06-29
+
+> **Wave 1 — Capacity accuracy.** Capacity figures are reconciled to the canonical model
+> (`docs/capacity-model.md`) shared with S2D Cartographer. Computed usable/available figures
+> rise ~8% versus 2.1.x because the prior model was undercounting — see Changed below.
+
+### Changed
+
+- Capacity engine reconciled to the canonical model. The previous single `0.92` per-drive factor —
+  which silently conflated a real metadata overhead with the TB→TiB decimal/binary conversion — is
+  decomposed into an explicit ~1% pool metadata overhead (decimal TB) plus a single TB→TiB
+  conversion applied once at available-for-volumes. Usable/available figures increase ~8% relative
+  to 2.1.x. (AB#4641)
+- Reserve capacity now computed on a raw-byte basis — `min(nodes, 4) × largest raw drive` — instead
+  of an efficiency-adjusted value, matching Cartographer. (AB#4643)
+
+### Added
+
+- Resiliency gating: resiliency options invalid for the current node count are disabled (no Three-Way
+  Mirror on a 2-node cluster); 2-node clusters advise Nested Two-Way. Engine exposes
+  `clampResiliency()` / `validResiliencyOptions()`. (AB#4636)
+
+### Fixed
+
+- "Total usable" capacity is no longer mislabeled as a per-node "× nodes" figure. (AB#4635)
+
+---
+
 ## [2.1.4] — 2026-04-15
 
 ### Features
