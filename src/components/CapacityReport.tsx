@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
 import type { CapacityResult } from '../engine/types'
-import { round2 } from '../engine/capacity'
+import { round2, TB_TO_TiB } from '../engine/capacity'
+import { seventyPctLineTB } from '../engine/thresholds'
 
-// ─── Capacity Pool Stacked Bar (#10) ─────────────────────────────────────────
+// ─── Capacity Pool Stacked Bar (#10 + AB#4639 70%-line) ──────────────────────
 
 function CapacityStackedBar({
   capacity,
@@ -21,27 +22,54 @@ function CapacityStackedBar({
     : 0
   const remainingTB = Math.max(0, capacity.availableForVolumesTB - volumeFootprintTB)
 
+  // AB#4639 — 70% line position relative to total raw pool
+  const line70TB = seventyPctLineTB(capacity.availableForVolumesTB)
+  // The 70% line sits within the "available for volumes" zone.
+  // Its position on the bar = (reserve + infra + line70TB) / total
+  const line70PctOfBar = total > 0
+    ? ((capacity.reserveTB + capacity.infraVolumeTB + line70TB) / total) * 100
+    : 0
+
   const segments = [
-    { label: 'Reserve', tb: capacity.reserveTB, color: 'bg-gray-400 dark:bg-gray-500' },
-    { label: 'Infra volume', tb: capacity.infraVolumeTB, color: 'bg-blue-300 dark:bg-blue-700' },
-    { label: 'Volumes', tb: volumeFootprintTB, color: 'bg-brand-500 dark:bg-brand-400' },
-    { label: 'Remaining usable', tb: remainingTB, color: 'bg-green-400 dark:bg-green-600' },
+    { label: 'Reserve (footprint)', tb: capacity.reserveTB, color: 'bg-gray-400 dark:bg-gray-500' },
+    { label: 'Infra volume (footprint)', tb: capacity.infraVolumeTB, color: 'bg-blue-300 dark:bg-blue-700' },
+    { label: 'Volumes (footprint)', tb: volumeFootprintTB, color: 'bg-brand-500 dark:bg-brand-400' },
+    { label: 'Remaining available (footprint)', tb: remainingTB, color: 'bg-green-400 dark:bg-green-600' },
   ].filter((s) => s.tb > 0)
 
   return (
     <div className="px-4 py-3">
-      <div className="text-xs font-medium text-gray-500 mb-2">Pool Breakdown (of {total} TB raw)</div>
-      {/* Stacked bar */}
-      <div className="flex rounded-md overflow-hidden h-5 w-full border border-gray-200 dark:border-gray-700">
-        {segments.map((seg) => (
-          <div
-            key={seg.label}
-            className={`${seg.color} h-full transition-all`}
-            style={{ width: `${(seg.tb / total) * 100}%`, minWidth: seg.tb > 0 ? '2px' : '0' }}
-            title={`${seg.label}: ${round2(seg.tb)} TB (${((seg.tb / total) * 100).toFixed(1)}%)`}
-          />
-        ))}
+      <div className="text-xs font-medium text-gray-500 mb-2">
+        Pool Breakdown — footprint basis (of {total} TB raw)
       </div>
+      {/* Stacked bar with 70% line overlay */}
+      <div className="relative">
+        <div className="flex rounded-md overflow-hidden h-5 w-full border border-gray-200 dark:border-gray-700">
+          {segments.map((seg) => (
+            <div
+              key={seg.label}
+              className={`${seg.color} h-full transition-all`}
+              style={{ width: `${(seg.tb / total) * 100}%`, minWidth: seg.tb > 0 ? '2px' : '0' }}
+              title={`${seg.label}: ${round2(seg.tb)} TB (${((seg.tb / total) * 100).toFixed(1)}%)`}
+            />
+          ))}
+        </div>
+        {/* AB#4639: 70% planning line marker */}
+        {line70PctOfBar > 0 && line70PctOfBar < 100 && (
+          <div
+            className="absolute top-0 bottom-0 w-0.5 bg-amber-500 dark:bg-amber-400"
+            style={{ left: `${line70PctOfBar}%` }}
+            title={`70% of available-for-volumes = ${round2(line70TB)} TB — planning alert threshold`}
+          />
+        )}
+      </div>
+      {/* 70% line label */}
+      {line70PctOfBar > 0 && line70PctOfBar < 100 && (
+        <div className="flex items-center gap-1 mt-1 text-xs text-amber-600 dark:text-amber-400">
+          <span className="inline-block w-2 h-2 bg-amber-500 dark:bg-amber-400 rounded-sm shrink-0" />
+          <span>70% planning line = {round2(line70TB)} TB footprint ({round2(line70TB * TB_TO_TiB)} TiB) — alert fires when volume footprint exceeds this</span>
+        </div>
+      )}
       {/* Legend */}
       <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2">
         {segments.map((seg) => (
@@ -73,8 +101,9 @@ const GLOSSARY = [
   { term: 'Volume Size',       def: 'The logical capacity you request when creating a volume — what you ask for.' },
   { term: 'Footprint',         def: 'Physical pool space a volume actually consumes. A 1 TB Three-Way Mirror volume uses 3 TB of pool footprint.' },
   { term: 'Efficiency',        def: 'Ratio of logical to physical storage. Two-Way = 50%, Three-Way = 33%, Dual Parity = 50–80% (node-count dependent).' },
-  { term: 'TB vs TiB',         def: 'TB = decimal (10¹² bytes). TiB = binary (2⁴⁰ bytes). Windows Admin Center shows TiB. 1 TB ≈ 0.909 TiB. This tool uses TB.' },
-  { term: 'Effective Usable',  def: 'The planning number — how much data fits with a given resiliency type. = Available Pool × resiliency efficiency. Two-Way = 50%, Three-Way ≈ 33.3% of available pool. Both values are shown in the Planning Number section above.' },
+  { term: 'TB vs TiB',         def: 'TB = decimal (10¹² bytes). TiB = binary (2⁴⁰ bytes). Windows Admin Center, PowerShell and File Explorer show TiB. 1 TB ≈ 0.9091 TiB (factor = 10¹²/2⁴⁰). This tool stores values internally in decimal TB; TiB is derived once for display.' },
+  { term: 'Footprint vs Usable', def: 'Footprint is the pool space a volume physically occupies (size × copies). Usable (data) is the logical space you get to write (footprint ÷ copies). Example: 1 TB Three-Way volume = 3 TB footprint, 1 TB usable. Every figure in this report says which it is.' },
+  { term: 'Effective Usable',  def: 'The planning number (usable data space) — how much data fits with a given resiliency type. = Available-for-Volumes (footprint) × resiliency efficiency. Two-Way = 50%, Three-Way ≈ 33.3%. The 70% planning line is 70% of Available-for-Volumes (footprint basis).' },
 ]
 
 export default function CapacityReport({
@@ -112,28 +141,59 @@ export default function CapacityReport({
       )}
       <table className="w-full text-sm">
         <tbody>
-          <Section label="Raw Pool" />
-          <Row label="Raw pool — all capacity drives (drive size × drives/node × nodes)" value={`${result.rawPoolTB} TB`} />
-          <Row label="Raw drive size (per drive, no overhead)" value={`${result.usablePerDriveTB} TB`} />
+          {/* AB#4640 — footprint labels throughout; dual TB/TiB where meaningful */}
+          <Section label="Raw Pool (footprint — decimal TB, vendor nameplate)" />
+          <Row label="Raw pool — all capacity drives (drive size × drives/node × nodes)" value={`${result.rawPoolTB} TB`} sub="footprint — decimal TB (vendor nameplate)" />
+          <Row label="Raw drive size (per drive, no overhead)" value={`${result.usablePerDriveTB} TB`} sub="footprint — decimal TB" />
           {/* AB#4635: label fix — totalUsableTB is pool-after-metadata, not "per-drive × drives × nodes" */}
-          <Row label="Pool after metadata overhead (~1%)" value={`${result.totalUsableTB} TB`} sub="raw pool × 0.99 — space S2D can address" />
+          <Row label="Pool after metadata overhead (~1%)" value={`${result.totalUsableTB} TB`} sub="footprint — raw pool × 0.99; space S2D can address" />
 
-          <Section label="Deductions" />
+          <Section label="Deductions (footprint — pool space consumed)" />
           {/* AB#4643: reserve uses raw drive size, not efficiency-adjusted */}
-          <Row label={`Reserve — ${result.reserveDrives} drives × largest raw drive (min(${result.nodeCount}, 4) nodes)`} value={`− ${result.reserveTB} TB`} />
-          <Row label="Infrastructure volume (system CSV footprint)" value={`− ${round2(result.infraVolumeTB)} TB`} />
+          <Row label={`Reserve — ${result.reserveDrives} drives × largest raw drive (min(${result.nodeCount}, 4) nodes)`} value={`− ${result.reserveTB} TB`} sub="footprint" />
+          <Row label="Infrastructure volume (system CSV footprint)" value={`− ${round2(result.infraVolumeTB)} TB`} sub="footprint — logical size ÷ resiliency factor" />
 
           <Section label="Available for User Volumes" />
-          <Row label="Available for volumes (pool space)" value={`${round2(result.availableForVolumesTB)} TB`} highlight />
-          <Row label="Available for volumes (OS-visible)" value={`${round2(result.availableForVolumesTiB)} TiB`} sub="1 TB = 0.9091 TiB — value shown in WAC and PowerShell" />
+          {/* AB#4640 — dual TB/TiB display; footprint space label (canonical stage 5) */}
+          <Row
+            label="Available for volumes (footprint space)"
+            value={`${round2(result.availableForVolumesTB)} TB / ${round2(result.availableForVolumesTiB)} TiB`}
+            highlight
+            sub="decimal TB (vendor) / binary TiB (OS-visible in WAC + PowerShell) — footprint basis"
+          />
+          {/* AB#4639 — 70% planning line value */}
+          <Row
+            label="70% planning line (footprint basis)"
+            value={`${round2(result.availableForVolumesTB * 0.70)} TB / ${round2(result.availableForVolumesTiB * 0.70)} TiB`}
+            sub="alert fires when planned volume footprint exceeds this — 70% × available-for-volumes"
+          />
 
-          <Section label="Planning Number" />
-          <Row label="Three-Way Mirror" value="33.3% efficiency" highlight={isDefaultThreeWay} bold={isDefaultThreeWay} sub={isDefaultThreeWay ? 'current default resiliency' : undefined} />
-          <Row label="Two-Way Mirror" value="50.0% efficiency" highlight={isDefaultTwoWay} bold={isDefaultTwoWay} sub={isDefaultTwoWay ? 'current default resiliency' : undefined} />
-          <Row label="Effective usable — Three-Way" value={`${threeWayEffectiveTB} TB`} highlight={isDefaultThreeWay} bold={isDefaultThreeWay} sub={isDefaultThreeWay ? 'plan workloads against this' : undefined} />
-          <Row label="Effective usable — Two-Way" value={`${twoWayEffectiveTB} TB`} highlight={isDefaultTwoWay} bold={isDefaultTwoWay} sub={isDefaultTwoWay ? 'plan workloads against this' : undefined} />
+          <Section label="Planning Number (usable data space)" />
+          {/* AB#4640 — label as "usable data" (not footprint); show TB + TiB */}
+          <Row label="Three-Way Mirror efficiency" value="33.3% (1 usable ÷ 3 footprint)" highlight={isDefaultThreeWay} bold={isDefaultThreeWay} sub={isDefaultThreeWay ? 'current default resiliency' : undefined} />
+          <Row label="Two-Way Mirror efficiency" value="50.0% (1 usable ÷ 2 footprint)" highlight={isDefaultTwoWay} bold={isDefaultTwoWay} sub={isDefaultTwoWay ? 'current default resiliency' : undefined} />
+          <Row
+            label="Effective usable data — Three-Way Mirror"
+            value={`${threeWayEffectiveTB} TB / ${round2(threeWayEffectiveTB * TB_TO_TiB)} TiB`}
+            highlight={isDefaultThreeWay}
+            bold={isDefaultThreeWay}
+            sub={isDefaultThreeWay ? 'plan workloads against this (usable data, not footprint)' : 'usable data space'}
+          />
+          <Row
+            label="Effective usable data — Two-Way Mirror"
+            value={`${twoWayEffectiveTB} TB / ${round2(twoWayEffectiveTB * TB_TO_TiB)} TiB`}
+            highlight={isDefaultTwoWay}
+            bold={isDefaultTwoWay}
+            sub={isDefaultTwoWay ? 'plan workloads against this (usable data, not footprint)' : 'usable data space'}
+          />
           {!isDefaultTwoWay && !isDefaultThreeWay && (
-            <Row label={`Effective usable — ${RESILIENCY_LABELS[result.resiliencyType] ?? result.resiliencyType} (default)`} value={`${round2(result.effectiveUsableTB)} TB`} highlight bold sub="plan workloads against this" />
+            <Row
+              label={`Effective usable data — ${RESILIENCY_LABELS[result.resiliencyType] ?? result.resiliencyType} (default)`}
+              value={`${round2(result.effectiveUsableTB)} TB / ${round2(result.effectiveUsableTB * TB_TO_TiB)} TiB`}
+              highlight
+              bold
+              sub="plan workloads against this (usable data, not footprint)"
+            />
           )}
         </tbody>
       </table>

@@ -3,7 +3,7 @@ import { ChevronDown, ChevronRight, Wand2, PlusCircle, CheckCircle2, Terminal, C
 import VolumeTable from '../components/VolumeTable'
 import HealthCheck from '../components/HealthCheck'
 import { useSurveyorStore } from '../state/store'
-import { computeCapacity } from '../engine/capacity'
+import { computeCapacity, TB_TO_TiB, validResiliencyOptions } from '../engine/capacity'
 import { computeCompute } from '../engine/compute'
 import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
@@ -14,6 +14,7 @@ import { runHealthCheck } from '../engine/healthcheck'
 import { generateWorkloadVolumes, type SuggestedVolume } from '../engine/workload-volumes'
 import { computeServicePreset, getCatalogEntry } from '../engine/service-presets'
 import { toWacSize, computeQuickStart, generateGenericVolumes, type GenericSuggestion } from '../engine/volumes'
+import type { ResiliencyType } from '../engine/types'
 
 export default function VolumesPage() {
   const state = useSurveyorStore()
@@ -156,7 +157,7 @@ function VolumeModeToggle() {
   )
 }
 
-// ─── Generic Volume Suggestions (#76) ────────────────────────────────────────
+// ─── Generic Volume Suggestions (#76 + AB#4637 resiliency toggle) ─────────────
 
 const UTIL_BANDS = [
   { value: 0.7 as const, label: '70%', description: 'Conservative' },
@@ -165,13 +166,33 @@ const UTIL_BANDS = [
   { value: 1.0 as const, label: '100%', description: 'Full capacity' },
 ]
 
+const RESILIENCY_OPTION_LABELS: Record<ResiliencyType, string> = {
+  'two-way-mirror':   'Two-Way (50%)',
+  'three-way-mirror': 'Three-Way (33%)',
+  'dual-parity':      'Dual Parity',
+  'nested-two-way':   'Nested Two-Way (25%)',
+}
+
 function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/types').CapacityResult }) {
   const { volumes, addVolume } = useSurveyorStore()
   const [added, setAdded] = useState<Set<string>>(new Set())
-  const [resiliencyOverrides, setResiliencyOverrides] = useState<Record<string, import('../engine/types').ResiliencyType>>({})
   const [provisioningOverrides, setProvisioningOverrides] = useState<Record<string, 'fixed' | 'thin'>>({})
   const [targetUtilization, setTargetUtilization] = useState<0.7 | 0.8 | 0.9 | 1.0>(0.7)
-  const suggestions = generateGenericVolumes(capacity, targetUtilization)
+
+  // AB#4637 — panel-level resiliency toggle.
+  // This controls which resiliency generateGenericVolumes uses when splitting the pool,
+  // so volume sizes recompute correctly for the chosen resiliency efficiency.
+  // Gated by validResiliencyOptions so 3-way is not offered on a 2-node cluster.
+  const validOptions = validResiliencyOptions(capacity.nodeCount)
+  const [panelResiliency, setPanelResiliency] = useState<ResiliencyType>(
+    validOptions.includes('three-way-mirror') ? 'three-way-mirror' : 'two-way-mirror'
+  )
+  // Clamp panelResiliency to what is valid for this node count
+  const effectivePanelResiliency: ResiliencyType = validOptions.includes(panelResiliency)
+    ? panelResiliency
+    : (validOptions[0] ?? 'two-way-mirror')
+
+  const suggestions = generateGenericVolumes(capacity, targetUtilization, effectivePanelResiliency)
 
   if (suggestions.length === 0) return null
 
@@ -180,12 +201,13 @@ function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/ty
   function handleBandChange(value: 0.7 | 0.8 | 0.9 | 1.0) {
     setTargetUtilization(value)
     setAdded(new Set())
-    setResiliencyOverrides({})
     setProvisioningOverrides({})
   }
 
-  function getResiliency(s: GenericSuggestion) {
-    return resiliencyOverrides[s.id] ?? s.resiliency
+  function handleResiliencyChange(r: ResiliencyType) {
+    setPanelResiliency(r)
+    setAdded(new Set())
+    setProvisioningOverrides({})
   }
 
   function getProvisioning(s: GenericSuggestion) {
@@ -194,14 +216,14 @@ function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/ty
 
   function handleAdd(s: GenericSuggestion) {
     if (existingNames.has(s.name) || added.has(s.id)) return
-    addVolume({ id: s.id, name: s.name, plannedSizeTB: s.plannedSizeTB, resiliency: getResiliency(s), provisioning: getProvisioning(s) })
+    addVolume({ id: s.id, name: s.name, plannedSizeTB: s.plannedSizeTB, resiliency: s.resiliency, provisioning: getProvisioning(s) })
     setAdded((prev) => new Set(prev).add(s.id))
   }
 
   function handleAddAll() {
     for (const s of suggestions) {
       if (!existingNames.has(s.name) && !added.has(s.id)) {
-        addVolume({ id: s.id, name: s.name, plannedSizeTB: s.plannedSizeTB, resiliency: getResiliency(s), provisioning: getProvisioning(s) })
+        addVolume({ id: s.id, name: s.name, plannedSizeTB: s.plannedSizeTB, resiliency: s.resiliency, provisioning: getProvisioning(s) })
         setAdded((prev) => { const next = new Set(prev); next.add(s.id); return next })
       }
     }
@@ -216,7 +238,7 @@ function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/ty
         <div className="flex items-center gap-2 flex-wrap">
           <Wand2 className="w-4 h-4 text-gray-500" />
           <span className="text-sm font-semibold">Suggested Volumes — Generic Hardware-Based</span>
-          <span className="text-xs text-gray-500">{suggestions.length} volumes · {activeBand.label} pool utilization target ({activeBand.description})</span>
+          <span className="text-xs text-gray-500">{suggestions.length} volumes · {activeBand.label} pool target · {RESILIENCY_OPTION_LABELS[effectivePanelResiliency]}</span>
         </div>
         {!allAdded && (
           <button
@@ -229,32 +251,54 @@ function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/ty
         )}
       </div>
 
-      {/* Utilization band selector */}
-      <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
-        <span className="text-xs text-gray-500 shrink-0">Pool target:</span>
-        <div className="flex rounded overflow-hidden border border-gray-300 dark:border-gray-600 text-xs">
-          {UTIL_BANDS.map((band) => (
-            <button
-              key={band.value}
-              onClick={() => handleBandChange(band.value)}
-              title={band.description}
-              className={`px-3 py-1 transition-colors ${targetUtilization === band.value ? 'bg-brand-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
-            >
-              {band.label}
-            </button>
-          ))}
+      {/* AB#4637 — Resiliency + Utilization band controls */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 border-b border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900">
+        {/* Resiliency toggle (AB#4637) — recomputes volume sizes from pool target */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500 shrink-0">Resiliency:</span>
+          <div className="flex rounded overflow-hidden border border-gray-300 dark:border-gray-600 text-xs">
+            {validOptions.map((r) => (
+              <button
+                key={r}
+                onClick={() => handleResiliencyChange(r)}
+                title={`Recompute equal-split volumes with ${RESILIENCY_OPTION_LABELS[r]}`}
+                className={`px-2.5 py-1 transition-colors ${effectivePanelResiliency === r ? 'bg-brand-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                {RESILIENCY_OPTION_LABELS[r]}
+              </button>
+            ))}
+          </div>
         </div>
-        {targetUtilization >= 0.9 && (
-          <span className="text-xs text-amber-600 dark:text-amber-400">
-            {targetUtilization === 1.0 ? 'Warning: 100% utilization will trigger the WAC rebuild headroom alert' : 'Caution: minimal rebuild headroom — consider adding a reserve drive'}
-          </span>
-        )}
+
+        {/* Pool target band selector */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500 shrink-0">Pool target:</span>
+          <div className="flex rounded overflow-hidden border border-gray-300 dark:border-gray-600 text-xs">
+            {UTIL_BANDS.map((band) => (
+              <button
+                key={band.value}
+                onClick={() => handleBandChange(band.value)}
+                title={band.description}
+                className={`px-3 py-1 transition-colors ${targetUtilization === band.value ? 'bg-brand-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`}
+              >
+                {band.label}
+              </button>
+            ))}
+          </div>
+          {targetUtilization >= 0.9 && (
+            <span className="text-xs text-amber-600 dark:text-amber-400">
+              {targetUtilization === 1.0 ? 'Warning: 100% leaves no rebuild headroom' : 'Caution: minimal rebuild headroom'}
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="divide-y divide-gray-100 dark:divide-gray-800">
         {suggestions.map((s) => {
           const isAdded = existingNames.has(s.name) || added.has(s.id)
           const { wacSizeGB } = toWacSize(s.plannedSizeTB)
+          // AB#4640 — plannedSizeTB is decimal TB; show both TB and TiB
+          const plannedTiB = (s.plannedSizeTB * TB_TO_TiB).toFixed(2)
           return (
             <div key={s.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
               <div className="flex-1 min-w-0">
@@ -263,21 +307,12 @@ function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/ty
               </div>
               {isAdded ? (
                 <>
-                  <div className="text-xs text-gray-400 shrink-0">{getResiliency(s)}</div>
+                  <div className="text-xs text-gray-400 shrink-0">{s.resiliency}</div>
                   <div className="text-xs text-gray-400 shrink-0">{getProvisioning(s)}</div>
                 </>
               ) : (
                 <>
-                  <select
-                    value={getResiliency(s)}
-                    onChange={(e) => setResiliencyOverrides((prev) => ({ ...prev, [s.id]: e.target.value as import('../engine/types').ResiliencyType }))}
-                    className="text-xs border border-gray-200 dark:border-gray-700 rounded px-1 py-0.5 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 shrink-0"
-                  >
-                    <option value="two-way-mirror">Two-Way Mirror</option>
-                    <option value="three-way-mirror">Three-Way Mirror</option>
-                    <option value="dual-parity">Dual Parity</option>
-                    <option value="nested-two-way">Nested Two-Way</option>
-                  </select>
+                  <div className="text-xs text-gray-400 shrink-0">{RESILIENCY_OPTION_LABELS[s.resiliency]}</div>
                   <select
                     value={getProvisioning(s)}
                     onChange={(e) => setProvisioningOverrides((prev) => ({ ...prev, [s.id]: e.target.value as 'fixed' | 'thin' }))}
@@ -288,7 +323,11 @@ function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/ty
                   </select>
                 </>
               )}
-              <div className="text-sm font-mono text-right w-20 shrink-0">{s.plannedSizeTB} TiB</div>
+              {/* AB#4640 — show TB (decimal, stored value) and TiB (binary, OS-visible) */}
+              <div className="text-xs font-mono text-right w-32 shrink-0 text-gray-700 dark:text-gray-300">
+                <span>{s.plannedSizeTB} TB</span>
+                <span className="text-gray-400"> / {plannedTiB} TiB</span>
+              </div>
               <div className="text-xs font-mono text-gray-400 text-right w-20 shrink-0">{wacSizeGB} GiB</div>
               <div className="w-20 shrink-0 text-right">
                 {isAdded ? (
@@ -309,7 +348,9 @@ function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/ty
         })}
       </div>
       <div className="px-4 py-2 bg-gray-50 dark:bg-gray-800/50 text-xs text-gray-500">
-        Equal-split layout targeting {activeBand.label} pool utilization. Switch to Workload mode for workload-specific sizing.
+        Equal-split layout targeting {activeBand.label} pool utilization with {RESILIENCY_OPTION_LABELS[effectivePanelResiliency]}.
+        Volume sizes shown as TB (decimal, stored) / TiB (binary, OS-visible).
+        Switch to Workload mode for workload-specific sizing.
       </div>
     </div>
   )
@@ -551,6 +592,8 @@ function WorkloadVolumeSuggestions({ suggestions }: { suggestions: SuggestedVolu
             {items.map((s) => {
               const isAdded = existingNames.has(s.name) || added.has(s.id)
               const { wacSizeGB } = toWacSize(s.plannedSizeTB)
+              // AB#4640 — plannedSizeTB is decimal TB; show both TB and TiB
+              const plannedTiB = (s.plannedSizeTB * TB_TO_TiB).toFixed(2)
               return (
                 <div key={s.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                   <div className="flex-1 min-w-0">
@@ -584,7 +627,11 @@ function WorkloadVolumeSuggestions({ suggestions }: { suggestions: SuggestedVolu
                       </select>
                     </>
                   )}
-                  <div className="text-sm font-mono text-right w-20 shrink-0">{s.plannedSizeTB} TiB</div>
+                  {/* AB#4640 — show TB (decimal, stored) and TiB (binary, OS-visible) */}
+                  <div className="text-xs font-mono text-right w-32 shrink-0 text-gray-700 dark:text-gray-300">
+                    <span>{s.plannedSizeTB} TB</span>
+                    <span className="text-gray-400"> / {plannedTiB} TiB</span>
+                  </div>
                   <div className="text-xs font-mono text-gray-400 text-right w-20 shrink-0">{wacSizeGB} GiB</div>
                   <div className="w-20 shrink-0 text-right">
                     {isAdded ? (

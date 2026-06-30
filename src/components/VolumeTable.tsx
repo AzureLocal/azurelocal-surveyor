@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useSurveyorStore } from '../state/store'
 import { computeCapacity, TB_TO_TiB } from '../engine/capacity'
 import { computeVolumeSummary } from '../engine/volumes'
+import { seventyPctLineTB } from '../engine/thresholds'
 import type { ResiliencyType } from '../engine/types'
 import { Trash2, PlusCircle, AlertTriangle, Pencil, Check, X } from 'lucide-react'
 
@@ -80,6 +81,11 @@ export default function VolumeTable() {
     : summary.utilizationPct > 70 ? 'bg-amber-500'
     : 'bg-brand-500'
 
+  // AB#4639 — 70% planning line (footprint basis, matches capacity-model.md stage 7)
+  // Alert fires when planned volume footprint exceeds 70% of available-for-volumes.
+  const line70TB = seventyPctLineTB(capacity.availableForVolumesTB)
+  const isOver70Pct = summary.totalPoolFootprintTB > line70TB && summary.totalPoolFootprintTB < capacity.availableForVolumesTB
+
   return (
     <div className="space-y-4">
 
@@ -97,19 +103,45 @@ export default function VolumeTable() {
         </p>
       </div>
 
-      {/* Utilization bar — pool footprint vs raw pool available for volumes */}
-      <div>
-        <div className="flex justify-between text-xs text-gray-500 mb-1">
-          <span>Pool utilization</span>
+      {/* AB#4639 — 70% planning alert */}
+      {isOver70Pct && (
+        <div className="flex gap-2 p-3 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-md text-xs text-amber-800 dark:text-amber-300">
+          <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
           <span>
-            {summary.totalPoolFootprintTB.toFixed(2)} TB pool footprint — {displayUtilizationPct}% of {capacity.availableForVolumesTB.toFixed(2)} TB available
+            <strong>70% planning threshold exceeded.</strong> Planned volume footprint is{' '}
+            <strong>{summary.totalPoolFootprintTB.toFixed(2)} TB</strong>, which is above the{' '}
+            <strong>{line70TB.toFixed(2)} TB</strong> alert line (70% of{' '}
+            {capacity.availableForVolumesTB.toFixed(2)} TB available-for-volumes, footprint basis).
+            S2D needs headroom for rebuilds — consider keeping footprint below 70%.
           </span>
         </div>
-        <div className="h-2 rounded-full bg-gray-200 dark:bg-gray-700">
+      )}
+
+      {/* Utilization bar — pool footprint vs raw pool available for volumes; with 70% marker */}
+      <div>
+        <div className="flex justify-between text-xs text-gray-500 mb-1">
+          <span>Pool utilization (footprint basis)</span>
+          <span>
+            {summary.totalPoolFootprintTB.toFixed(2)} TB footprint — {displayUtilizationPct}% of {capacity.availableForVolumesTB.toFixed(2)} TB available
+          </span>
+        </div>
+        <div className="relative h-2 rounded-full bg-gray-200 dark:bg-gray-700">
           <div
             className={`h-2 rounded-full transition-all ${utilizationColor}`}
             style={{ width: `${Math.min(100, summary.utilizationPct)}%` }}
           />
+          {/* AB#4639 — 70% line marker */}
+          <div
+            className="absolute top-0 bottom-0 w-0.5 bg-amber-500 dark:bg-amber-400 rounded-full"
+            style={{ left: '70%' }}
+            title={`70% planning line = ${line70TB.toFixed(2)} TB (70% of available-for-volumes)`}
+          />
+        </div>
+        <div className="flex justify-between text-xs text-gray-400 mt-0.5">
+          <span />
+          <span className="text-amber-500 dark:text-amber-400" style={{ marginRight: '30%' }}>
+            70% ({line70TB.toFixed(2)} TB)
+          </span>
         </div>
       </div>
 
