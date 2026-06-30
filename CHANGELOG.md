@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.5.0] — 2026-06-30
+
+### Added
+
+- **Maintenance reserve (N+1 / N+2)** — an optional Advanced Setting (default **None / off**). When
+  enabled it reserves one (N+1) or two (N+2) nodes' worth of raw capacity — the headroom Microsoft's
+  Well-Architected guidance recommends so a node can be drained for updates — as a deduction in the
+  capacity model. Available-for-volumes and the Expansion Headroom table recompute against the reduced
+  number. It is **additive** to the rebuild reserve. Off by default, so existing plans are unchanged; on a
+  two-node two-way mirror each node already holds a full copy, so this is conservative operating headroom,
+  not data-loss protection (explained in the setting's help text).
+
 ## [2.4.1] — 2026-06-30
 
 ### Added

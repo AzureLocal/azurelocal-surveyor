@@ -134,6 +134,10 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
     ['Reserve Drives', capacity.reserveDrives, 'min(nodeCount, 4) — S2D rebuild reserve'],
     ['Reserve (TB)', capacity.reserveTB, 'Reserve drives × largest raw drive size (AB#4643)'],
     ['Infra Volume Pool Footprint (TB)', round2(capacity.infraVolumeTB), 'System CSV pool footprint'],
+    ...((capacity.maintenanceReserveNodes ?? 0) > 0 ? [
+      ['Available Before Maintenance Reserve (TB)', round2(capacity.availableBeforeMaintenanceTB ?? 0), 'Pool space before WAF maintenance reserve deduction'],
+      [`Maintenance Reserve N+${capacity.maintenanceReserveNodes} (TB)`, round2(capacity.maintenanceReserveTB ?? 0), `WAF: ${capacity.maintenanceReserveNodes} node${(capacity.maintenanceReserveNodes ?? 1) > 1 ? 's' : ''} × node raw capacity; additive to rebuild reserve`],
+    ] as Row[] : []),
     ['Available for Volumes (TB)', round2(capacity.availableForVolumesTB), 'Pool space for user volumes'],
     ['Available for Volumes (TiB)', round2(capacity.availableForVolumesTiB), 'OS-visible value (WAC/PowerShell)'],
     ['Resiliency Type', capacity.resiliencyType, ''],

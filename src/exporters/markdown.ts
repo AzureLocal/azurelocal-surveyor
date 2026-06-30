@@ -100,6 +100,9 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
   lines.push(`|---|---|`)
   lines.push(`| Raw pool | ${capacity.rawPoolTB} TB |`)
   lines.push(`| Pool reserve (${capacity.reserveDrives} drives) | ${capacity.reserveTB} TB |`)
+  if ((capacity.maintenanceReserveNodes ?? 0) > 0) {
+    lines.push(`| Maintenance reserve (WAF N+${capacity.maintenanceReserveNodes}) | ${round2(capacity.maintenanceReserveTB ?? 0)} TB (${capacity.maintenanceReserveNodes} node${(capacity.maintenanceReserveNodes ?? 1) > 1 ? 's' : ''}) |`)
+  }
   lines.push(`| Available for volumes | ${round2(capacity.availableForVolumesTB)} TB |`)
   lines.push(`| Resiliency | ${capacity.resiliencyType} (${(capacity.resiliencyFactor * 100).toFixed(0)}% efficiency) |`)
   lines.push(`| **Effective usable** | **${round2(capacity.effectiveUsableTB)} TB** |`)

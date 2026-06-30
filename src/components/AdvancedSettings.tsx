@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { ChevronDown, ChevronRight } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
 import { DEFAULT_ADVANCED_SETTINGS } from '../engine/types'
-import type { AdvancedSettingsOverrides, ResiliencyType } from '../engine/types'
+import type { AdvancedSettingsOverrides, ResiliencyType, MaintenanceReserveMode } from '../engine/types'
 import { validResiliencyOptions, minNodesForResiliency } from '../engine/capacity'
 
 export default function AdvancedSettings() {
@@ -90,6 +90,24 @@ export default function AdvancedSettings() {
               For 2-node production clusters, consider <strong>Nested Two-Way Mirror</strong> for added resilience.
             </p>
           )}
+        </Field>
+
+        <Field label="Maintenance reserve (WAF N+1/N+2)">
+          <select
+            className="input"
+            value={advanced.maintenanceReserveMode ?? 'none'}
+            onChange={(e) => setAdvanced({ maintenanceReserveMode: e.target.value as MaintenanceReserveMode })}
+          >
+            <option value="none">None — no maintenance reserve</option>
+            <option value="n+1">N+1 — reserve one node&apos;s capacity</option>
+            <option value="n+2">N+2 — reserve two nodes&apos; capacity (critical)</option>
+          </select>
+          <p className="text-xs text-gray-400 mt-1">
+            Reserves one (N+1) or two (N+2) nodes&apos; worth of raw capacity so a node can be drained
+            for updates. Additive to the rebuild reserve. On a 2-node two-way mirror each node already
+            holds a full copy, so this is conservative headroom for operating with a node offline,
+            not data-loss protection.
+          </p>
         </Field>
       </div>
 

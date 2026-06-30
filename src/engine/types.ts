@@ -51,6 +51,17 @@ export interface AdvancedSettingsOverrides {
   sofsProfileDemandTb?: number     // total SOFS profile demand TB — replaces userCount × profileGB / 1024
 }
 
+/**
+ * WAF maintenance reserve mode.
+ *  'none' — no reserve (default; all outputs byte-identical to pre-feature baseline)
+ *  'n+1'  — reserve one node's raw capacity so a node can be drained for patching
+ *  'n+2'  — reserve two nodes' raw capacity for critical workloads
+ *
+ * Additive to the S2D rebuild reserve (Stage 3).  Applied at Stage 5 before
+ * effectiveUsableTB is computed.  Per docs/capacity-model.md WAF guidance.
+ */
+export type MaintenanceReserveMode = 'none' | 'n+1' | 'n+2'
+
 export interface AdvancedSettings {
   infraVolumeSizeTB: number            // logical size of infra (system) volume, default 0.25
   vCpuOversubscriptionRatio: number    // default 4
@@ -58,6 +69,8 @@ export interface AdvancedSettings {
   systemReservedVCpus: number          // default 4 per node for Hyper-V / Arc VM agent
   defaultResiliency: ResiliencyType
   overrides: AdvancedSettingsOverrides // manual overrides for formula-calculated values (#64)
+  /** WAF N+1/N+2 maintenance reserve — optional for backward compat; defaults to 'none'. */
+  maintenanceReserveMode?: MaintenanceReserveMode
 }
 
 export const DEFAULT_ADVANCED_SETTINGS: AdvancedSettings = {
@@ -67,6 +80,7 @@ export const DEFAULT_ADVANCED_SETTINGS: AdvancedSettings = {
   systemReservedVCpus: 4,
   defaultResiliency: 'three-way-mirror',
   overrides: {},
+  maintenanceReserveMode: 'none',
 }
 
 // ─── Capacity (Sheet: "Capacity Report") ─────────────────────────────────────
@@ -79,7 +93,24 @@ export interface CapacityResult {
   reserveDrives: number                // min(nodeCount, 4)
   reserveTB: number                    // reserveDrives × largestRawDriveSizeTB (AB#4643)
   infraVolumeTB: number                // infra volume pool footprint
-  availableForVolumesTB: number        // totalUsable − reserve − infraVolume (pool footprint space)
+  /**
+   * Pool space available before the maintenance reserve deduction (pre-Stage 5b).
+   * Optional for backward compat with hand-constructed test fixtures (always populated by computeCapacity).
+   */
+  availableBeforeMaintenanceTB?: number
+  /**
+   * Number of nodes reserved for WAF maintenance (0 when mode='none').
+   * Optional for backward compat with hand-constructed test fixtures.
+   */
+  maintenanceReserveNodes?: number
+  /**
+   * Raw capacity held back for WAF maintenance reserve (TB).
+   * = nodeRawTB × maintenanceReserveNodes
+   * 0 when mode='none' — byte-identical to pre-feature baseline in that case.
+   * Optional for backward compat with hand-constructed test fixtures.
+   */
+  maintenanceReserveTB?: number
+  availableForVolumesTB: number        // totalUsable − reserve − infraVolume − maintenanceReserve (pool footprint space)
   availableForVolumesTiB: number       // availableForVolumesTB × TB_TO_TiB — OS-visible (one conversion)
   resiliencyType: ResiliencyType       // effective resiliency (may differ from requested if clamped)
   resiliencyFactor: number

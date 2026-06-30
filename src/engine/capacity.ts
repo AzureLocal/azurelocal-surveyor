@@ -156,8 +156,20 @@ export function computeCapacity(
   // (system CSV always created with the cluster's default resiliency)
   const infraVolumeTB = infraVolumeSizeTB / resiliencyFactor
 
-  // Stage 5 — Available for user volumes (footprint space in the pool).
-  const availableForVolumesTB = Math.max(0, poolAfterMetaTB - reserveTB - infraVolumeTB)
+  // Stage 5a — Pre-maintenance available (pool footprint space before maintenance reserve).
+  const availableBeforeMaintenanceTB = Math.max(0, poolAfterMetaTB - reserveTB - infraVolumeTB)
+
+  // Stage 5b — WAF maintenance reserve (N+1 / N+2).
+  // One node's raw capacity = capacityDriveSizeTB × capacityDrivesPerNode.
+  // This deduction is ADDITIVE to the S2D rebuild reserve from Stage 3.
+  // When mode='none', maintenanceReserveTB=0 and all outputs are byte-identical to the baseline.
+  const nodeRawTB = capacityDriveSizeTB * capacityDrivesPerNode
+  const reserveMode = settings.maintenanceReserveMode ?? 'none'
+  const maintenanceReserveNodes = reserveMode === 'n+1' ? 1 : reserveMode === 'n+2' ? 2 : 0
+  const maintenanceReserveTB = nodeRawTB * maintenanceReserveNodes
+
+  // Stage 5 — Final available for user volumes (footprint space in the pool).
+  const availableForVolumesTB = Math.max(0, availableBeforeMaintenanceTB - maintenanceReserveTB)
 
   // Stage 6 — Planning number: usable data capacity with selected resiliency.
   const effectiveUsableTB = availableForVolumesTB * resiliencyFactor
@@ -185,6 +197,9 @@ export function computeCapacity(
     reserveDrives,
     reserveTB: round4(reserveTB),
     infraVolumeTB: round4(infraVolumeTB),
+    availableBeforeMaintenanceTB: round4(availableBeforeMaintenanceTB),
+    maintenanceReserveNodes,
+    maintenanceReserveTB: round4(maintenanceReserveTB),
     availableForVolumesTB: round4(availableForVolumesTB),
     availableForVolumesTiB: round4(availableForVolumesTiB),
     resiliencyType: effectiveResiliency,
