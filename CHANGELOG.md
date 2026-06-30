@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2.4.0] — 2026-06-30
+
+> **Wave 3 — Validation & report correctness.** Locks accuracy so it can't regress: a shared
+> golden-cluster fixture proves Surveyor and Cartographer reconcile by construction, and the
+> Custom Workloads import path gains full lifecycle coverage.
+
+### Added
+
+- **Cross-tool reconciliation keystone.** A byte-valued golden-cluster fixture
+  (`src/engine/__tests__/fixtures/golden-clusters.json`) is checked into both Surveyor and
+  Cartographer identically; each tool runs its own engine against it, so green-on-both proves the
+  two reconcile within the ±2% Wave 1 gate. 28 vitest cases across 4 clusters (twoway / threeway /
+  dualparity, SSD and HDD). (AB#4633)
+- Full **Custom Workloads JSON import lifecycle** test coverage — parse, validate, normalize,
+  round-trip, and template shape. 46 new vitest cases. (AB#154)
+
+### Changed
+
+- Custom Workloads import parsing/validation/normalization extracted from `CustomWorkloads.tsx`
+  into a pure, exported `parseCustomWorkloadsJson` in the engine (no behavior change), making the
+  import path unit-testable. (AB#154)
+
 ## [2.3.0] — 2026-06-29
 
 > **Wave 2 — Legibility.** The numbers are now correct (2.2.0); this release makes them
