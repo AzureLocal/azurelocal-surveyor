@@ -1,16 +1,19 @@
 name: Deploy Documentation
 
+# IMPORTANT — Pages conflict guard (2026-06-30)
+# This repository's single GitHub Pages site (https://azurelocal.cloud/azurelocal-surveyor/)
+# serves the Surveyor APP, built and deployed by deploy.yml. This MkDocs job publishes to the
+# SAME Pages environment, so any run here REPLACES the live app with the documentation site.
+#
+# The automatic `push` trigger was removed because syncing docs/** (e.g. docs/changelog.md)
+# was silently clobbering the live app. Documentation belongs on its own site
+# (surveyor.azurelocal.cloud); until that separate Pages target exists, this workflow is
+# manual-only. Do NOT re-add a push trigger or run this on main without moving docs off the
+# app's Pages site first — it will take the app offline.
+
 on:
-  push:
-    branches: [main]
-    paths:
-      - 'docs/**'
-      - 'mkdocs.yml'
   workflow_dispatch:
 
-# Reusable workflow needs pages:write + id-token:write for actions/deploy-pages@v4.
-# Caller must grant these explicitly — they are NOT part of the default token scope.
-# Without this block the reusable workflow fails with startup_failure.
 permissions:
   contents: read
   pages: write
