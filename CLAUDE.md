@@ -1,164 +1,34 @@
-# azurelocal-surveyor — Claude Code Context
+# azurelocal-surveyor — Claude Code
 
-## What this repo is
+@AGENTS.md
 
-> Azure Local S2D capacity planning and workload sizing — a TypeScript port of the Excel-based `S2D_Capacity_Calculator.xlsx`.
+<!--
+  This file is a thin shim. All cross-tool repo instructions live in AGENTS.md,
+  imported above via Claude Code's @path syntax (inlined at session launch).
+  Keep only genuinely Claude-Code-specific notes below.
+-->
 
----
+## Claude Code notes
 
-## ADO project details
+- Subagents, skills, and hooks for this repo live in `.claude/`. The repo-level MCP config is `.mcp.json`.
+- Use **plan mode** before broad, repo-wide changes.
+- Follow the `.ai/` session protocol: read `.ai/state/*` at session start, and update `.ai/state/HANDOFF.md` before ending a session.
+- See the [agents standard](https://platform.hybridsolutions.cloud/standards/agents/) for the full multi-model model.
 
-- **ADO org:** https://dev.azure.com/hybridcloudsolutions
-- **ADO project:** Azure Local
-- **Area path:** Platform Engineering\Onboarding
-- **Work item format:** `AB#<id>` in commit messages and PR descriptions
 
----
-
-## Standards
-
-This repo follows all HCS platform standards defined in the Platform Engineering repo:
-
-| Standard | Reference |
-|---|---|
-| Governance | [docs/standards/governance.md](https://dev.azure.com/hybridcloudsolutions/Platform%20Engineering/_git/Platform%20Engineering?path=/docs/standards/governance.md) |
-| Scripting (PowerShell 7) | [docs/standards/scripting.md](https://dev.azure.com/hybridcloudsolutions/Platform%20Engineering/_git/Platform%20Engineering?path=/docs/standards/scripting.md) |
-| Automation | [docs/standards/automation.md](https://dev.azure.com/hybridcloudsolutions/Platform%20Engineering/_git/Platform%20Engineering?path=/docs/standards/automation.md) |
-| Variables and naming | [docs/standards/variables.md](https://dev.azure.com/hybridcloudsolutions/Platform%20Engineering/_git/Platform%20Engineering?path=/docs/standards/variables.md) |
-| Documentation | [docs/standards/documentation.md](https://dev.azure.com/hybridcloudsolutions/Platform%20Engineering/_git/Platform%20Engineering?path=/docs/standards/documentation.md) |
-| Claude Code | [docs/standards/claude-code.md](https://dev.azure.com/hybridcloudsolutions/Platform%20Engineering/_git/Platform%20Engineering?path=/docs/standards/claude-code.md) |
-
-Key rules:
-- All scripts: PowerShell 7+ only. `#Requires -Version 7.0`, `Set-StrictMode -Version Latest`, ` $ErrorActionPreference = 'Stop'`.
-- All docs: Markdown only. No Word documents in any repo.
-- Commit format: `type(scope): short description` — types: `feat`, `fix`, `docs`, `chore`, `refactor`, `test`
-- No secrets, tokens, or credentials committed to any file.
-
----
-
-## Key facts
-
-| Fact | Value |
-|---|---|
-| Primary language | TypeScript / React / Vite |
-| GitHub org | AzureLocal |
-| Azure login | kris@hybridsolutions.cloud |
-| Key Vault | kv-hcs-vault-01 |
-
-### Environment variables expected
-
-| Variable | Source | Purpose |
-|---|---|---|
-| `GITHUB_TOKEN` | kv-hcs-vault-01 via Load-HCSEnvironment.ps1 | GitHub CLI and git operations |
-| `AZURE_DEVOPS_EXT_PAT` | kv-hcs-vault-01 via Load-HCSEnvironment.ps1 | ADO CLI (`az boards`, `az devops`) |
-Load before starting a session:
-```powershell
-. D:\git\platform\scripts\Load-HCSEnvironment.ps1
-```
-
-### Build and test commands
-
-```powershell
-npm run dev     # Vite dev server
-npm run build   # production build
-npm run lint    # ESLint
-npx tsc --noEmit  # type check
-```
-
----
-
-## Repo structure
-
-```
-azurelocal-surveyor/
-├── .claude/
-    ├── discovery-report-2026-04-12.md
-    └── settings.json
-├── .github/
-    ├── issues/
-    └── workflows/
-├── docs/
-    ├── architecture/
-    ├── engine/
-    ├── reference/
-    ├── research/
-    └── changelog.md
-├── public/
-    └── favicon.svg
-├── reference/
-    ├── temp/
-    ├── 2-0-0-plan.md
-    ├── excel-full-dump.txt
-    ├── project-plan.md
-    └── README.md
-├── src/
-    ├── components/
-    ├── engine/
-    ├── exporters/
-    ├── pages/
-    └── state/
-├── .azurelocal-platform.yml
-├── .eslintrc.cjs
-├── .gitignore
-├── .markdownlint.json
-├── azurelocal-surveyor.code-workspace
-├── CHANGELOG.md
-├── CLAUDE.md
-├── CONTRIBUTING.md
-├── engine-spec.json
-├── index.html
-├── LICENSE
-├── mkdocs.yml
-└── ...
-```
-
----
-
-## Claude Code actions
+## Claude Code actions in this repo
 
 **Run autonomously:**
 - Read, search, and grep any file in this repo
 - Write and edit files in this repo
 - `git add`, `git commit`, `git push`
 - `gh issue`, `gh pr`, `gh run` CLI commands
-- `mkdocs build` and `mkdocs serve`
-- `pip install` for MkDocs plugins
+- `npm install`, `npm run build`, `npm test`
+- `npx` commands for scaffolding and tooling
 
 **Always confirm before:**
 - Creating or deleting Azure resources
 - Any `az` CLI write operation that modifies Azure state
 - Running destructive operations
 - Making API calls to external services
-
-
----
-
-## Subagents available in this repo
-
-- `azurelocal-surveyor-engineer` (model: sonnet) — React/TypeScript engineer for S2D capacity planning app: engine logic, Zustand state, Vite build, component work.
-
-User-level agents (every repo): `triage-lookup`, `markdown-prose-editor`, `azurelocal-domain-expert`, `mkdocs-material-doctor`, `turner-module-scaffold-engineer`, `mms-2026-demo-presenter`.
-
-Platform repo agents (when working in `D:\git\platform`): `orchestration-pm`, `security-waf-caf`, `terraform-validator`, `bicep-validator`, `arm-validator`, `ansible-linter`, `powershell-linter`, `reviewer`, `security-reviewer`, `documenter`, `coder`, `planner`, `operator`, `investigator`, `test-writer`, `router`.
-
----
-
-## Owner
-
-**Kristopher Turner**
-kris@hybridsolutions.cloud
-Senior Product Technology Architect, TierPoint | Microsoft MVP (Azure) | MCT
-Owner, Hybrid Cloud Solutions LLC — hybridsolutions.cloud
-Country Cloud Boy — thisismydemo.cloud
-
----
-
-## HCS Orchestration Profile
-
-**Validation profile:** web — see `D:\git\platform\profiles\web.yaml`
-
-This repo is a **pilot** for the `web` type in the HCS multi-agent orchestration system.
-Run `/dispatch web` (or `/dispatch` for all pilots) to validate this repo.
-
-**Repo-specific notes for validators:**
-React + TypeScript + Vite + Zustand. `npm run lint` and `tsc --noEmit` must pass. `npm audit` for HIGH/CRITICAL vulnerabilities.
+- Installing software
