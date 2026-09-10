@@ -538,7 +538,10 @@ export interface OemPreset {
   id: string
   vendor: string
   model: string
-  catalogType: OemCatalogType    // certification level in Azure Local solutions catalog
+  catalogType: OemCatalogType    // solution tier documented by the OEM
+  sourceUrl: string              // OEM model and solution reference
+  sourceTitle: string
+  reviewedAt: string             // YYYY-MM-DD; manual source review date
   generation?: string            // hardware generation (e.g. "Gen11", "V4")
   nodeCount?: number             // if preset is for a fixed-node appliance
   coresPerNode: number

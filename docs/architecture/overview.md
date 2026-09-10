@@ -169,14 +169,16 @@ for the full schema and Ranger integration notes.
 
 `src/engine/presets/` contains static hardware preset files for OEM server models.
 Selecting a preset in `HardwareForm` populates the hardware inputs in one click.
-Presets are verified against Microsoft's official Azure Local hardware catalog.
+Model and solution-tier metadata comes from primary OEM documentation. Numeric
+values are editable planning examples. See [OEM planning presets](../reference/oem-presets.md)
+for review dates, sources and the scope of verification.
 
 | File | Models |
 |---|---|
-| `dell-ax.ts` | AX-650, AX-750, AX-760, AX-670, AX-770 |
-| `lenovo-mx.ts` | MX3530-H, MX3530-F, MX3535 |
-| `hpe-proliant.ts` | DL380 Gen11, EL8000 |
-| `dataon.ts` | S2D-5212, S2D-4112 |
+| `dell-ax.ts` | AX-670, AX-770, AX-660, AX-760, AX-4510c, AX-4520c |
+| `lenovo-mx.ts` | MX630/MX650 V3 and V4, MX650a V4, MX455 V3 Edge |
+| `hpe-proliant.ts` | DL380 Gen12, DL360 Gen12, DL380 Gen11, DL145 Gen11 |
+| `dataon.ts` | AZL-8208i, AZS-7224 |
 
 ---
 

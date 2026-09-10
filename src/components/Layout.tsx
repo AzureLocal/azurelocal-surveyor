@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, NavLink } from 'react-router-dom'
 import {
   Server, Cpu, Monitor, HardDrive, BarChart3,
-  Settings, BookOpen, Link2, FileText, Container, X, Layers, ShieldCheck, Info,
+  Settings, BookOpen, Link2, FileText, Container, X, Layers, ShieldCheck, Info, ExternalLink,
 } from 'lucide-react'
 import { useSurveyorStore } from '../state/store'
 import AdvancedSettings from './AdvancedSettings'
@@ -36,6 +36,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           <div className="text-xs text-blue-300/60 mt-1">Capacity Planning Tool</div>
           <div className="text-xs text-blue-300/40 mt-0.5 font-mono">v{version}</div>
         </div>
+        <a
+          href="https://labs.hybridsolutions.cloud/hyperv-surveyor"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mx-3 mt-3 flex items-start gap-2 rounded-md border border-blue-300/30 px-3 py-2 text-xs text-blue-200 hover:bg-white/10 hover:text-white transition-colors"
+        >
+          <span><strong className="block mb-1">Planning Windows Server Hyper-V?</strong>Open Hyper-V Surveyor</span>
+          <ExternalLink className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+        </a>
         <nav className="flex-1 py-4 space-y-0.5 px-2">
           <NavItem to="/hardware" label="Hardware" icon={Server} end />
           <NavItem to="/workloads" label="Workloads" icon={Cpu} />

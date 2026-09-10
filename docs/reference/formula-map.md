@@ -86,10 +86,12 @@ The following modules have no direct workbook counterpart. They are pure additio
 
 | Preset file | Models covered |
 | --- | --- |
-| `src/engine/presets/dell-ax.ts` | AX-650, AX-750, AX-760, AX-670, AX-770 |
-| `src/engine/presets/lenovo-mx.ts` | MX3530-H, MX3530-F, MX3535 |
-| `src/engine/presets/hpe-proliant.ts` | DL380 Gen11, EL8000 |
-| `src/engine/presets/dataon.ts` | S2D-5212, S2D-4112 |
+| `src/engine/presets/dell-ax.ts` | AX-670, AX-770, AX-660, AX-760, AX-4510c, AX-4520c |
+| `src/engine/presets/lenovo-mx.ts` | MX630/MX650 V3 and V4, MX650a V4, MX455 V3 Edge |
+| `src/engine/presets/hpe-proliant.ts` | DL380 Gen12, DL360 Gen12, DL380 Gen11, DL145 Gen11 |
+| `src/engine/presets/dataon.ts` | AZL-8208i, AZS-7224 |
+
+See [OEM planning presets](./oem-presets.md) for sources, tiers and sizing assumptions.
 
 ## Architecture and engine-flow docs
 

@@ -2,7 +2,21 @@ import DELL_AX from './dell-ax'
 import LENOVO_MX from './lenovo-mx'
 import HPE_PROLIANT from './hpe-proliant'
 import DATAON from './dataon'
-import type { OemPreset } from '../types'
+import type { HardwareInputs, OemPreset } from '../types'
+
+/** Only copy sizing fields; preserve the user's cluster size and other settings. */
+export function hardwareFromPreset(preset: OemPreset): Partial<HardwareInputs> {
+  return {
+    coresPerNode: preset.coresPerNode,
+    memoryPerNodeGB: preset.memoryPerNodeGB,
+    capacityDrivesPerNode: preset.capacityDrivesPerNode,
+    capacityDriveSizeTB: preset.capacityDriveSizeTB,
+    capacityMediaType: preset.capacityMediaType,
+    cacheDrivesPerNode: preset.cacheDrivesPerNode,
+    cacheDriveSizeTB: preset.cacheDriveSizeTB,
+    cacheMediaType: preset.cacheMediaType,
+  }
+}
 
 export const ALL_PRESETS: OemPreset[] = [
   ...DELL_AX,

@@ -1,17 +1,8 @@
 import type { OemPreset } from '../types'
 
-/**
- * Lenovo ThinkAgile MX-series Azure Local hardware presets.
- *
- * V3 models are Integrated Systems in the Microsoft Azure Local Solutions Catalog.
- * V4 models are Premier Solutions, jointly engineered with Microsoft.
- * https://azurelocalsolutions.azure.microsoft.com/#/catalog
- *
- * Specs are representative mid-range configurations — confirm with Lenovo
- * or the catalog before quoting.
- */
+// Vendor-backed model metadata; numeric values are editable planning examples,
+// not a certified or orderable bill of materials. See docs/reference/oem-presets.md.
 const LENOVO_MX_PRESETS: OemPreset[] = [
-  // ── V4 Premier Solutions ─────────────────────────────────────────────────
   {
     id: 'lenovo-mx630-v4',
     vendor: 'Lenovo',
@@ -26,7 +17,10 @@ const LENOVO_MX_PRESETS: OemPreset[] = [
     cacheDrivesPerNode: 0,
     cacheDriveSizeTB: 0,
     cacheMediaType: 'none',
-    notes: '1U all-NVMe. Premier Solution for Azure Local, jointly engineered with Microsoft.',
+    notes: '1U; Intel Xeon 6, all-NVMe configuration.',
+    sourceUrl: 'https://lenovopress.lenovo.com/lp2136-lenovo-thinkagile-mx630-v4-hyperconverged-system',
+    sourceTitle: 'Lenovo product guide',
+    reviewedAt: '2026-09-10',
   },
   {
     id: 'lenovo-mx650-v4',
@@ -42,9 +36,68 @@ const LENOVO_MX_PRESETS: OemPreset[] = [
     cacheDrivesPerNode: 0,
     cacheDriveSizeTB: 0,
     cacheMediaType: 'none',
-    notes: '2U high-density all-NVMe. Premier Solution for Azure Local, jointly engineered with Microsoft.',
+    notes: '2U; Intel Xeon 6, all-NVMe configuration.',
+    sourceUrl: 'https://lenovopress.lenovo.com/lp2137-lenovo-thinkagile-mx650-v4-hyperconverged-system',
+    sourceTitle: 'Lenovo product guide',
+    reviewedAt: '2026-09-10',
   },
-  // ── V3 Integrated Systems ────────────────────────────────────────────────
+  {
+    id: 'lenovo-mx650a-v4',
+    vendor: 'Lenovo',
+    model: 'ThinkAgile MX650a V4',
+    catalogType: 'premier',
+    generation: 'V4',
+    coresPerNode: 64,
+    memoryPerNodeGB: 1024,
+    capacityDrivesPerNode: 8,
+    capacityDriveSizeTB: 7.68,
+    capacityMediaType: 'nvme',
+    cacheDrivesPerNode: 0,
+    cacheDriveSizeTB: 0,
+    cacheMediaType: 'none',
+    notes: '2U; GPU-focused Intel Xeon 6 platform. This preset sizes local storage, CPU and RAM only.',
+    sourceUrl: 'https://lenovopress.lenovo.com/lp2258-lenovo-thinkagile-mx650a-v4-hyperconverged-system',
+    sourceTitle: 'Lenovo product guide',
+    reviewedAt: '2026-09-10',
+  },
+  {
+    id: 'lenovo-mx455-v3',
+    vendor: 'Lenovo',
+    model: 'ThinkAgile MX455 V3 Edge',
+    catalogType: 'premier',
+    generation: 'V3',
+    coresPerNode: 24,
+    memoryPerNodeGB: 192,
+    capacityDrivesPerNode: 4,
+    capacityDriveSizeTB: 3.84,
+    capacityMediaType: 'nvme',
+    cacheDrivesPerNode: 0,
+    cacheDriveSizeTB: 0,
+    cacheMediaType: 'none',
+    notes: '2U short-depth edge platform; AMD EPYC 8004 and NVMe storage.',
+    sourceUrl: 'https://lenovopress.lenovo.com/lp1889-thinkagile-mx455-v3-edge-premier-solution',
+    sourceTitle: 'Lenovo product guide',
+    reviewedAt: '2026-09-10',
+  },
+  {
+    id: 'lenovo-mx650-v3-premier',
+    vendor: 'Lenovo',
+    model: 'ThinkAgile MX650 V3 (Premier)',
+    catalogType: 'premier',
+    generation: 'V3',
+    coresPerNode: 48,
+    memoryPerNodeGB: 512,
+    capacityDrivesPerNode: 8,
+    capacityDriveSizeTB: 7.68,
+    capacityMediaType: 'nvme',
+    cacheDrivesPerNode: 0,
+    cacheDriveSizeTB: 0,
+    cacheMediaType: 'none',
+    notes: '2U; all-NVMe Premier configuration (machine type 7DKB).',
+    sourceUrl: 'https://lenovopress.lenovo.com/lp1675-thinkagile-mx650-v3-2u-integrated-system-and-certified-node-4th-generation',
+    sourceTitle: 'Lenovo product guide',
+    reviewedAt: '2026-09-10',
+  },
   {
     id: 'lenovo-mx630-v3',
     vendor: 'Lenovo',
@@ -59,7 +112,10 @@ const LENOVO_MX_PRESETS: OemPreset[] = [
     cacheDrivesPerNode: 0,
     cacheDriveSizeTB: 0,
     cacheMediaType: 'none',
-    notes: '1U all-NVMe. Integrated System for Azure Local.',
+    notes: '1U; all-NVMe Integrated System configuration.',
+    sourceUrl: 'https://lenovopress.lenovo.com/lp1674-thinkagile-mx630-v3-1u-integrated-system-and-certified-node-4th-generation',
+    sourceTitle: 'Lenovo product guide',
+    reviewedAt: '2026-09-10',
   },
   {
     id: 'lenovo-mx650-v3',
@@ -75,7 +131,10 @@ const LENOVO_MX_PRESETS: OemPreset[] = [
     cacheDrivesPerNode: 0,
     cacheDriveSizeTB: 0,
     cacheMediaType: 'none',
-    notes: '2U high-density all-NVMe. Integrated System for Azure Local.',
+    notes: '2U; all-NVMe Integrated System configuration (machine type 7D6S).',
+    sourceUrl: 'https://lenovopress.lenovo.com/lp1675-thinkagile-mx650-v3-2u-integrated-system-and-certified-node-4th-generation',
+    sourceTitle: 'Lenovo product guide',
+    reviewedAt: '2026-09-10',
   },
   {
     id: 'lenovo-mx650-v3-hybrid',
@@ -91,7 +150,10 @@ const LENOVO_MX_PRESETS: OemPreset[] = [
     cacheDrivesPerNode: 2,
     cacheDriveSizeTB: 1.6,
     cacheMediaType: 'nvme',
-    notes: '2U NVMe cache + HDD capacity. Integrated System for Azure Local.',
+    notes: '2U; HDD capacity and NVMe cache. Select the Integrated System offering, whose options differ from Premier.',
+    sourceUrl: 'https://lenovopress.lenovo.com/lp1675-thinkagile-mx650-v3-2u-integrated-system-and-certified-node-4th-generation',
+    sourceTitle: 'Lenovo product guide',
+    reviewedAt: '2026-09-10',
   },
 ]
 

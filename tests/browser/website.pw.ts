@@ -1,4 +1,49 @@
 import { test, expect } from '@playwright/test'
+import { ALL_PRESETS } from '../../src/engine/presets'
+
+test('OEM presets populate sizing fields and expose their source', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.goto('./')
+  const hypervLink = page.getByRole('link', { name: /Open Hyper-V Surveyor/ })
+  await expect(hypervLink).toBeVisible()
+  await expect(hypervLink).toHaveAttribute('href', 'https://labs.hybridsolutions.cloud/hyperv-surveyor')
+  await expect(hypervLink).toHaveAttribute('target', '_blank')
+  await page.getByRole('link', { name: 'Hardware', exact: true }).click()
+  const nodes = page.getByRole('group', { name: 'Number of nodes', exact: true }).getByRole('spinbutton')
+  await nodes.fill('4')
+  const picker = page.getByLabel('OEM Preset (optional)', { exact: true })
+
+  // Start with hybrid so the following flash selection must clear all cache fields.
+  await picker.selectOption('dell-ax-760-hybrid')
+  for (const preset of ALL_PRESETS) {
+    await picker.selectOption(preset.id)
+    await expect(nodes).toHaveValue('4')
+    for (const [label, value] of [
+      ['Capacity drives / node', preset.capacityDrivesPerNode],
+      ['Cache drives / node', preset.cacheDrivesPerNode],
+      ['CPU cores / node', preset.coresPerNode],
+      ['RAM / node (GB)', preset.memoryPerNodeGB],
+    ] as const) {
+      await expect(page.getByRole('group', { name: label, exact: true }).getByRole('spinbutton')).toHaveValue(String(value))
+    }
+    await expect(page.getByRole('group', { name: 'Capacity drive size (TB)', exact: true }).getByRole('combobox')).toHaveValue(String(preset.capacityDriveSizeTB))
+    await expect(page.getByRole('group', { name: 'Capacity media type', exact: true }).getByRole('combobox')).toHaveValue(preset.capacityMediaType)
+    await expect(page.getByRole('group', { name: 'Cache media type', exact: true }).getByRole('combobox')).toHaveValue(preset.cacheMediaType)
+    const cacheSize = page.getByRole('group', { name: 'Cache drive size (TB)', exact: true })
+    if (preset.cacheMediaType === 'none') {
+      await expect(cacheSize).toContainText('No cache tier')
+    } else {
+      await expect(cacheSize.getByRole('combobox')).toHaveValue(String(preset.cacheDriveSizeTB))
+    }
+    await expect(page.getByRole('link', { name: preset.sourceTitle, exact: true })).toHaveAttribute('href', preset.sourceUrl)
+    await expect(page.getByText(`Source reviewed ${preset.reviewedAt}:`, { exact: false })).toBeVisible()
+  }
+  await page.getByRole('group', { name: 'RAM / node (GB)', exact: true }).getByRole('spinbutton').fill('1024')
+  await expect(page.getByRole('status')).toContainText('customized from this example')
+  expect(errors).toEqual([])
+  await page.screenshot({ path: test.info().outputPath('verified-oem-presets.png'), fullPage: true })
+})
 
 test('published revision matches the workflow commit', async ({ request }) => {
   const expected = process.env.EXPECTED_COMMIT ?? process.env.GITHUB_SHA

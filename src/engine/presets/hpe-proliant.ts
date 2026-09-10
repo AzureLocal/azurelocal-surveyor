@@ -1,19 +1,46 @@
 import type { OemPreset } from '../types'
 
-/**
- * HPE ProLiant Azure Local hardware presets.
- *
- * Models listed are in the Microsoft Azure Local Solutions Catalog.
- * https://azurelocalsolutions.azure.microsoft.com/#/catalog
- *
- * HPE DL380 Gen11 was elevated to Premier Solution at Microsoft Ignite 2025.
- * HPE DL145 Gen11 is an Integrated System for edge deployments (May 2025).
- *
- * Specs are representative mid-range configurations — confirm with HPE
- * or the catalog before quoting.
- */
+// Vendor-backed model metadata; numeric values are editable planning examples,
+// not a certified or orderable bill of materials. See docs/reference/oem-presets.md.
 const HPE_PROLIANT_PRESETS: OemPreset[] = [
-  // ── Premier Solutions ────────────────────────────────────────────────────
+  {
+    id: 'hpe-dl380-gen12',
+    vendor: 'HPE',
+    model: 'ProLiant Compute DL380 Gen12',
+    catalogType: 'premier',
+    generation: 'Gen12',
+    coresPerNode: 64,
+    memoryPerNodeGB: 1024,
+    capacityDrivesPerNode: 8,
+    capacityDriveSizeTB: 7.68,
+    capacityMediaType: 'nvme',
+    cacheDrivesPerNode: 0,
+    cacheDriveSizeTB: 0,
+    cacheMediaType: 'none',
+    notes: '2U; E3.S NVMe configuration.',
+    sourceUrl: 'https://www.hpe.com/us/en/collaterals/collateral.a50007018enw.html',
+    sourceTitle: 'HPE ProLiant for Azure Local QuickSpecs',
+    reviewedAt: '2026-09-10',
+  },
+  {
+    id: 'hpe-dl360-gen12',
+    vendor: 'HPE',
+    model: 'ProLiant Compute DL360 Gen12',
+    catalogType: 'premier',
+    generation: 'Gen12',
+    coresPerNode: 32,
+    memoryPerNodeGB: 512,
+    capacityDrivesPerNode: 4,
+    capacityDriveSizeTB: 7.68,
+    capacityMediaType: 'nvme',
+    cacheDrivesPerNode: 0,
+    cacheDriveSizeTB: 0,
+    cacheMediaType: 'none',
+    notes: '1U; E3.S NVMe configuration.',
+    sourceUrl: 'https://www.hpe.com/us/en/collaterals/collateral.a50007018enw.html',
+    sourceTitle: 'HPE ProLiant for Azure Local QuickSpecs',
+    reviewedAt: '2026-09-10',
+  },
   {
     id: 'hpe-dl380-gen11',
     vendor: 'HPE',
@@ -28,30 +55,16 @@ const HPE_PROLIANT_PRESETS: OemPreset[] = [
     cacheDrivesPerNode: 0,
     cacheDriveSizeTB: 0,
     cacheMediaType: 'none',
-    notes: '2U all-NVMe. Premier Solution for Azure Local (elevated at Ignite 2025).',
-  },
-  // ── Integrated Systems ───────────────────────────────────────────────────
-  {
-    id: 'hpe-dl380-gen11-hybrid',
-    vendor: 'HPE',
-    model: 'ProLiant DL380 Gen11 (hybrid)',
-    catalogType: 'integrated',
-    generation: 'Gen11',
-    coresPerNode: 32,
-    memoryPerNodeGB: 256,
-    capacityDrivesPerNode: 8,
-    capacityDriveSizeTB: 14,
-    capacityMediaType: 'hdd',
-    cacheDrivesPerNode: 2,
-    cacheDriveSizeTB: 1.6,
-    cacheMediaType: 'nvme',
-    notes: '2U NVMe cache + HDD capacity. Integrated System for Azure Local.',
+    notes: '2U; all-NVMe configuration. Current Azure Local QuickSpecs list flash storage only.',
+    sourceUrl: 'https://www.hpe.com/us/en/collaterals/collateral.a50007018enw.html',
+    sourceTitle: 'HPE ProLiant for Azure Local QuickSpecs',
+    reviewedAt: '2026-09-10',
   },
   {
     id: 'hpe-dl145-gen11',
     vendor: 'HPE',
     model: 'ProLiant DL145 Gen11',
-    catalogType: 'integrated',
+    catalogType: 'premier',
     generation: 'Gen11',
     coresPerNode: 24,
     memoryPerNodeGB: 128,
@@ -61,7 +74,10 @@ const HPE_PROLIANT_PRESETS: OemPreset[] = [
     cacheDrivesPerNode: 0,
     cacheDriveSizeTB: 0,
     cacheMediaType: 'none',
-    notes: 'Edge-optimized 1U AMD EPYC. Integrated System for Azure Local edge deployments (May 2025).',
+    notes: 'Compact edge platform with AMD EPYC and E3.S NVMe. HPE reclassified this solution as Premier in May 2026.',
+    sourceUrl: 'https://www.hpe.com/us/en/collaterals/collateral.a50007018enw.html',
+    sourceTitle: 'HPE ProLiant for Azure Local QuickSpecs',
+    reviewedAt: '2026-09-10',
   },
 ]
 

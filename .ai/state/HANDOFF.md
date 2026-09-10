@@ -16,3 +16,21 @@
 - Actual Pages website: https://azurelocal.cloud/azurelocal-surveyor/ (the README's former surveyor.azurelocal.cloud hostname does not resolve).
 - Added pinned dependency lockfiles, Playwright verification, and a deployed build-info.json revision check. No local build was used for this publishing repair; CI owns builds per operator instruction.
 - Acceptance: do not report completion until the new GitHub Actions run is green and the public website serves the pushed revision and passes the browser journey.
+
+## OEM preset refresh — AB#9074
+
+- Reviewed primary OEM sources on 2026-09-10. Model sources, assumptions and
+  limitations are recorded in docs/reference/oem-presets.md and each preset.
+- Updated four vendor files to 21 planning examples. Corrected Dell generation
+  and form factors, HPE tiers, and DataON RAM; added current and edge models;
+  removed unverified DataON AZS-7248 and unsupported HPE/DataON hybrid examples.
+- HardwareForm now exposes source/date, example quantities and customization
+  notice. Browser test exercises every preset and hybrid-to-flash transitions.
+- Added the user-requested sidebar link back to Hyper-V Surveyor, matching the
+  reciprocal link on that website. Updated architecture/formula docs and changelog.
+- Branch: feat/workload-inventory-planning. No local build run; the GitHub Actions
+  build, tests and published revision verification are the acceptance gate.
+- Prior workload/publishing changes are complete: action 34527379640 succeeded
+  for 6b0f7e77ca97de0727d60efe5e3e34bc5966ba7e, including live browser checks.
+- This is a curated OEM list, not a complete mirror of the dynamic Microsoft
+  catalog. Exact procurement BOMs and additional OEMs remain outside this refresh.

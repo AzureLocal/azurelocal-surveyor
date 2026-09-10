@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useSurveyorStore } from '../state/store'
-import { ALL_PRESETS, presetsByVendor } from '../engine/presets/index'
+import { findPreset, hardwareFromPreset, presetsByVendor } from '../engine/presets/index'
 import type { OemCatalogType } from '../engine/types'
 
 /** Parse numeric input — returns current value if input is empty or NaN. */
@@ -48,6 +48,10 @@ const CATALOG_LABEL: Record<OemCatalogType, string> = {
 export default function HardwareForm() {
   const { hardware, setHardware } = useSurveyorStore()
   const grouped = presetsByVendor()
+  const [presetId, setPresetId] = useState('')
+  const selectedPreset = findPreset(presetId)
+  const presetCustomized = selectedPreset && Object.entries(hardwareFromPreset(selectedPreset))
+    .some(([key, value]) => hardware[key as keyof typeof hardware] !== value)
 
   // Track whether the user is in "custom" entry mode for drive sizes
   const capacitySizes = driveSizesFor(hardware.capacityMediaType)
@@ -83,23 +87,16 @@ export default function HardwareForm() {
     <div className="space-y-6">
       {/* OEM Preset picker */}
       <div>
-        <label className="block text-sm font-medium mb-1">OEM Preset (optional)</label>
+        <label htmlFor="oem-preset" className="block text-sm font-medium mb-1">OEM Preset (optional)</label>
         <select
+          id="oem-preset"
           className="w-full rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-900 px-3 py-2 text-sm"
-          defaultValue=""
+          value={presetId}
           onChange={(e) => {
-            const preset = ALL_PRESETS.find((p) => p.id === e.target.value)
+            setPresetId(e.target.value)
+            const preset = findPreset(e.target.value)
             if (!preset) return
-            setHardware({
-              capacityDrivesPerNode: preset.capacityDrivesPerNode,
-              capacityDriveSizeTB:   preset.capacityDriveSizeTB,
-              capacityMediaType:     preset.capacityMediaType,
-              cacheDrivesPerNode:    preset.cacheDrivesPerNode,
-              cacheDriveSizeTB:      preset.cacheDriveSizeTB,
-              cacheMediaType:        preset.cacheMediaType,
-              coresPerNode:          preset.coresPerNode,
-              memoryPerNodeGB:       preset.memoryPerNodeGB,
-            })
+            setHardware(hardwareFromPreset(preset))
           }}
         >
           <option value="">— select a preset —</option>
@@ -107,20 +104,42 @@ export default function HardwareForm() {
             <optgroup key={vendor} label={vendor}>
               {presets.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.model}{p.generation ? ` (${p.generation})` : ''} — {CATALOG_LABEL[p.catalogType]}
+                  {p.model} — {CATALOG_LABEL[p.catalogType]} — {p.coresPerNode}c / {p.memoryPerNodeGB} GB
                 </option>
               ))}
             </optgroup>
           ))}
         </select>
-        <p className="text-xs text-gray-400 mt-1">
-          Presets populate drive, CPU, and RAM fields. Verify specs against the{' '}
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
+          Editable planning examples, not certified bills of materials. Presets fill physical cores,
+          RAM and data drives per node; your node count stays unchanged. Confirm your final configuration in the{' '}
           <a href="https://azurelocalsolutions.azure.microsoft.com/#/catalog"
             target="_blank" rel="noopener noreferrer"
             className="text-brand-600 dark:text-brand-400 underline hover:no-underline">
             Azure Local Solutions Catalog
           </a>.
         </p>
+        {selectedPreset && (
+          <div className="mt-3 rounded-md border border-gray-200 dark:border-gray-700 p-3 text-sm space-y-2" aria-label="Preset reference">
+            <p className="font-medium">{selectedPreset.vendor} {selectedPreset.model} · {CATALOG_LABEL[selectedPreset.catalogType]}</p>
+            <p>{selectedPreset.notes}</p>
+            <p>
+              Example per node: {selectedPreset.coresPerNode} physical cores · {selectedPreset.memoryPerNodeGB} GB RAM
+              {' · '}{selectedPreset.capacityDrivesPerNode} × {selectedPreset.capacityDriveSizeTB} TB {selectedPreset.capacityMediaType.toUpperCase()} capacity
+              {selectedPreset.cacheDrivesPerNode > 0
+                ? ` · ${selectedPreset.cacheDrivesPerNode} × ${selectedPreset.cacheDriveSizeTB} TB ${selectedPreset.cacheMediaType.toUpperCase()} cache`
+                : ' · no cache tier'}.
+              {' '}Boot drives are excluded from capacity.
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Source reviewed {selectedPreset.reviewedAt}: {' '}
+              <a href={selectedPreset.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-brand-600 dark:text-brand-400 underline">
+                {selectedPreset.sourceTitle}
+              </a>
+            </p>
+            {presetCustomized && <p role="status" className="text-xs">Your hardware values have been customized from this example.</p>}
+          </div>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -282,7 +301,7 @@ export default function HardwareForm() {
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
-    <div>
+    <div role="group" aria-label={label}>
       <label className="block text-sm font-medium mb-1">
         {label}
         {hint && <span className="ml-1 text-xs text-gray-500">({hint})</span>}

@@ -9,6 +9,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Added
 
+- Refreshed 21 OEM planning presets with current Dell, HPE, Lenovo and DataON models, vendor references, review dates and visible sizing assumptions. Corrected stale tiers and removed unverified configurations (AB#9074).
+- Sidebar link to Hyper-V Surveyor for Windows Server planning.
 - Individual VM inventory with RVTools workbook/CSV import preview, editable rows, inclusion controls, tier review, search, and bulk changes.
 - Optional measured P95 CPU/memory sizing, performance templates and imports, independent allocation fallbacks, evidence coverage, inventory growth, and consumed/provisioned storage selection.
 - Workload Fit page with maintenance reserves, CPU/RAM/pool deficits, per-volume resiliency, and same-spec node comparison within the existing 2–16 node S2D model.
