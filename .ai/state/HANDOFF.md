@@ -12,5 +12,6 @@
 - Files: src/App.tsx, scoped state hook/store/project, route-aware links, Layout and planning pages, recommendation engine, storage exporters, shared component hooks, CSS, unit/browser tests and docs.
 - Verification: source review and git diff --check completed. No local build/test invoked; pipeline owns lint, unit tests, TypeScript/Vite, documentation and Chromium build/published checks.
 - Pushed implementation b4ad995 and Vite type fix 3ccbe6c. Pipeline confirms lint, 347 tests, website build and documentation build pass. Browser runner required reading package metadata with Node's filesystem API instead of a bare JSON import; corrected before retrying publication.
-- Next: inspect action failures and fix as needed, verify build-info.json matches final commit and inspect browser evidence. Close AB#9075 only after live acceptance.
+- Run 34533117076 passed all 347 tests, website/docs builds and six Chromium checks before publishing b70c992. The public revision and assets were independently verified with Test-PublishedWebsite.ps1. Screenshots reviewed for overview, storage report and hardware options. Visual review found identical hardware/volume check headings; final label correction distinguishes them.
+- Next: verify the final label-correction commit passes publication and live browser checks; close AB#9075 after acceptance.
 - Preferences: use native Windows PowerShell, no WSL, call the product a website. No secrets committed. User authorization covers pushing and publishing through existing pipeline.

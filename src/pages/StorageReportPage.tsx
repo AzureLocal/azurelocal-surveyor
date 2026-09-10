@@ -20,7 +20,7 @@ export default function StorageReportPage() {
       <button className="action-secondary" onClick={async () => { try { await navigator.clipboard.writeText(generatePowerShell(state)); setNotice('PowerShell copied.') } catch { setNotice('Clipboard unavailable. Select the script below to copy it.') } }}>Copy PowerShell</button>
     </div>
     {notice && <p role="status" className="text-sm">{notice}</p>}
-    <HealthCheck result={report.validation} /><HealthCheck result={report.health} />
+    <HealthCheck result={report.validation} title="Hardware Health Check" /><HealthCheck result={report.health} />
     <CapacityReport result={report.capacity} plannedFootprintTB={report.volumes.totalPoolFootprintTB} />
     <div className="panel overflow-x-auto"><h2 className="font-semibold mb-3">Planned volumes</h2><table className="w-full text-sm"><thead><tr>{report.tables[2].head.map(h => <th className="text-left p-2" key={h}>{h}</th>)}</tr></thead><tbody>{report.tables[2].rows.map((row, i) => <tr className="border-t" key={i}>{row.map((value, j) => <td className="p-2" key={j}>{value}</td>)}</tr>)}</tbody></table>{!state.volumes.length && <p className="text-sm text-gray-500">No volumes have been added. Capacity calculations are still available.</p>}</div>
     <details><summary className="cursor-pointer font-medium">Volume creation script</summary><pre className="panel overflow-x-auto text-xs mt-3">{generatePowerShell(state)}</pre></details>

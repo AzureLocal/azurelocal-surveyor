@@ -36,7 +36,7 @@ function humanName(code: string): string {
     .join(' ')
 }
 
-export default function HealthCheck({ result }: { result: HealthCheckResult }) {
+export default function HealthCheck({ result, title = 'Volume Health Check' }: { result: HealthCheckResult; title?: string }) {
   const [expanded, setExpanded] = useState(!result.passed)
   const [expandedVolumes, setExpandedVolumes] = useState<Record<string, boolean>>({})
   const [expandedIssues, setExpandedIssues] = useState<Record<string, boolean>>({})
@@ -83,7 +83,7 @@ export default function HealthCheck({ result }: { result: HealthCheckResult }) {
           : <XCircle className="w-5 h-5 text-red-500 shrink-0" />
         }
         <div className="flex-1 min-w-0">
-          <span>Volume Health Check — {result.passed ? 'Passed' : 'Issues Detected'}</span>
+          <span>{title} — {result.passed ? 'Passed' : 'Issues Detected'}</span>
           {result.passed ? (
             <span className="ml-2 text-xs font-normal text-gray-500">
               {summaryText || 'No issues detected.'}
