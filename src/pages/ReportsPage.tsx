@@ -16,10 +16,6 @@ import AdvancedSettings from '../components/AdvancedSettings'
 import { useSurveyorStore } from '../state/store'
 import { computeCapacity } from '../engine/capacity'
 import { computeCompute } from '../engine/compute'
-import { computeAvd } from '../engine/avd'
-import { computeSofs } from '../engine/sofs'
-import { computeAks } from '../engine/aks'
-import { computeMabs } from '../engine/mabs'
 import { computePlanning } from '../engine/planning'
 
 
@@ -47,10 +43,6 @@ export default function ReportsPage() {
   const { hardware, advanced } = state
   const capacity = computeCapacity(hardware, advanced)
   const compute = computeCompute(hardware, advanced)
-  const avd = computeAvd(state.avd, state.advanced.overrides)
-  const sofs = computeSofs(state.sofs, state.advanced.overrides)
-  const aks = computeAks(state.aks)
-  const mabsResult = computeMabs(state.mabs)
 
   const workloadTotals = computePlanning(state).workloadTotals
 
