@@ -20,8 +20,8 @@ import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
-import { computeAllCustomWorkloads } from '../engine/custom-workloads'
-import { computeAllServicePresets } from '../engine/service-presets'
+import { computePlanning } from '../engine/planning'
+
 
 type Tab = 'capacity' | 'compute' | 'avd' | 'aks' | 'mabs' | 'sofs' | 'final'
 
@@ -52,32 +52,7 @@ export default function ReportsPage() {
   const aks = computeAks(state.aks)
   const mabsResult = computeMabs(state.mabs)
 
-  // Aggregate workload totals (same pattern as VolumesPage)
-  let totalVCpus = 0, totalMemoryGB = 0
-  if (state.avdEnabled)  { totalVCpus += avd.totalVCpus;  totalMemoryGB += avd.totalMemoryGB }
-  if (state.aks.enabled) { totalVCpus += aks.totalVCpus;  totalMemoryGB += aks.totalMemoryGB }
-  if (state.virtualMachines?.enabled) {
-    const vm = state.virtualMachines
-    let rawVmVCpus = 0
-    for (const g of vm.groups) {
-      rawVmVCpus    += g.vmCount * g.vCpusPerVm
-      totalMemoryGB += g.vmCount * g.memoryPerVmGB
-    }
-    totalVCpus += rawVmVCpus / vm.vCpuOvercommitRatio
-  }
-  if (state.sofsEnabled) { totalVCpus += sofs.sofsVCpusTotal; totalMemoryGB += sofs.sofsMemoryTotalGB }
-  if (state.mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB }
-  const presetTotals = computeAllServicePresets(state.servicePresets)
-  totalVCpus    += presetTotals.totalVCpus
-  totalMemoryGB += presetTotals.totalMemoryGB
-  const customTotals = computeAllCustomWorkloads(state.customWorkloads)
-  totalVCpus    += customTotals.totalVCpus
-  totalMemoryGB += customTotals.totalMemoryGB
-
-  const workloadTotals = {
-    totalVCpus: Math.round(totalVCpus),
-    totalMemoryGB: Math.round(totalMemoryGB),
-  }
+  const workloadTotals = computePlanning(state).workloadTotals
 
   return (
     <div className="space-y-6">
