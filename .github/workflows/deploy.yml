@@ -1,0 +1,108 @@
+name: Build and publish Surveyor website
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: surveyor-pages-${{ github.ref }}
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: pwsh
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            docs/package-lock.json
+      - name: Install website dependencies
+        run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Test workload and capacity calculations
+        run: npm test
+      - name: Build website
+        run: npm run build
+      - name: Build documentation alongside the website
+        run: |
+          npm ci --prefix docs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run docs:build --prefix docs
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Copy-Item -LiteralPath docs/.vitepress/dist -Destination dist/docs -Recurse
+      - name: Record deployed revision
+        run: |
+          @{ commit = $env:GITHUB_SHA; run = $env:GITHUB_RUN_ID } |
+            ConvertTo-Json | Set-Content -LiteralPath dist/build-info.json
+      - name: Install browser for website verification
+        run: npx playwright install --with-deps chromium
+      - name: Verify built website in Chromium
+        run: npx playwright test
+      - name: Upload website
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - name: Upload browser verification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: website-build-browser-results
+          path: test-results/
+          if-no-files-found: ignore
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Publish to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+      - name: Verify published revision and assets
+        env:
+          WEBSITE_URL: https://azurelocal.cloud/azurelocal-surveyor/
+        run: ./scripts/Test-PublishedWebsite.ps1 -BaseUrl $env:WEBSITE_URL -ExpectedCommit $env:GITHUB_SHA
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Verify published website in Chromium
+        env:
+          PLAYWRIGHT_BASE_URL: https://azurelocal.cloud/azurelocal-surveyor/
+          EXPECTED_COMMIT: ${{ github.sha }}
+        run: npx playwright test
+      - name: Upload published website evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-website-browser-results
+          path: test-results/
+          if-no-files-found: ignore

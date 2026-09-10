@@ -7,3 +7,12 @@
 - Scope: Same-spec sizing within the existing 2–16 node calculator model. Multi-cluster placement and hardware catalog optimization are not implemented. Storage performance is informational, not certified.
 - Preference: Use Windows directly. The user explicitly overrode the WSL build guidance and requested pipeline-owned builds. Refer to this product as a website.
 - Next: Inspect the pipeline for the pushed commit; resolve any reported failure. Project schema and manifest additions should be documented further if the consumer contract changes.
+
+## Publishing recovery
+
+- The original website deploy workflow was removed in the CI migration. Only the docs-only workflow remained, and it failed because docs inherited a missing root Tailwind dependency.
+- Restored one GitHub Actions build/publish workflow for main and PR verification. It runs lint, unit tests, website/docs builds, Chromium journey tests, Pages publishing, and public commit/asset/browser verification.
+- Documentation publishes at /azurelocal-surveyor/docs/ in the same artifact. Its own PostCSS config prevents root Tailwind inheritance.
+- Actual Pages website: https://azurelocal.cloud/azurelocal-surveyor/ (the README's former surveyor.azurelocal.cloud hostname does not resolve).
+- Added pinned dependency lockfiles, Playwright verification, and a deployed build-info.json revision check. No local build was used for this publishing repair; CI owns builds per operator instruction.
+- Acceptance: do not report completion until the new GitHub Actions run is green and the public website serves the pushed revision and passes the browser journey.

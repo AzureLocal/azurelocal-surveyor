@@ -2,7 +2,11 @@
 
 > Azure Local S2D capacity planning and workload sizing — a TypeScript port of the Excel-based `S2D_Capacity_Calculator.xlsx`.
 
-**Live app:** [surveyor.azurelocal.cloud](https://surveyor.azurelocal.cloud)
+**Live website:** [Azure Local Surveyor](https://azurelocal.cloud/azurelocal-surveyor/)
+
+GitHub Actions tests and builds every push to `main`, publishes the website and its
+documentation to GitHub Pages, and verifies the deployed commit and browser workflow.
+The workflow only turns green after the public website passes verification.
 
 ## Workload planning
 

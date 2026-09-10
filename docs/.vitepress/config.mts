@@ -2,7 +2,7 @@ import { defineConfig } from 'vitepress'
 
 export default defineConfig({
   ignoreDeadLinks: true,
-  base: '/azurelocal-surveyor/',
+  base: '/azurelocal-surveyor/docs/',
   title: "Azure Local Surveyor",
   description: "Governed centrally by HCS Platform Engineering standards",
   themeConfig: {
