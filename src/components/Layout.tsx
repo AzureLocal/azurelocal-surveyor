@@ -1,139 +1,76 @@
 import { useState } from 'react'
-import { Link, NavLink } from 'react-router-dom'
-import {
-  Server, Cpu, Monitor, HardDrive, BarChart3,
-  Settings, BookOpen, Link2, FileText, Container, X, Layers, ShieldCheck, Info, ExternalLink,
-} from 'lucide-react'
-import { useSurveyorStore } from '../state/store'
+import * as Dialog from '@radix-ui/react-dialog'
+import { Link, NavLink, useLocation } from 'react-router-dom'
+import { ExternalLink, Settings, X } from 'lucide-react'
+import { useSurveyorStore } from '../state/usePlanStore'
+import { createProject, downloadProject } from '../state/project'
+import { usePlanningArea } from '../state/planning-area'
 import AdvancedSettings from './AdvancedSettings'
 import { ErrorBoundary } from './ErrorBoundary'
 import { version } from '../../package.json'
 
+const storageLinks = [
+  ['/storage', 'Storage overview'], ['/storage/hardware', 'Hardware & Drives'],
+  ['/storage/capacity', 'Capacity & Resiliency'], ['/storage/volumes', 'Volume Planning'],
+  ['/storage/drive-layout', 'Compare Drive Layouts'], ['/storage/reports', 'Storage Report'],
+]
+const workloadLinks = [
+  ['/planning', 'Planning paths'], ['/planning/workloads', 'Workloads'],
+  ['/planning/specialized', 'Specialized Workloads'], ['/planning/hardware', 'Hardware'],
+  ['/planning/volumes', 'Storage Design'], ['/planning/fit', 'Fit & Recommendations'],
+  ['/planning/recommendations', 'Hardware Options'], ['/planning/reports', 'Reports & Exports'],
+]
+
 export default function Layout({ children }: { children: React.ReactNode }) {
-  const { avdEnabled, sofsEnabled, mabsEnabled, aks } = useSurveyorStore()
+  const state = useSurveyorStore()
+  const area = usePlanningArea()
+  const { pathname } = useLocation()
+  const inPlan = pathname.startsWith('/storage') || pathname.startsWith('/planning')
+  const prefix = area === 'storage' ? '/storage' : '/planning'
   const [advancedOpen, setAdvancedOpen] = useState(false)
-
-  return (
-    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
-      {/* Sidebar — always dark navy to match azurelocal.cloud brand */}
-      <aside className="w-56 shrink-0 flex flex-col" style={{ backgroundColor: '#0f3057' }}>
-        <div className="px-4 py-4 border-b border-white/10">
-          {/* Azure Local logo mark — hexagon with circuit styling */}
-          <Link to="/" className="flex items-center gap-2.5 mb-1 rounded-md hover:bg-white/5 transition-colors -mx-2 px-2 py-1">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className="shrink-0">
-              <polygon points="14,2 25,8 25,20 14,26 3,20 3,8" fill="#0078d4" stroke="#66aee4" strokeWidth="1.5"/>
-              <circle cx="14" cy="14" r="4" fill="white" opacity="0.9"/>
-              <line x1="14" y1="10" x2="14" y2="5" stroke="white" strokeWidth="1.5" opacity="0.6"/>
-              <line x1="14" y1="18" x2="14" y2="23" stroke="white" strokeWidth="1.5" opacity="0.6"/>
-              <line x1="10.5" y1="12" x2="6" y2="9.5" stroke="white" strokeWidth="1.5" opacity="0.6"/>
-              <line x1="17.5" y1="16" x2="22" y2="18.5" stroke="white" strokeWidth="1.5" opacity="0.6"/>
-            </svg>
-            <div>
-              <div className="text-xs font-semibold text-blue-200 uppercase tracking-widest leading-none">Azure Local</div>
-              <div className="text-base font-bold leading-tight text-white">Surveyor</div>
-            </div>
-          </Link>
-          <div className="text-xs text-blue-300/60 mt-1">Capacity Planning Tool</div>
-          <div className="text-xs text-blue-300/40 mt-0.5 font-mono">v{version}</div>
-        </div>
-        <a
-          href="https://labs.hybridsolutions.cloud/hyperv-surveyor"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mx-3 mt-3 flex items-start gap-2 rounded-md border border-blue-300/30 px-3 py-2 text-xs text-blue-200 hover:bg-white/10 hover:text-white transition-colors"
-        >
-          <span><strong className="block mb-1">Planning Windows Server Hyper-V?</strong>Open Hyper-V Surveyor</span>
-          <ExternalLink className="w-3.5 h-3.5 shrink-0 mt-0.5" aria-hidden="true" />
+  const [notice, setNotice] = useState('')
+  const navClass = ({ isActive }: { isActive: boolean }) => 'block rounded-md px-3 py-2 text-sm transition-colors ' + (isActive ? 'bg-blue-500/30 text-white font-semibold' : 'text-blue-200 hover:bg-white/10 hover:text-white')
+  return <div className="min-h-screen lg:flex bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100">
+    <aside className="lg:w-64 lg:h-screen lg:sticky lg:top-0 shrink-0 bg-[#0f3057] text-white no-print overflow-y-auto">
+      <Link to="/" className="block p-5 border-b border-white/10"><span className="block text-xs uppercase tracking-widest text-blue-200">Azure Local</span><span className="text-xl font-bold">Surveyor</span><span className="block text-xs text-blue-200 mt-1">Plan your cluster · v{version}</span></Link>
+      <nav aria-label="Main navigation" className="p-3 space-y-1">
+        <NavLink to="/" end className={navClass}>Overview</NavLink>
+        <NavLink to="/storage" className={navClass}>Storage Sizing</NavLink>
+        <NavLink to="/planning" className={navClass}>Workload Planning</NavLink>
+      </nav>
+      {inPlan && <nav aria-label={area === 'storage' ? 'Storage sizing sections' : 'Workload planning sections'} className="px-3 pb-4 space-y-1 border-b border-white/10">
+        <p className="px-3 py-2 text-xs uppercase tracking-wide text-blue-300">{area === 'storage' ? 'Storage plan' : 'Workload plan'}</p>
+        {(area === 'storage' ? storageLinks : workloadLinks).map(([to, label]) => <NavLink key={to} to={to} end className={navClass}>{label}</NavLink>)}
+      </nav>}
+      <nav aria-label="Help and related tools" className="p-3 space-y-1">
+        <NavLink to="/help" className={navClass}>Help & Reference</NavLink>
+        <NavLink to="/about" className={navClass}>About</NavLink>
+        <a href="https://labs.hybridsolutions.cloud/hyperv-surveyor" target="_blank" rel="noopener noreferrer" className="block rounded-md border border-blue-300/30 px-3 py-3 mt-4 text-sm text-blue-200 hover:bg-white/10">
+          <strong className="block text-xs mb-1">Planning Windows Server Hyper-V?</strong>
+          Open Hyper-V Surveyor <ExternalLink className="inline w-3.5 h-3.5" aria-hidden="true" />
         </a>
-        <nav className="flex-1 py-4 space-y-0.5 px-2">
-          <NavItem to="/hardware" label="Hardware" icon={Server} end />
-          <NavItem to="/workloads" label="Workloads" icon={Cpu} />
-          <NavItem to="/fit" label="Workload Fit" icon={BarChart3} />
-          <NavItem to="/projects" label="Saved Projects" icon={FileText} />
-          {avdEnabled   && <NavItem to="/avd"  label="AVD"  icon={Monitor}    />}
-          {aks.enabled  && <NavItem to="/aks"  label="AKS"  icon={Container}  />}
-          {sofsEnabled  && <NavItem to="/sofs" label="SOFS" icon={HardDrive}  />}
-          {mabsEnabled  && <NavItem to="/mabs" label="MABS" icon={ShieldCheck} />}
-          <NavItem to="/volumes" label="Volumes" icon={HardDrive} />
-          <NavItem to="/drive-layout" label="Drive Layout" icon={Layers} />
-          <NavItem to="/reports" label="Reports" icon={BarChart3} />
-          <NavItem to="/thin-provisioning" label="Thin Provision" icon={BookOpen} />
-          <NavItem to="/references" label="References" icon={Link2} />
-          <NavItem to="/docs" label="Docs" icon={FileText} />
-          <NavItem to="/about" label="About" icon={Info} />
-        </nav>
-        <div className="px-2 py-3 border-t border-white/10">
-          <button
-            className="flex items-center gap-2 w-full px-3 py-2 text-sm text-blue-200 hover:text-white rounded-md hover:bg-white/10 transition-colors"
-            onClick={() => setAdvancedOpen(true)}
-          >
-            <Settings className="w-4 h-4" />
-            Advanced Settings
-          </button>
-          <div className="px-3 pt-2 text-xs text-blue-300/30 leading-snug">
-            &copy; 2026 Azure Local Cloud<br />MIT License
-          </div>
+      </nav>
+    </aside>
+    <div className="flex-1 min-w-0">
+      {inPlan && <header className="no-print border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 px-5 py-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="text-xs text-gray-500 flex-1 min-w-48">{area === 'storage' ? 'Storage Sizing' : 'Workload Planning'} · active project<input aria-label="Active project name" className="input mt-1" value={state.planName} onChange={e => state.setPlanName(e.target.value)} /></label>
+          <Link to={prefix + '/projects'} className="action-secondary">Open / Compare</Link>
+          <button className="action" onClick={() => { downloadProject(createProject(state, state.planName, area)); setNotice('Project downloaded.') }}>Save project</button>
+          <Dialog.Root open={advancedOpen} onOpenChange={setAdvancedOpen}>
+            <Dialog.Trigger asChild><button className="action-secondary"><Settings className="inline w-4 h-4 mr-1" />Planning assumptions</button></Dialog.Trigger>
+            <Dialog.Portal>
+              <Dialog.Overlay className="fixed inset-0 z-50 bg-black/40 no-print" />
+              <Dialog.Content aria-describedby={undefined} className="fixed right-0 top-0 z-50 w-full max-w-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 h-full overflow-y-auto p-5 no-print">
+                <div className="flex justify-between items-center mb-4"><Dialog.Title className="text-lg font-semibold">Planning assumptions</Dialog.Title><Dialog.Close asChild><button className="action-secondary" aria-label="Close planning assumptions"><X className="w-4 h-4" /></button></Dialog.Close></div>
+                <AdvancedSettings />
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog.Root>
         </div>
-      </aside>
-
-      {/* Main content */}
-      <main className="flex-1 min-w-0 overflow-auto">
-        <div className="max-w-5xl mx-auto px-6 py-8">
-          <ErrorBoundary>{children}</ErrorBoundary>
-        </div>
-      </main>
-
-      {/* Advanced Settings modal */}
-      {advancedOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-end"
-          onClick={(e) => { if (e.target === e.currentTarget) setAdvancedOpen(false) }}
-        >
-          {/* Backdrop */}
-          <div className="absolute inset-0 bg-black/40" />
-          {/* Panel */}
-          <div className="relative z-10 h-full w-full max-w-xl bg-white dark:bg-gray-900 shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-base font-semibold">Advanced Settings</h2>
-              <button
-                onClick={() => setAdvancedOpen(false)}
-                className="p-1.5 rounded-md text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
-                title="Close"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto px-5 py-4">
-              <AdvancedSettings />
-            </div>
-          </div>
-        </div>
-      )}
+        {notice && <p className="text-xs text-green-700 mt-2" role="status">{notice}</p>}
+      </header>}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6"><ErrorBoundary>{children}</ErrorBoundary></main>
     </div>
-  )
-}
-
-function NavItem({
-  to, label, subtitle, icon: Icon, end,
-}: {
-  to: string; label: string; subtitle?: string; icon: React.ElementType; end?: boolean
-}) {
-  return (
-    <NavLink
-      to={to}
-      end={end}
-      className={({ isActive }) =>
-        `flex items-center gap-2.5 px-3 py-2 rounded-md text-sm font-medium transition-colors ` +
-        (isActive
-          ? 'bg-brand-500/40 text-white'
-          : 'text-blue-200 hover:bg-white/10 hover:text-white')
-      }
-    >
-      <Icon className="w-4 h-4 shrink-0" />
-      <span>
-        {label}
-        {subtitle && <span className="block text-[10px] font-normal text-blue-300/50 leading-none mt-0.5">{subtitle}</span>}
-      </span>
-    </NavLink>
-  )
+  </div>
 }

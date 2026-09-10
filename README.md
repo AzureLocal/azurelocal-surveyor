@@ -8,6 +8,16 @@ GitHub Actions tests and builds every push to `main`, publishes the website and 
 documentation to GitHub Pages, and verifies the deployed commit and browser workflow.
 The workflow only turns green after the public website passes verification.
 
+## Planning areas in v2.8.0
+
+Choose **Storage Sizing** for the standalone calculator: Hardware & Drives → Capacity & Resiliency → Volume Planning → Storage Report. No workloads are required. Storage reports export to PDF, XLSX, Markdown, project JSON and a volume creation script.
+
+Choose **Workload Planning** to answer either **What hardware do I need?** or **What can my existing hardware run?** Import or enter workloads, compare reviewed OEM configurations, or assess available hardware and remaining headroom. Specialized planners are grouped under **Specialized Workloads**.
+
+Each area keeps its own project name and browser state. **Save project** and **Open / Compare** are available throughout each plan. Explicit reviewed copy actions transfer hardware or a storage design between areas. Existing browser plans and older project files open in Workload Planning.
+
+See the [planning guide](docs/guide/planning-areas.md) for both workflows, project handling and sizing assumptions.
+
 ## Workload planning
 
 Start with **Workloads** to import an RVTools workbook or vInfo CSV, or add individual VMs manually.
@@ -20,13 +30,13 @@ metrics and assumes approved right-sizing. The safety multiplier, confidence sco
 are planning assumptions. Consumed-storage sizing requires thin provisioning or disk reclamation and does
 not automatically reserve the gap to provisioned capacity.
 
-**Workload Fit** checks combined demand against your hardware, including the selected N+1/N+2 compute
+**Fit & Recommendations** checks combined demand against your hardware, including the selected N+1/N+2 compute
 reserve, and compares same-spec node counts within the existing S2D model's 2–16 node range. This is a
 calculator scope, not a universal Azure Local platform limit. It evaluates workload volume suggestions and
 the edited volume plan separately; the larger footprint controls the capacity check. It does not certify
 per-VM placement, storage performance, networking, or hardware support.
 
-**Saved Projects** downloads the complete planning inputs and inventory evidence. Open another project to
+**Save project** downloads the complete planning inputs and inventory evidence. Use **Open / Compare** to open another project to
 compare it before restoring. JSON plan manifests can also be reopened. Use downloaded files to retain named
 scenarios; browser persistence alone is not a backup. Existing grouped RVTools imports remain grouped when
 older saved state is loaded, so no duplicate individual inventory is manufactured.

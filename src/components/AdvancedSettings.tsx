@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { planPath, usePlanningArea } from '../state/planning-area'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { DEFAULT_ADVANCED_SETTINGS } from '../engine/types'
 import type { AdvancedSettingsOverrides, ResiliencyType, MaintenanceReserveMode } from '../engine/types'
 import { validResiliencyOptions, minNodesForResiliency } from '../engine/capacity'
@@ -11,6 +12,7 @@ export default function AdvancedSettings() {
   const [overridesOpen, setOverridesOpen] = useState(false)
   const [confirmReset, setConfirmReset] = useState(false)
   const navigate = useNavigate()
+  const area = usePlanningArea()
 
   const overrides: AdvancedSettingsOverrides = advanced.overrides ?? {}
   const hasActiveOverride = Object.values(overrides).some((v) => v !== undefined && v > 0)
@@ -28,8 +30,8 @@ export default function AdvancedSettings() {
   return (
     <div className="space-y-4">
       <p className="text-sm text-gray-500">
-        These settings match the "Advanced Settings" sheet in the original workbook.
-        Defaults are tuned for Azure Local — change only if you know what you're doing.
+        Review storage reserves, resiliency and compute assumptions for this project.
+        Changes apply only to the active planning area.
       </p>
 
       <div className="grid grid-cols-2 gap-4">
@@ -228,7 +230,7 @@ export default function AdvancedSettings() {
                 onClick={() => {
                   resetAll()
                   setConfirmReset(false)
-                  navigate('/hardware')
+                  navigate(planPath(area, '/hardware'))
                 }}
               >
                 Yes, reset

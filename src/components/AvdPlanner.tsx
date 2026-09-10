@@ -15,11 +15,11 @@
  */
 import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { Link } from 'react-router-dom'
+import { Link } from './PlanLink'
 import { createDefaultAvdPool } from '../engine/avd-pools'
 import { computeAvd } from '../engine/avd'
 import type { AvdHostPool, AvdPoolResult, AvdProfileStorageLocation, AvdWorkloadType } from '../engine/types'
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 
 const GOLD_IMAGE_SIZES = [
   { label: 'Windows 11 base (no apps)', sizeGB: 30 },

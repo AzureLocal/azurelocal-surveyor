@@ -1,5 +1,13 @@
 # Plan Manifest Schema
 
+## Reopenable projects in v2.8.0
+
+**Save project** downloads a separate project format with `kind: "azurelocal-surveyor-project"`, numeric `schemaVersion: 1`, `stateVersion: 10`, `appVersion`, `name`, `savedAt`, `planningArea` and `inputs`. The optional area tag is `storage` or `workload`; legacy files without it default to workload planning. State version 10 remains compatible because project names, planning purpose and the area tag are additive fields.
+
+Open projects in their matching area using **Open / Compare**. Preview comparisons before restoring. Storage projects exclude workload demand. The existing manifest format below remains supported in Workload Planning. See the [planning guide](../guide/planning-areas.md) for explicit transfers between areas.
+
+## Report manifests
+
 The **Export JSON** button on the Reports page produces a `SurveyorPlan` JSON file.
 This file is the primary handoff artifact for Ranger and any downstream automation.
 

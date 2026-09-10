@@ -1,6 +1,6 @@
 import { ExternalLink } from 'lucide-react'
 import SofsPlanner from '../components/SofsPlanner'
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 
 export default function SofsPage() {
   const { sofsEnabled, setSofsEnabled } = useSurveyorStore()

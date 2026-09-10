@@ -7,8 +7,8 @@
  */
 import { useState } from 'react'
 import { ChevronDown, ChevronRight } from 'lucide-react'
-import { Link } from 'react-router-dom'
-import { useSurveyorStore } from '../state/store'
+import { Link } from './PlanLink'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
 import type { SofsContainerType, SofsInternalMirror } from '../engine/types'

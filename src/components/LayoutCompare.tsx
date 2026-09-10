@@ -4,7 +4,7 @@
  * Shows rows for 1–16 drives/node, auto-calculating drive size to preserve
  * total raw, so you can see how reserve cost changes with drive count.
  */
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { computeCapacity, round2 } from '../engine/capacity'
 import type { HardwareInputs } from '../engine/types'
 

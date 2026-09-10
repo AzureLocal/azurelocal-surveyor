@@ -6,7 +6,7 @@
  */
 import { useState } from 'react'
 import { Trash2, Plus, ChevronDown, ChevronUp, ExternalLink } from 'lucide-react'
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import {
   SERVICE_PRESET_CATALOG,
   getCatalogEntry,

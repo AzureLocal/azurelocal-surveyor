@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { findPreset, hardwareFromPreset, presetsByVendor } from '../engine/presets/index'
 import type { OemCatalogType } from '../engine/types'
 

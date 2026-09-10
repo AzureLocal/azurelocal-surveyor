@@ -3,7 +3,7 @@
  * Shown only when MABS is enabled (Phase 13A).
  * Backup sizing, internal mirror impact, VM specs, volume suggestions.
  */
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { computeMabs } from '../engine/mabs'
 
 const MIRROR_LABELS: Record<string, string> = {

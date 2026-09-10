@@ -3,11 +3,32 @@
 All notable changes to Azure Local Surveyor are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
-The authoritative source is the repository root
-[CHANGELOG.md](https://github.com/AzureLocal/azurelocal-surveyor/blob/main/CHANGELOG.md).
-This page mirrors it for in-site browsing.
-
 ---
+
+## [2.8.0] — 2026-09-10
+
+### Added
+
+- Separate **Storage Sizing** and **Workload Planning** areas with independent browser state, project names, saves and resets (AB#9075).
+- Workload paths for buying hardware and assessing existing equipment; OEM configuration comparison with node constraints, additional headroom and vendor filters.
+- Existing-hardware headroom estimator for an additional VM profile; inventory VMs that exceed one host's usable RAM now fail fit checks.
+- Standalone storage PDF, XLSX, Markdown and project exports; explicit reviewed transfers of hardware and storage designs between planning areas.
+- Persistent project controls, stable specialized-workload navigation, and centralized Help & Reference with a new planning guide.
+- Release version displayed consistently in the website and saved projects; published documentation and browser tests cover both planning areas.
+- Refreshed 21 OEM planning presets with current Dell, HPE, Lenovo and DataON models, vendor references, review dates and visible sizing assumptions. Corrected stale tiers and removed unverified configurations (AB#9074).
+- Sidebar link to Hyper-V Surveyor for Windows Server planning.
+- Individual VM inventory with RVTools workbook/CSV import preview, editable rows, inclusion controls, tier review, search, and bulk changes.
+- Optional measured P95 CPU/memory sizing, performance templates and imports, independent allocation fallbacks, evidence coverage, inventory growth, and consumed/provisioned storage selection.
+- Workload Fit page with maintenance reserves, CPU/RAM/pool deficits, per-volume resiliency, and same-spec node comparison within the existing 2–16 node S2D model.
+- Downloadable, versioned projects with restore preview and scenario comparison; older plan manifests remain readable.
+- Inventory totals and fit assumptions in reports and exports, with detailed inventory in Markdown/XLSX and complete evidence in JSON projects.
+- Workload-first, existing-hardware, and fit-assessment entry points.
+
+### Fixed
+
+- Unified workload totals across screens and exports, including custom-workload internal mirrors and avoiding duplicate compute for services already hosted by AKS workers.
+- Workload-page utilization now includes inventory, custom workloads, and service presets and respects the selected maintenance reserve.
+- Inventory storage converts binary GiB to decimal TB once before entering the storage-capacity model.
 
 ## [2.7.0] — 2026-06-30
 
@@ -105,8 +126,6 @@ This page mirrors it for in-site browsing.
 - Custom Workloads import parsing/validation/normalization extracted from `CustomWorkloads.tsx`
   into a pure, exported `parseCustomWorkloadsJson` in the engine (no behavior change), making the
   import path unit-testable. (AB#154)
-
----
 
 ## [2.3.0] — 2026-06-29
 

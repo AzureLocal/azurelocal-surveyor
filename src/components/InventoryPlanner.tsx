@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { computeInventory, WORKLOAD_TIERS, type InventoryVm, type WorkloadTier } from '../engine/inventory'
 import { attachPerformanceWorkbook, parseInventoryWorkbook, performanceTemplate } from '../engine/inventory-import'
 

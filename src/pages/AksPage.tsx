@@ -5,7 +5,7 @@
  * and via Arc service presets in Workload Planner respectively.
  */
 import { useEffect, useState } from 'react'
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { computeAks } from '../engine/aks'
 import type { AksCluster } from '../engine/types'
 
@@ -79,6 +79,7 @@ export default function AksPage() {
         </p>
       </div>
 
+      <label className="panel flex items-center gap-3"><input type="checkbox" checked={aks.enabled} onChange={e => setAks({ enabled: e.target.checked })} />Include AKS in workload demand</label>
       {/* ── Cluster cards ── */}
       <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
         <div className="flex items-center justify-between gap-4 bg-gray-50 dark:bg-gray-800 px-4 py-3">

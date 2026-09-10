@@ -1,9 +1,10 @@
-import { normalizePersistedState, type SurveyorState } from './store'
+import { normalizePersistedState, storageSnapshot, type SurveyorState } from './store'
 import { version } from '../../package.json'
 import { computePlanning } from '../engine/planning'
 import { suggestPlanningVolumes } from '../engine/planning'
 
 export interface SurveyorProject {
+  planningArea?: 'storage' | 'workload'
   kind: 'azurelocal-surveyor-project'
   schemaVersion: 1
   stateVersion: 10
@@ -13,11 +14,12 @@ export interface SurveyorProject {
   inputs: ReturnType<typeof normalizePersistedState>
 }
 
-export function createProject(state: SurveyorState, name: string): SurveyorProject {
+export function createProject(state: SurveyorState, name: string, planningArea: 'storage' | 'workload' = 'workload'): SurveyorProject {
   return {
     kind: 'azurelocal-surveyor-project', schemaVersion: 1, stateVersion: 10,
+    planningArea,
     appVersion: version, name: name.trim() || 'Azure Local plan', savedAt: new Date().toISOString(),
-    inputs: structuredClone(normalizePersistedState(state)),
+    inputs: structuredClone(planningArea === 'storage' ? storageSnapshot(state) : normalizePersistedState(state)),
   }
 }
 
@@ -31,12 +33,13 @@ function checkNumbers(value: unknown): void {
 }
 
 /** Fully parse before restoring so a rejected file cannot partially replace the active plan. */
-export function parseProject(text: string): { name: string; inputs: ReturnType<typeof normalizePersistedState> } {
+export function parseProject(text: string): { name: string; planningArea: 'storage' | 'workload'; inputs: ReturnType<typeof normalizePersistedState> } {
   const file: unknown = JSON.parse(text)
   if (!record(file)) throw new Error('Not an Azure Local Surveyor project.')
   const project = file.kind === 'azurelocal-surveyor-project'
   const manifest = file.kind === undefined && file.schemaVersion === '1.0' && typeof file.surveyorVersion === 'string'
   if (!project && !manifest) throw new Error('Choose an Azure Local Surveyor project or plan manifest JSON file.')
+  if (file.planningArea !== undefined && !['storage', 'workload'].includes(String(file.planningArea))) throw new Error('Invalid planning area.')
   if (project && (file.schemaVersion !== 1 || file.stateVersion !== 10)) throw new Error('Unsupported project version. Open it with a compatible Surveyor version.')
   if (!record(file.inputs)) throw new Error('The project has no input snapshot.')
   const inputs = file.inputs
@@ -77,7 +80,7 @@ export function parseProject(text: string): { name: string; inputs: ReturnType<t
   if (state.inventorySources.some(source => !source || typeof source.fileName !== 'string' || typeof source.importedAt !== 'string' || !['rvtools', 'performance'].includes(source.kind) || !Number.isFinite(source.rows))) throw new Error('Invalid inventory import history.')
   const totals = computePlanning(state).workloadTotals
   if (!Object.values(totals).every(Number.isFinite) || suggestPlanningVolumes(state).some(volume => !Number.isFinite(volume.plannedSizeTB))) throw new Error('Project inputs produced invalid sizing results.')
-  return { name: typeof file.name === 'string' ? file.name : 'Imported plan manifest', inputs: state }
+  return { name: typeof file.name === 'string' ? file.name : 'Imported plan manifest', planningArea: file.planningArea === 'storage' ? 'storage' : 'workload', inputs: state }
 }
 
 export function downloadProject(project: SurveyorProject): void {

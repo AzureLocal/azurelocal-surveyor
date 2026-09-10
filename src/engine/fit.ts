@@ -1,6 +1,7 @@
 import type { HardwareInputs, VolumeSpec } from './types'
 import { computeCapacity, getResiliencyFactor, minNodesForResiliency } from './capacity'
 import { computeCompute } from './compute'
+import { computeInventory } from './inventory'
 import { computePlanning, suggestPlanningVolumes, type PlanningInputs } from './planning'
 
 export type FitInputs = PlanningInputs & { hardware: HardwareInputs; volumes: VolumeSpec[] }
@@ -31,6 +32,8 @@ export function assessHardwareFit(state: FitInputs) {
     }
     if (![demand.totalVCpus, demand.totalMemoryGB, requiredFootprintTB, cpu, memory, capacity.availableForVolumesTB].every(Number.isFinite)) errors.push('One or more planning inputs produced invalid capacity. Review the inputs.')
     const allVolumes = [...suggested, ...state.volumes]
+    const oversizedVm = state.inventory?.some(vm => vm.include && computeInventory([vm], { ...state.inventorySettings, growthPct: 0 }).totalMemoryGB > hardware.memoryPerNodeGB - state.advanced.systemReservedMemoryGB)
+    if (oversizedVm) errors.push('An inventory VM needs more RAM than one host can provide. Choose larger hosts or revise that VM sizing; adding hosts alone cannot resolve it.')
     if (allVolumes.some(v => nodeCount < minNodesForResiliency(v.resiliency))) errors.push('A workload or planned volume uses resiliency that requires more nodes.')
     if (allVolumes.some(v => v.plannedSizeTB > 64 || v.plannedSizeTB < 0 || !Number.isFinite(v.plannedSizeTB))) errors.push('A volume is outside the planner’s 0–64 TB size range. Review or split the volume.')
     if (state.advanced.defaultResiliency === 'nested-two-way' && nodeCount !== 2 || allVolumes.some(v => v.resiliency === 'nested-two-way') && nodeCount !== 2) errors.push('Nested resiliency is modeled only for two-node designs. Change the volume resiliency before expanding.')

@@ -9,8 +9,8 @@ import { computePlanning } from '../engine/planning'
  *   4. SOFS (Scale-Out File Server) — configured on the SOFS page
  *   5. MABS (Microsoft Azure Backup Server) — configured on the MABS page
  */
-import { Link } from 'react-router-dom'
-import { useSurveyorStore } from '../state/store'
+import { Link } from './PlanLink'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { computeAvd } from '../engine/avd'
 import { computeAks } from '../engine/aks'
 import { computeSofs } from '../engine/sofs'

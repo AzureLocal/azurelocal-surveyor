@@ -3,7 +3,7 @@
  * Shown only when AKS is enabled (Phase 13A).
  * Per-cluster breakdown: control plane, worker nodes, vCPU, memory, PVC storage.
  */
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import type { AksCluster } from '../engine/types'
 
 const CONTROL_PLANE_VCPUS_PER_NODE = 4

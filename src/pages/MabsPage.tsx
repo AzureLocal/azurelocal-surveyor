@@ -1,5 +1,5 @@
 import { ExternalLink } from 'lucide-react'
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { computeMabs } from '../engine/mabs'
 import type { MabsInternalMirror } from '../engine/types'
 

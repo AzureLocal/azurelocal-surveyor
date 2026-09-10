@@ -5,10 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## Unreleased
+## [2.8.0] — 2026-09-10
 
 ### Added
 
+- Separate **Storage Sizing** and **Workload Planning** areas with independent browser state, project names, saves and resets (AB#9075).
+- Workload paths for buying hardware and assessing existing equipment; OEM configuration comparison with node constraints, additional headroom and vendor filters.
+- Existing-hardware headroom estimator for an additional VM profile; inventory VMs that exceed one host's usable RAM now fail fit checks.
+- Standalone storage PDF, XLSX, Markdown and project exports; explicit reviewed transfers of hardware and storage designs between planning areas.
+- Persistent project controls, stable specialized-workload navigation, and centralized Help & Reference with a new planning guide.
+- Release version displayed consistently in the website and saved projects; published documentation and browser tests cover both planning areas.
 - Refreshed 21 OEM planning presets with current Dell, HPE, Lenovo and DataON models, vendor references, review dates and visible sizing assumptions. Corrected stale tiers and removed unverified configurations (AB#9074).
 - Sidebar link to Hyper-V Surveyor for Windows Server planning.
 - Individual VM inventory with RVTools workbook/CSV import preview, editable rows, inclusion controls, tier review, search, and bulk changes.

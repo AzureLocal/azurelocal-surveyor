@@ -3,7 +3,7 @@
  * Shown only when AVD is enabled (Phase 13A).
  * Per-pool breakdown: session host count, tier, vCPU, memory, storage, bandwidth.
  */
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { computeAvd } from '../engine/avd'
 import type { AvdPoolResult } from '../engine/types'
 

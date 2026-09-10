@@ -1,10 +1,8 @@
 import { computePlanning } from '../engine/planning'
-import WorkloadPlanner from '../components/WorkloadPlanner'
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { computeCompute } from '../engine/compute'
-import ComputeReport from '../components/ComputeReport'
 import InventoryPlanner from '../components/InventoryPlanner'
-import { Link } from 'react-router-dom'
+import { Link } from '../components/PlanLink'
 
 export default function WorkloadsPage() {
   const state = useSurveyorStore()
@@ -28,16 +26,15 @@ export default function WorkloadsPage() {
       </div>
 
       {/* Utilization summary */}
-      <div className="grid grid-cols-2 gap-4">
+      {state.planningPurpose === 'existing' && <div className="grid grid-cols-2 gap-4">
         <UtilBar label={`vCPU · reserve ${reserve}`} used={totalVCpus} total={cpuCapacity} pct={vcpuUsedPct} unit="" />
         <UtilBar label={`Memory · reserve ${reserve}`} used={totalMemoryGB} total={memoryCapacity} pct={memUsedPct} unit=" GiB" />
-      </div>
+      </div>}
 
       <InventoryPlanner />
       <div className="flex flex-wrap gap-4 text-sm"><Link to="/hardware" className="text-brand-600 underline">Configure hardware</Link><Link to="/fit" className="text-brand-600 underline">Assess workload fit →</Link><Link to="/projects" className="text-brand-600 underline">Save or compare a project</Link></div>
-      <h2 className="text-xl font-semibold">Specialized workloads and quick groups</h2>
-      <WorkloadPlanner />
-      <ComputeReport result={compute} totalVCpus={totalVCpus} totalMemoryGB={totalMemoryGB} maintenanceReserveMode={reserve} />
+      <div className="panel space-y-3"><h2 className="font-semibold">Add workload groups or specialized services</h2><p className="text-sm text-gray-500">Use quick VM groups, virtual desktops, Kubernetes, file services and backup sizing alongside the inventory.</p><Link to="/specialized" className="action-secondary">Specialized workloads and quick groups</Link></div>
+      <Link className="action" to={state.planningPurpose === 'buy' ? '/recommendations' : '/fit'}>{state.planningPurpose === 'buy' ? 'Find hardware options' : 'Assess existing hardware'} →</Link>
     </div>
   )
 }

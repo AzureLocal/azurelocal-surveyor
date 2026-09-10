@@ -22,6 +22,10 @@ import { DEFAULT_INVENTORY_SETTINGS, normalizeInventorySettings, validateInvento
 export type VolumeMode = 'workload' | 'generic'
 
 export interface SurveyorState {
+  planName: string
+  planningPurpose: 'buy' | 'existing'
+  setPlanName: (name: string) => void
+  setPlanningPurpose: (purpose: 'buy' | 'existing') => void
   // Inputs
   hardware: HardwareInputs
   advanced: AdvancedSettings
@@ -181,7 +185,7 @@ const DEFAULT_STATE = {
   inventorySources: [] as InventorySource[],
 }
 
-type SurveyorPersistedSlice = typeof DEFAULT_STATE
+type SurveyorPersistedSlice = typeof DEFAULT_STATE & { planName: string; planningPurpose: 'buy' | 'existing' }
 
 type AvdSofsLinkState = Pick<SurveyorPersistedSlice, 'avd' | 'avdEnabled' | 'sofs' | 'sofsEnabled'>
 
@@ -303,6 +307,8 @@ export function normalizePersistedState(persisted: unknown): SurveyorPersistedSl
 
   return {
     hardware: mergeObject(DEFAULT_HARDWARE, state.hardware),
+    planName: typeof state.planName === 'string' ? state.planName : 'Azure Local plan',
+    planningPurpose: state.planningPurpose === 'existing' ? 'existing' : 'buy',
     inventory: state.inventory === undefined ? [] : validateInventory(state.inventory),
     inventorySettings: normalizeInventorySettings(isRecord(state.inventorySettings) ? state.inventorySettings : {}),
     inventorySources: Array.isArray(state.inventorySources) ? state.inventorySources as InventorySource[] : [],
@@ -343,14 +349,23 @@ export function normalizePersistedState(persisted: unknown): SurveyorPersistedSl
   }
 }
 
-export const useSurveyorStore = create<SurveyorState>()(
+export function storageSnapshot(raw: unknown) {
+  const state = normalizePersistedState(raw)
+  return normalizePersistedState({ hardware: state.hardware, advanced: state.advanced, volumes: state.volumes, planName: state.planName, volumeMode: 'generic' })
+}
+
+export const createSurveyorStore = (storageKey = 'surveyor-state') => create<SurveyorState>()(
   persist(
     (set) => ({
-      ...DEFAULT_STATE,
+      ...structuredClone(DEFAULT_STATE),
+      planName: storageKey === 'surveyor-storage-state' ? 'Storage plan' : 'Azure Local plan',
+      planningPurpose: 'buy',
+      setPlanName: (planName) => set({ planName }),
+      setPlanningPurpose: (planningPurpose) => set({ planningPurpose }),
       setInventory: (inventory) => set({ inventory: validateInventory(inventory) }),
       setInventorySettings: (settings) => set(s => ({ inventorySettings: normalizeInventorySettings({ ...s.inventorySettings, ...settings }) })),
       addInventorySource: (source) => set(s => ({ inventorySources: [...s.inventorySources, source] })),
-      restoreProject: (state) => set(normalizePersistedState(state)),
+      restoreProject: (state) => set(storageKey === 'surveyor-storage-state' ? storageSnapshot(state) : normalizePersistedState(state)),
 
       setHardware: (hw) =>
         set((s) => ({ hardware: { ...s.hardware, ...hw } })),
@@ -443,19 +458,23 @@ export const useSurveyorStore = create<SurveyorState>()(
         set((s) => ({ customWorkloads: s.customWorkloads.filter((cw) => cw.id !== id) })),
 
       resetAll: () =>
-        set(DEFAULT_STATE),
+        set({ ...structuredClone(DEFAULT_STATE), planName: storageKey === 'surveyor-storage-state' ? 'Storage plan' : 'Azure Local plan', planningPurpose: 'buy' }),
     }),
     {
-      name: 'surveyor-state',
+      name: storageKey,
       version: 10,
       migrate: migratePersistedState,
       merge: (persisted: unknown, current: SurveyorState) => ({
         ...current,
-        ...normalizePersistedState(persisted),
+        ...(storageKey === 'surveyor-storage-state' ? storageSnapshot(persisted) : normalizePersistedState(persisted)),
       }),
     }
   )
 )
+
+// Preserve the original browser key for existing plans. Storage has its own draft.
+export const useSurveyorStore = createSurveyorStore()
+export const storagePlanStore = createSurveyorStore('surveyor-storage-state')
 
 /** @internal — exported for testing only */
 export function migratePersistedState(persisted: unknown, version: number): unknown {

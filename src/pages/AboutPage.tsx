@@ -2,6 +2,17 @@ import { version } from '../../package.json'
 
 const RELEASE_HISTORY = [
   {
+    version: '2.8.0',
+    label: 'Storage Sizing and Workload Planning',
+    items: [
+      'Independent storage and workload projects with persistent save, open and compare controls',
+      'Buy hardware from workload demand or assess existing equipment and remaining headroom',
+      'Reviewed OEM configurations, inventory imports, measured sizing and hardware fit checks',
+      'Storage-only reports and explicit copies between planning areas',
+      'Organized specialized planners, updated documentation and a link to Hyper-V Surveyor',
+    ],
+  },
+  {
     version: '2.1.4',
     label: 'Multi-Threshold Pool Utilization Reference',
     items: [

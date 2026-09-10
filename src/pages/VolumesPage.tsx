@@ -3,7 +3,7 @@ import { useState } from 'react'
 import { ChevronDown, ChevronRight, Wand2, PlusCircle, CheckCircle2, Terminal, CheckCircle, Copy } from 'lucide-react'
 import VolumeTable from '../components/VolumeTable'
 import HealthCheck from '../components/HealthCheck'
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { computeCapacity, TB_TO_TiB, validResiliencyOptions } from '../engine/capacity'
 import { computeCompute } from '../engine/compute'
 import { computeAvd } from '../engine/avd'
@@ -14,8 +14,11 @@ import { runHealthCheck } from '../engine/healthcheck'
 import { generateWorkloadVolumes, type SuggestedVolume } from '../engine/workload-volumes'
 import { toWacSize, computeQuickStart, generateGenericVolumes, type GenericSuggestion } from '../engine/volumes'
 import type { ResiliencyType } from '../engine/types'
+import { usePlanningArea } from '../state/planning-area'
+import PlanTransfer from '../components/PlanTransfer'
 
 export default function VolumesPage() {
+  const storageOnly = usePlanningArea() === 'storage'
   const state = useSurveyorStore()
   const { hardware, advanced, volumes } = state
   const capacity = computeCapacity(hardware, advanced)
@@ -53,15 +56,14 @@ export default function VolumesPage() {
   return (
     <div className="space-y-10">
       <div>
-        <h1 className="text-2xl font-bold">Volume Detail</h1>
+        <h1 className="text-2xl font-bold">{storageOnly ? 'Volume Planning' : 'Storage Design'}</h1>
         <p className="text-sm text-gray-500 mt-1">
           Plan your Cluster Shared Volumes with per-volume resiliency and WAC-ready sizes.
-          Ports the 95 formulas from the Volume Detail sheet.
         </p>
       </div>
 
       {/* #76: Volume suggestion mode toggle */}
-      <VolumeModeToggle />
+      {!storageOnly && <VolumeModeToggle />}
 
       {/* #75: Quick-Start Volumes — hardware-based equal-split reference */}
       <QuickStartVolumes capacity={capacity} />
@@ -88,6 +90,7 @@ export default function VolumesPage() {
         <h2 className="text-xl font-semibold mb-4">Resiliency Reference Guide</h2>
         <ResiliencyGuide nodeCount={hardware.nodeCount} />
       </section>
+      <PlanTransfer />
     </div>
   )
 }

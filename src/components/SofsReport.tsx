@@ -6,7 +6,7 @@
  * - Resiliency compounding explanation
  * - Deployment assumptions
  */
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { computeSofs } from '../engine/sofs'
 
 function Row({ label, value, sub, highlight }: { label: string; value: string; sub?: string; highlight?: boolean }) {

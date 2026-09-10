@@ -7,7 +7,7 @@
  */
 import { useState, useRef } from 'react'
 import { Trash2, Plus, ChevronDown, ChevronUp, Download, Upload, FileSpreadsheet } from 'lucide-react'
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { computeAllCustomWorkloads, parseCustomWorkloadsJson } from '../engine/custom-workloads'
 import { parseRvToolsWorkbook } from '../engine/rvtools'
 import type { CustomWorkload } from '../engine/types'

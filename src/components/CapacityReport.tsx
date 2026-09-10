@@ -9,15 +9,17 @@ import { seventyPctLineTB } from '../engine/thresholds'
 function CapacityStackedBar({
   capacity,
   volumesUsedTB = 0,
+  plannedFootprintTB,
 }: {
   capacity: CapacityResult
   volumesUsedTB?: number
+  plannedFootprintTB?: number
 }) {
   const total = capacity.rawPoolTB
   if (total <= 0) return null
 
   // Pool footprint of planned volumes: logical ÷ resiliency factor
-  const volumeFootprintTB = volumesUsedTB > 0
+  const volumeFootprintTB = plannedFootprintTB !== undefined ? Math.min(plannedFootprintTB, capacity.availableForVolumesTB) : volumesUsedTB > 0
     ? Math.min(volumesUsedTB / capacity.resiliencyFactor, capacity.availableForVolumesTB)
     : 0
   const remainingTB = Math.max(0, capacity.availableForVolumesTB - volumeFootprintTB)
@@ -109,9 +111,11 @@ const GLOSSARY = [
 export default function CapacityReport({
   result,
   volumesUsedTB,
+  plannedFootprintTB,
 }: {
   result: CapacityResult
   volumesUsedTB?: number
+  plannedFootprintTB?: number
 }) {
   const [glossaryOpen, setGlossaryOpen] = useState(false)
 
@@ -126,7 +130,7 @@ export default function CapacityReport({
     <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
       <div className="bg-gray-50 dark:bg-gray-800 px-4 py-3 text-sm font-semibold">Capacity Report</div>
       {/* Pool breakdown stacked bar chart (#10) */}
-      <CapacityStackedBar capacity={result} volumesUsedTB={volumesUsedTB} />
+      <CapacityStackedBar capacity={result} volumesUsedTB={volumesUsedTB} plannedFootprintTB={plannedFootprintTB} />
       <div className="border-t border-gray-100 dark:border-gray-800" />
       {/* AB#4636: resiliency clamping warning */}
       {result.resiliencyClamped === true && (

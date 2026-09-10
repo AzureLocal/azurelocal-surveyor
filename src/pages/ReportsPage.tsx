@@ -4,7 +4,6 @@
  * #9: tabbed reports view
  */
 import { useState } from 'react'
-import { Settings } from 'lucide-react'
 import FinalReport from '../components/FinalReport'
 import CapacityReport from '../components/CapacityReport'
 import ComputeReport from '../components/ComputeReport'
@@ -12,8 +11,7 @@ import SofsReport from '../components/SofsReport'
 import AvdReport from '../components/AvdReport'
 import AksReport from '../components/AksReport'
 import MabsReport from '../components/MabsReport'
-import AdvancedSettings from '../components/AdvancedSettings'
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { computeCapacity } from '../engine/capacity'
 import { computeCompute } from '../engine/compute'
 import { computePlanning } from '../engine/planning'
@@ -29,7 +27,6 @@ const BASE_TABS: { id: Tab; label: string }[] = [
 
 export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<Tab>('final')
-  const [showAdvanced, setShowAdvanced] = useState(false)
 
   const state = useSurveyorStore()
   const tabs: { id: Tab; label: string }[] = [
@@ -48,31 +45,10 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Reports</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Capacity, Compute, and Final Report tabs — mirrors the Excel workbook sheet structure.
-          </p>
-        </div>
-        <button
-          onClick={() => setShowAdvanced((v) => !v)}
-          className="flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800"
-        >
-          <Settings className="w-4 h-4" />
-          Advanced Settings
-        </button>
-      </div>
-
-      {showAdvanced && (
-        <div className="rounded-lg border border-gray-200 dark:border-gray-700 p-5">
-          <h2 className="text-base font-semibold mb-4">Advanced Settings</h2>
-          <AdvancedSettings />
-        </div>
-      )}
+      <div><h1 className="text-2xl font-bold">Reports &amp; Exports</h1><p className="text-sm text-gray-500 mt-2">Review the complete workload plan or explore the detailed results. Download deliverables from the Final Report.</p></div>
 
       {/* Tab bar */}
-      <div className="flex border-b border-gray-200 dark:border-gray-700">
+      <div className="flex overflow-x-auto border-b border-gray-200 dark:border-gray-700">
         {tabs.map((tab) => (
           <button
             key={tab.id}

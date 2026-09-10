@@ -1,13 +1,13 @@
 import { computePlanning } from '../engine/planning'
 import { computeInventory } from '../engine/inventory'
 import { assessHardwareFit } from '../engine/fit'
-import { Link } from 'react-router-dom'
+import { Link } from './PlanLink'
 /**
  * FinalReport — master output view with all sections rolled up.
  * Ports the "Final Report" sheet (238 formulas).
  * Also hosts the export buttons: PDF, XLSX, PowerShell, Markdown.
  */
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { computeCapacity, computeExpansionHeadroom, round2 } from '../engine/capacity'
 import { computeVolumeSummary } from '../engine/volumes'
 import { computeCompute } from '../engine/compute'

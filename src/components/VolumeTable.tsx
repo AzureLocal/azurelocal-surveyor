@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useSurveyorStore } from '../state/store'
+import { useSurveyorStore } from '../state/usePlanStore'
 import { computeCapacity, TB_TO_TiB } from '../engine/capacity'
 import { computeVolumeSummary } from '../engine/volumes'
 import { seventyPctLineTB } from '../engine/thresholds'
