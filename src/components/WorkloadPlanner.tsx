@@ -1,3 +1,4 @@
+import { computePlanning } from '../engine/planning'
 /**
  * WorkloadPlanner — enable/disable workload scenarios for capacity planning.
  *
@@ -14,8 +15,7 @@ import { computeAvd } from '../engine/avd'
 import { computeAks } from '../engine/aks'
 import { computeSofs } from '../engine/sofs'
 import { computeMabs } from '../engine/mabs'
-import { computeAllCustomWorkloads } from '../engine/custom-workloads'
-import { computeServicePreset, getCatalogEntry } from '../engine/service-presets'
+import { getCatalogEntry } from '../engine/service-presets'
 import ServicePresets from './ServicePresets'
 import CustomWorkloads from './CustomWorkloads'
 import type { VmScenario, VmStorageGroup } from '../engine/types'
@@ -160,6 +160,7 @@ function VmGroupsEditor({ value, onChange }: { value: VmScenario; onChange: (v: 
 // ─── Main component ────────────────────────────────────────────────────────────
 
 export default function WorkloadPlanner() {
+  const state = useSurveyorStore()
   const {
     avd, avdEnabled, setAvdEnabled,
     aks, setAks,
@@ -176,59 +177,13 @@ export default function WorkloadPlanner() {
   const sofsResult = computeSofs(sofs, advanced.overrides)
   const mabsResult = computeMabs(mabs)
   const vmTotals = vmScenarioTotals(virtualMachines)
-  const customTotals = computeAllCustomWorkloads(customWorkloads)
 
   // True when any enabled service preset requires AKS
   const aksDependentPresetsEnabled = servicePresets.some(
     (p) => p.enabled && (getCatalogEntry(p.catalogId)?.requiresAks ?? false)
   )
 
-  // Aggregate totals across all enabled scenarios
-  let totalVCpus = 0
-  let totalMemoryGB = 0
-  let totalStorageTB = 0
-
-  if (avdEnabled) {
-    totalVCpus   += avdResult.totalVCpus
-    totalMemoryGB += avdResult.totalMemoryGB
-    totalStorageTB += avdResult.totalStorageTB
-  }
-  if (aks.enabled) {
-    totalVCpus   += aksResult.totalVCpus
-    totalMemoryGB += aksResult.totalMemoryGB
-    totalStorageTB += aksResult.totalStorageTB
-  }
-  if (virtualMachines.enabled) {
-    totalVCpus   += vmTotals.vCpus
-    totalMemoryGB += vmTotals.memoryGB
-    totalStorageTB += vmTotals.storageTB
-  }
-  if (sofsEnabled) {
-    totalVCpus   += sofsResult.sofsVCpusTotal
-    totalMemoryGB += sofsResult.sofsMemoryTotalGB
-    totalStorageTB += sofsResult.totalStorageTB
-  }
-  if (mabsEnabled) {
-    totalVCpus   += mabsResult.mabsVCpus
-    totalMemoryGB += mabsResult.mabsMemoryGB
-    totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB
-  }
-  // Service presets: arc-dependent presets run on AKS workers — exclude their compute
-  // when AKS is enabled to avoid double-counting with AKS worker vCPU/memory.
-  for (const inst of servicePresets) {
-    if (!inst.enabled || inst.instanceCount <= 0) continue
-    const entry = getCatalogEntry(inst.catalogId)
-    const t = computeServicePreset(inst)
-    if (!(aks.enabled && entry?.requiresAks)) {
-      totalVCpus    += t.totalVCpus
-      totalMemoryGB += t.totalMemoryGB
-    }
-    totalStorageTB += t.totalStorageTB
-  }
-  // Custom workloads: always aggregate enabled instances
-  totalVCpus    += customTotals.totalVCpus
-  totalMemoryGB += customTotals.totalMemoryGB
-  totalStorageTB += customTotals.totalStorageTB
+  const { totalVCpus, totalMemoryGB, totalStorageTB } = computePlanning(state).workloadTotals
 
   return (
     <div className="space-y-4">

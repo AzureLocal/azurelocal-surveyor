@@ -1,3 +1,4 @@
+import { computePlanning } from '../engine/planning'
 /**
  * JSON exporter — versioned plan manifest (#118).
  *
@@ -11,6 +12,9 @@
  */
 
 import { version } from '../../package.json'
+import type { InventoryVm, InventorySettings, InventorySource } from '../engine/inventory'
+import { computeInventory } from '../engine/inventory'
+import { assessHardwareFit } from '../engine/fit'
 import type { SurveyorState, VolumeMode } from '../state/store'
 import type {
   HardwareInputs,
@@ -42,7 +46,6 @@ import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
 import { runHealthCheck } from '../engine/healthcheck'
-import { computeWorkloadTotals } from '../engine/workloads'
 
 // ─── Provenance ───────────────────────────────────────────────────────────────
 
@@ -89,6 +92,9 @@ export interface SurveyorPlan {
     virtualMachines: VmScenario
     servicePresets: ServicePresetInstance[]
     customWorkloads: CustomWorkload[]
+    inventory?: InventoryVm[]
+    inventorySettings?: InventorySettings
+    inventorySources?: InventorySource[]
   }
 
   /**
@@ -103,6 +109,8 @@ export interface SurveyorPlan {
     workloadTotals: WorkloadSummaryResult
     health: HealthCheckResult
     expansionHeadroom: ExpansionHeadroomResult
+    inventory?: ReturnType<typeof computeInventory>
+    workloadFit?: ReturnType<typeof assessHardwareFit>
     avd?: AvdResult
     sofs?: SofsResult
     aks?: AksResult
@@ -119,14 +127,14 @@ type ExportState = Pick<
   | 'sofs' | 'sofsEnabled'
   | 'mabs' | 'mabsEnabled'
   | 'aks' | 'virtualMachines'
-  | 'servicePresets' | 'customWorkloads'
+  | 'servicePresets' | 'customWorkloads' | 'inventory' | 'inventorySettings' | 'inventorySources'
 >
 
 export interface ExportJsonOptions {
   provenance?: Partial<SurveyorPlanProvenance>
 }
 
-export function exportJson(state: ExportState, options?: ExportJsonOptions): void {
+export function createPlanManifest(state: ExportState, options?: ExportJsonOptions): SurveyorPlan {
   // ── Compute all engine outputs ───────────────────────────────────────────
   const capacity      = computeCapacity(state.hardware, state.advanced)
   const volumeSummary = computeVolumeSummary(state.volumes, capacity)
@@ -135,19 +143,8 @@ export function exportJson(state: ExportState, options?: ExportJsonOptions): voi
   const sofs          = computeSofs(state.sofs, state.advanced.overrides)
   const aks           = computeAks(state.aks)
   const mabs          = computeMabs(state.mabs)
-  const workloadTotals = computeWorkloadTotals({
-    avdEnabled:      state.avdEnabled,
-    avd,
-    aksEnabled:      state.aks.enabled,
-    aks,
-    virtualMachines: state.virtualMachines,
-    sofsEnabled:     state.sofsEnabled,
-    sofs,
-    mabsEnabled:     state.mabsEnabled,
-    mabs,
-    servicePresets:  state.servicePresets,
-    customWorkloads: state.customWorkloads,
-  })
+  const workloadTotals = computePlanning(state).workloadTotals
+
   const health        = runHealthCheck({
     hardware:        state.hardware,
     settings:        state.advanced,
@@ -188,6 +185,9 @@ export function exportJson(state: ExportState, options?: ExportJsonOptions): voi
       virtualMachines: state.virtualMachines,
       servicePresets:  state.servicePresets,
       customWorkloads: state.customWorkloads,
+      inventory: state.inventory,
+      inventorySettings: state.inventorySettings,
+      inventorySources: state.inventorySources,
     },
 
     outputs: {
@@ -197,6 +197,8 @@ export function exportJson(state: ExportState, options?: ExportJsonOptions): voi
       workloadTotals,
       health,
       expansionHeadroom,
+      inventory: computeInventory(state.inventory, state.inventorySettings),
+      workloadFit: assessHardwareFit(state),
       ...(state.avdEnabled  && { avd }),
       ...(state.sofsEnabled && { sofs }),
       ...(state.aks.enabled && { aks }),
@@ -204,6 +206,11 @@ export function exportJson(state: ExportState, options?: ExportJsonOptions): voi
     },
   }
 
+  return plan
+}
+
+export function exportJson(state: ExportState, options?: ExportJsonOptions): void {
+  const plan = createPlanManifest(state, options)
   // ── Trigger browser download ─────────────────────────────────────────────
   const date     = new Date().toISOString().slice(0, 10)
   const filename = `azure-local-plan-${date}.json`

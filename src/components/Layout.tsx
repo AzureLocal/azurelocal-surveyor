@@ -39,6 +39,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <nav className="flex-1 py-4 space-y-0.5 px-2">
           <NavItem to="/hardware" label="Hardware" icon={Server} end />
           <NavItem to="/workloads" label="Workloads" icon={Cpu} />
+          <NavItem to="/fit" label="Workload Fit" icon={BarChart3} />
+          <NavItem to="/projects" label="Saved Projects" icon={FileText} />
           {avdEnabled   && <NavItem to="/avd"  label="AVD"  icon={Monitor}    />}
           {aks.enabled  && <NavItem to="/aks"  label="AKS"  icon={Container}  />}
           {sofsEnabled  && <NavItem to="/sofs" label="SOFS" icon={HardDrive}  />}
@@ -66,7 +68,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
+      <main className="flex-1 min-w-0 overflow-auto">
         <div className="max-w-5xl mx-auto px-6 py-8">
           <ErrorBoundary>{children}</ErrorBoundary>
         </div>

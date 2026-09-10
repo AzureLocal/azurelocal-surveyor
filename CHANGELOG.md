@@ -5,6 +5,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## Unreleased
+
+### Added
+
+- Individual VM inventory with RVTools workbook/CSV import preview, editable rows, inclusion controls, tier review, search, and bulk changes.
+- Optional measured P95 CPU/memory sizing, performance templates and imports, independent allocation fallbacks, evidence coverage, inventory growth, and consumed/provisioned storage selection.
+- Workload Fit page with maintenance reserves, CPU/RAM/pool deficits, per-volume resiliency, and same-spec node comparison within the existing 2–16 node S2D model.
+- Downloadable, versioned projects with restore preview and scenario comparison; older plan manifests remain readable.
+- Inventory totals and fit assumptions in reports and exports, with detailed inventory in Markdown/XLSX and complete evidence in JSON projects.
+- Workload-first, existing-hardware, and fit-assessment entry points.
+
+### Fixed
+
+- Unified workload totals across screens and exports, including custom-workload internal mirrors and avoiding duplicate compute for services already hosted by AKS workers.
+- Workload-page utilization now includes inventory, custom workloads, and service presets and respects the selected maintenance reserve.
+- Inventory storage converts binary GiB to decimal TB once before entering the storage-capacity model.
+
 ## [2.7.0] — 2026-06-30
 
 ### Added

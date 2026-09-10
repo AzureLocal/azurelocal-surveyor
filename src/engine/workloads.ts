@@ -10,6 +10,8 @@ import type {
 } from './types'
 import type { ServicePresetInstance } from './service-presets'
 import { computeServicePreset, getCatalogEntry } from './service-presets'
+import { computeAllCustomWorkloads } from './custom-workloads'
+import { computeInventory, type InventoryVm, type InventorySettings } from './inventory'
 
 /**
  * Aggregate compute and storage requirements across all defined workloads.
@@ -25,6 +27,8 @@ export function computeWorkloadSummary(workloads: WorkloadSpec[]): WorkloadSumma
 }
 
 export interface WorkloadTotalsInput {
+  inventory?: InventoryVm[]
+  inventorySettings?: InventorySettings
   avdEnabled: boolean
   avd: AvdResult
   aksEnabled: boolean
@@ -66,7 +70,7 @@ export function computeWorkloadTotals(input: WorkloadTotalsInput): WorkloadSumma
       rawMemoryGB += group.vmCount * group.memoryPerVmGB
       totalStorageTB += (group.vmCount * group.storagePerVmGB) / 1024
     }
-    totalVCpus    += rawVCpus / vm.vCpuOvercommitRatio
+    totalVCpus    += rawVCpus / Math.max(1, vm.vCpuOvercommitRatio)
     totalMemoryGB += rawMemoryGB
   }
   if (input.sofsEnabled) {
@@ -94,12 +98,11 @@ export function computeWorkloadTotals(input: WorkloadTotalsInput): WorkloadSumma
     totalStorageTB += t.totalStorageTB
   }
 
-  for (const w of input.customWorkloads) {
-    if (!w.enabled) continue
-    totalVCpus    += w.vmCount * w.vCpusPerVm
-    totalMemoryGB += w.vmCount * w.memoryPerVmGB
-    totalStorageTB += (w.vmCount * w.osDiskPerVmGB) / 1024 + w.storageTB
-  }
+  const custom = computeAllCustomWorkloads(input.customWorkloads)
+  const inventory = computeInventory(input.inventory, input.inventorySettings)
+  totalVCpus += custom.totalVCpus + inventory.totalVCpus
+  totalMemoryGB += custom.totalMemoryGB + inventory.totalMemoryGB
+  totalStorageTB += custom.totalStorageTB + inventory.totalStorageTB
 
   return {
     totalVCpus: Math.round(totalVCpus),

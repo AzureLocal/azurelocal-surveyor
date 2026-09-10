@@ -17,6 +17,7 @@ import type {
 } from '../engine/types'
 import { DEFAULT_ADVANCED_SETTINGS } from '../engine/types'
 import type { ServicePresetInstance } from '../engine/service-presets'
+import { DEFAULT_INVENTORY_SETTINGS, normalizeInventorySettings, validateInventory, type InventoryVm, type InventorySettings, type InventorySource } from '../engine/inventory'
 
 export type VolumeMode = 'workload' | 'generic'
 
@@ -38,8 +39,15 @@ export interface SurveyorState {
   virtualMachines: VmScenario
   servicePresets: ServicePresetInstance[]
   customWorkloads: CustomWorkload[]
+  inventory: InventoryVm[]
+  inventorySettings: InventorySettings
+  inventorySources: InventorySource[]
 
   // Actions
+  setInventory: (vms: InventoryVm[]) => void
+  setInventorySettings: (settings: Partial<InventorySettings>) => void
+  addInventorySource: (source: InventorySource) => void
+  restoreProject: (state: unknown) => void
   setHardware: (hw: Partial<HardwareInputs>) => void
   setAdvanced: (a: Partial<AdvancedSettings>) => void
   addVolume: (v: VolumeSpec) => void
@@ -168,6 +176,9 @@ const DEFAULT_STATE = {
   virtualMachines: DEFAULT_VIRTUAL_MACHINES,
   servicePresets: [] as ServicePresetInstance[],
   customWorkloads: [] as CustomWorkload[],
+  inventory: [] as InventoryVm[],
+  inventorySettings: DEFAULT_INVENTORY_SETTINGS,
+  inventorySources: [] as InventorySource[],
 }
 
 type SurveyorPersistedSlice = typeof DEFAULT_STATE
@@ -292,6 +303,9 @@ export function normalizePersistedState(persisted: unknown): SurveyorPersistedSl
 
   return {
     hardware: mergeObject(DEFAULT_HARDWARE, state.hardware),
+    inventory: state.inventory === undefined ? [] : validateInventory(state.inventory),
+    inventorySettings: normalizeInventorySettings(isRecord(state.inventorySettings) ? state.inventorySettings : {}),
+    inventorySources: Array.isArray(state.inventorySources) ? state.inventorySources as InventorySource[] : [],
     advanced: (() => {
       // Strip the removed capacityEfficiencyFactor field (deleted in 2.4.1).
       // Old persisted state may still carry it; drop it on load so the type is clean.
@@ -333,6 +347,10 @@ export const useSurveyorStore = create<SurveyorState>()(
   persist(
     (set) => ({
       ...DEFAULT_STATE,
+      setInventory: (inventory) => set({ inventory: validateInventory(inventory) }),
+      setInventorySettings: (settings) => set(s => ({ inventorySettings: normalizeInventorySettings({ ...s.inventorySettings, ...settings }) })),
+      addInventorySource: (source) => set(s => ({ inventorySources: [...s.inventorySources, source] })),
+      restoreProject: (state) => set(normalizePersistedState(state)),
 
       setHardware: (hw) =>
         set((s) => ({ hardware: { ...s.hardware, ...hw } })),
@@ -429,7 +447,7 @@ export const useSurveyorStore = create<SurveyorState>()(
     }),
     {
       name: 'surveyor-state',
-      version: 9,
+      version: 10,
       migrate: migratePersistedState,
       merge: (persisted: unknown, current: SurveyorState) => ({
         ...current,

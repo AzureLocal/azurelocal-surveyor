@@ -1,3 +1,7 @@
+import { computePlanning } from '../engine/planning'
+import { computeInventory } from '../engine/inventory'
+import { assessHardwareFit } from '../engine/fit'
+import { Link } from 'react-router-dom'
 /**
  * FinalReport — master output view with all sections rolled up.
  * Ports the "Final Report" sheet (238 formulas).
@@ -35,55 +39,11 @@ export default function FinalReport() {
   const aks = computeAks(state.aks)
   const mabsResult = computeMabs(state.mabs)
 
-  // Aggregate workload totals across all enabled scenarios — fixes #15
-  let totalVCpus = 0
-  let totalMemoryGB = 0
-  let totalStorageTB = 0
-
-  if (state.avdEnabled) {
-    totalVCpus    += avd.totalVCpus
-    totalMemoryGB += avd.totalMemoryGB
-    totalStorageTB += avd.totalStorageTB
-  }
-  if (state.aks.enabled) {
-    totalVCpus    += aks.totalVCpus
-    totalMemoryGB += aks.totalMemoryGB
-    totalStorageTB += aks.totalStorageTB
-  }
-  if (state.virtualMachines?.enabled) {
-    const vm = state.virtualMachines
-    let rawVmVCpus = 0
-    for (const g of vm.groups) {
-      rawVmVCpus    += g.vmCount * g.vCpusPerVm
-      totalMemoryGB += g.vmCount * g.memoryPerVmGB
-      totalStorageTB += (g.vmCount * g.storagePerVmGB) / 1024
-    }
-    totalVCpus += rawVmVCpus / vm.vCpuOvercommitRatio
-  }
-  if (state.sofsEnabled) {
-    totalVCpus    += sofs.sofsVCpusTotal
-    totalMemoryGB += sofs.sofsMemoryTotalGB
-    totalStorageTB += sofs.totalStorageTB
-  }
-  if (state.mabsEnabled) {
-    totalVCpus    += mabsResult.mabsVCpus
-    totalMemoryGB += mabsResult.mabsMemoryGB
-    totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB
-  }
-  const presetTotals = computeAllServicePresets(state.servicePresets)
-  totalVCpus    += presetTotals.totalVCpus
-  totalMemoryGB += presetTotals.totalMemoryGB
-  totalStorageTB += presetTotals.totalStorageTB
+  const workloadSummary = computePlanning(state).workloadTotals
+  const presetTotals = computeAllServicePresets(state.servicePresets, state.aks.enabled)
   const customTotals = computeAllCustomWorkloads(state.customWorkloads)
-  totalVCpus    += customTotals.totalVCpus
-  totalMemoryGB += customTotals.totalMemoryGB
-  totalStorageTB += customTotals.totalStorageTB
-
-  const workloadSummary = {
-    totalVCpus: Math.round(totalVCpus),
-    totalMemoryGB: Math.round(totalMemoryGB),
-    totalStorageTB: Math.round(totalStorageTB * 100) / 100,
-  }
+  const inventory = computeInventory(state.inventory, state.inventorySettings)
+  const fit = assessHardwareFit(state)
 
   const health = runHealthCheck({
     hardware: state.hardware,
@@ -102,7 +62,7 @@ export default function FinalReport() {
 
   const anyWorkloadEnabled = state.avdEnabled || state.aks.enabled
     || state.virtualMachines?.enabled || state.sofsEnabled || state.mabsEnabled
-    || presetTotals.totalVCpus > 0 || customTotals.totalVCpus > 0
+    || (presetTotals.totalVCpus > 0 || presetTotals.totalStorageTB > 0) || customTotals.totalVCpus > 0 || state.inventory.some(vm => vm.include)
 
   function copyPowerShell() {
     navigator.clipboard.writeText(generatePowerShell(state))
@@ -189,6 +149,22 @@ export default function FinalReport() {
         </section>
       )}
 
+      <section className="rounded-lg border border-gray-200 dark:border-gray-700 p-4 space-y-2">
+        <h2 className="text-lg font-semibold">Workload fit</h2>
+        <p className="text-sm">{fit.fits === null ? 'Add workloads for a fit assessment.' : fit.fits ? 'Aggregate capacity fits the selected hardware.' : 'A capacity or configuration gap needs review.'} Maintenance reserve: {fit.reserveNodes} nodes. Smallest modeled fit: {fit.requiredNodes ?? 'none'} nodes within the planner’s 2–16 node range.</p>
+        <Link className="text-sm text-brand-600 underline" to="/fit">Review deficits and planning assumptions</Link>
+      </section>
+      {inventory.totalCount > 0 && <section className="space-y-3">
+        <h2 className="text-lg font-semibold">VM inventory</h2>
+        <dl className="grid grid-cols-2 sm:grid-cols-4 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden text-sm">
+          <Stat label="Included / total VMs" value={`${inventory.includedCount} / ${inventory.totalCount}`} />
+          <Stat label="Planned vCPU" value={String(round2(inventory.totalVCpus))} />
+          <Stat label="Planned RAM" value={`${round2(inventory.totalMemoryGB)} GiB`} />
+          <Stat label="Planned storage" value={`${round2(inventory.totalStorageTB)} TB`} />
+        </dl>
+        <p className="text-sm text-gray-500">{state.inventorySettings.sizingBasis} sizing · {state.inventorySettings.storageBasis} storage · {state.inventorySettings.growthPct}% growth · {state.inventorySettings.comfortFactor}× P95 safety. Performance evidence: {inventory.confidence} ({inventory.confidenceScore}/100). Storage performance requires separate validation.</p>
+      </section>}
+
       {/* AVD section — only shown when enabled, fixes #12 */}
       {state.avdEnabled && (
         <section>
@@ -241,7 +217,7 @@ export default function FinalReport() {
       )}
 
       {/* Service presets section — only shown when at least one preset is enabled */}
-      {presetTotals.totalVCpus > 0 && (
+      {(presetTotals.totalVCpus > 0 || presetTotals.totalStorageTB > 0) && (
         <section>
           <h2 className="text-lg font-semibold mb-3">Arc-Enabled Services</h2>
           <dl className="grid grid-cols-3 gap-px bg-gray-200 dark:bg-gray-700 rounded-lg overflow-hidden text-sm">

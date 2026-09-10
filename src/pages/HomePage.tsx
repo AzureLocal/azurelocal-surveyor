@@ -15,12 +15,12 @@ import {
 const MENU_GUIDE = [
   {
     title: 'Hardware',
-    description: 'Start here. Define nodes, drives, CPU, memory, and the base cluster shape that every other calculation depends on.',
+    description: 'Define nodes, drives, CPU, and memory for the proposed or existing cluster.',
     icon: Server,
   },
   {
     title: 'Workloads',
-    description: 'Enable the scenarios you plan to run so Surveyor can estimate compute and storage demand.',
+    description: 'Import RVTools, review individual VMs, attach measurements, and enable specialized workload scenarios.',
     icon: Cpu,
   },
   {
@@ -46,14 +46,21 @@ const MENU_GUIDE = [
 ]
 
 const GETTING_STARTED = [
-  'Open Hardware and define your cluster baseline.',
-  'Enable the workloads you care about and fill in the detailed planners that appear.',
-  'Review Volumes and Reports before you export or share the plan.',
+  'Choose a planning path: start with workloads or describe your existing hardware.',
+  'Review Workload Fit for resource deficits and same-spec node estimates.',
+  'Review Volumes and Reports, then download a project to preserve the complete plan.',
 ]
 
 export default function HomePage() {
   return (
     <div className="space-y-8">
+      <section className="grid md:grid-cols-3 gap-4" aria-label="Choose a planning path">
+        {[
+          { title: 'Size from workloads', to: '/workloads', description: 'Import your VM estate or add workloads, then find the hardware capacity you need.' },
+          { title: 'Assess existing hardware', to: '/hardware', description: 'Describe the nodes and storage you already own, then review available capacity.' },
+          { title: 'Will my workloads fit?', to: '/fit', description: 'Compare workload demand against your current hardware inputs and identify the gaps.' },
+        ].map(path => <Link key={path.to} to={path.to} className="rounded-xl border border-brand-200 dark:border-brand-700 bg-white dark:bg-gray-900 p-5 hover:border-brand-500 transition-colors"><h2 className="font-semibold text-brand-700 dark:text-brand-300">{path.title} →</h2><p className="text-sm text-gray-500 mt-2">{path.description}</p></Link>)}
+      </section>
       <section className="rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-900 shadow-sm">
         <div className="bg-gradient-to-r from-brand-600 via-sky-700 to-cyan-700 px-6 py-8 text-white">
           <div className="max-w-3xl space-y-4">
@@ -70,10 +77,10 @@ export default function HomePage() {
             </div>
             <div className="flex flex-wrap gap-3 pt-1">
               <Link
-                to="/hardware"
+                to="/workloads"
                 className="inline-flex items-center gap-2 rounded-md bg-white px-4 py-2 text-sm font-semibold text-brand-700 hover:bg-blue-50 transition-colors"
               >
-                Start with Hardware
+                Start with Workloads
                 <ArrowRight className="w-4 h-4" />
               </Link>
               <Link
@@ -98,8 +105,8 @@ export default function HomePage() {
             icon={Info}
           />
           <Callout
-            title="Best first step"
-            body="Go to Hardware first unless you are just browsing. Every downstream page depends on the hardware baseline."
+            title="Keep your scenarios"
+            body="Saved Projects downloads a complete planning snapshot. Open another project to compare it before replacing your active plan."
             icon={Server}
           />
         </div>

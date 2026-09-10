@@ -144,13 +144,14 @@ export function computeServicePreset(
   return { totalVCpus: vCpus, totalMemoryGB: memGB, totalStorageTB: storTB }
 }
 
-export function computeAllServicePresets(instances: ServicePresetInstance[]): ServicePresetTotals {
+export function computeAllServicePresets(instances: ServicePresetInstance[], aksEnabled = false): ServicePresetTotals {
   return instances.reduce(
     (acc, inst) => {
       const t = computeServicePreset(inst)
+      const hosted = aksEnabled && getCatalogEntry(inst.catalogId)?.requiresAks
       return {
-        totalVCpus:    acc.totalVCpus    + t.totalVCpus,
-        totalMemoryGB: acc.totalMemoryGB + t.totalMemoryGB,
+        totalVCpus:    acc.totalVCpus    + (hosted ? 0 : t.totalVCpus),
+        totalMemoryGB: acc.totalMemoryGB + (hosted ? 0 : t.totalMemoryGB),
         totalStorageTB: round2(acc.totalStorageTB + t.totalStorageTB),
       }
     },

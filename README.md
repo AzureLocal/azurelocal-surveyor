@@ -4,6 +4,29 @@
 
 **Live app:** [surveyor.azurelocal.cloud](https://surveyor.azurelocal.cloud)
 
+## Workload planning
+
+Start with **Workloads** to import an RVTools workbook or vInfo CSV, or add individual VMs manually.
+Review the import preview, VM inclusion, and suggested tiers. Powered-off VMs remain included until
+you exclude them. Individual inventory and specialized workload groups are additive: enter each machine once.
+
+Use **Attach performance** with the downloadable CSV template to add aggregate P95 measurements.
+Allocation remains the default. Measured sizing falls back independently for missing CPU and memory
+metrics and assumes approved right-sizing. The safety multiplier, confidence score, and growth percentage
+are planning assumptions. Consumed-storage sizing requires thin provisioning or disk reclamation and does
+not automatically reserve the gap to provisioned capacity.
+
+**Workload Fit** checks combined demand against your hardware, including the selected N+1/N+2 compute
+reserve, and compares same-spec node counts within the existing S2D model's 2–16 node range. This is a
+calculator scope, not a universal Azure Local platform limit. It evaluates workload volume suggestions and
+the edited volume plan separately; the larger footprint controls the capacity check. It does not certify
+per-VM placement, storage performance, networking, or hardware support.
+
+**Saved Projects** downloads the complete planning inputs and inventory evidence. Open another project to
+compare it before restoring. JSON plan manifests can also be reopened. Use downloaded files to retain named
+scenarios; browser persistence alone is not a backup. Existing grouped RVTools imports remain grouped when
+older saved state is loaded, so no duplicate individual inventory is manufactured.
+
 ## Related tool
 
 Already deployed your cluster? Use [Azure Local S2DCartographer](https://github.com/AzureLocal/azurelocal-s2d-cartographer) to inventory disks, pools, and volumes on a running Azure Local cluster; generate HTML, Word, PDF, and Excel reports; and validate what was actually built. Surveyor plans before deployment; S2DCartographer verifies after deployment.

@@ -1,3 +1,6 @@
+import { computePlanning } from '../engine/planning'
+import { computeInventory } from '../engine/inventory'
+import { assessHardwareFit } from '../engine/fit'
 /**
  * Markdown exporter.
  *
@@ -21,7 +24,7 @@ import { computeAllCustomWorkloads } from '../engine/custom-workloads'
 import { computeAllServicePresets, getCatalogEntry } from '../engine/service-presets'
 import { runHealthCheck } from '../engine/healthcheck'
 
-export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled' | 'servicePresets' | 'customWorkloads'>): string {
+export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled' | 'servicePresets' | 'customWorkloads' | 'inventory' | 'inventorySettings'>): string {
   const capacity = computeCapacity(state.hardware, state.advanced)
   const summary = computeVolumeSummary(state.volumes, capacity)
   const compute = computeCompute(state.hardware, state.advanced)
@@ -31,36 +34,10 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
   const mabsResult = computeMabs(state.mabs)
   const quickStart = computeQuickStart(capacity)
 
-  // Aggregate workload totals
-  let totalVCpus = 0, totalMemoryGB = 0, totalStorageTB = 0
-  if (state.avdEnabled) { totalVCpus += avd.totalVCpus; totalMemoryGB += avd.totalMemoryGB; totalStorageTB += avd.totalStorageTB }
-  if (state.aks.enabled) { totalVCpus += aks.totalVCpus; totalMemoryGB += aks.totalMemoryGB; totalStorageTB += aks.totalStorageTB }
-  if (state.virtualMachines?.enabled) {
-    const vm = state.virtualMachines
-    let rawVCpus = 0
-    for (const group of vm.groups) {
-      rawVCpus += group.vmCount * group.vCpusPerVm
-      totalMemoryGB += group.vmCount * group.memoryPerVmGB
-      totalStorageTB += (group.vmCount * group.storagePerVmGB) / 1024
-    }
-    totalVCpus += rawVCpus / vm.vCpuOvercommitRatio
-  }
-  if (state.sofsEnabled) { totalVCpus += sofs.sofsVCpusTotal; totalMemoryGB += sofs.sofsMemoryTotalGB; totalStorageTB += sofs.totalStorageTB }
-  if (state.mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB; totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB }
-  const presetTotals = computeAllServicePresets(state.servicePresets)
-  totalVCpus    += presetTotals.totalVCpus
-  totalMemoryGB += presetTotals.totalMemoryGB
-  totalStorageTB += presetTotals.totalStorageTB
+  const workloadSummary = computePlanning(state).workloadTotals
+  const presetTotals = computeAllServicePresets(state.servicePresets, state.aks.enabled)
   const customTotals = computeAllCustomWorkloads(state.customWorkloads)
-  totalVCpus    += customTotals.totalVCpus
-  totalMemoryGB += customTotals.totalMemoryGB
-  totalStorageTB += customTotals.totalStorageTB
-
-  const workloadSummary = {
-    totalVCpus: Math.round(totalVCpus),
-    totalMemoryGB: Math.round(totalMemoryGB),
-    totalStorageTB: round2(totalStorageTB),
-  }
+  const inventory = computeInventory(state.inventory, state.inventorySettings)
 
   const health = runHealthCheck({
     hardware: state.hardware,
@@ -170,9 +147,9 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
   // ── Workloads ──
   const anyWorkloadEnabled = state.avdEnabled || state.aks.enabled
     || state.virtualMachines?.enabled || state.sofsEnabled || state.mabsEnabled
-    || presetTotals.totalVCpus > 0 || customTotals.totalVCpus > 0
+    || (presetTotals.totalVCpus > 0 || presetTotals.totalStorageTB > 0) || customTotals.totalVCpus > 0
 
-  if (anyWorkloadEnabled) {
+  if (anyWorkloadEnabled || inventory.includedCount > 0) {
     lines.push('## Workload Summary')
     lines.push('')
     lines.push('| Scenario | vCPUs | Memory (GB) | Storage (TB) |')
@@ -188,10 +165,24 @@ export function generateMarkdown(state: Pick<SurveyorState, 'hardware' | 'advanc
     }
     if (state.sofsEnabled) lines.push(`| SOFS | ${sofs.sofsVCpusTotal} | ${sofs.sofsMemoryTotalGB} | ${round2(sofs.totalStorageTB)} |`)
     if (state.mabsEnabled) lines.push(`| MABS | ${mabsResult.mabsVCpus} | ${mabsResult.mabsMemoryGB} | ${round2(mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB)} |`)
-    if (presetTotals.totalVCpus > 0) lines.push(`| Arc-Enabled Services | ${presetTotals.totalVCpus} | ${presetTotals.totalMemoryGB} | ${presetTotals.totalStorageTB} |`)
+    if ((presetTotals.totalVCpus > 0 || presetTotals.totalStorageTB > 0)) lines.push(`| Arc-Enabled Services | ${presetTotals.totalVCpus} | ${presetTotals.totalMemoryGB} | ${presetTotals.totalStorageTB} |`)
     if (customTotals.totalVCpus > 0) lines.push(`| Custom Workloads | ${customTotals.totalVCpus} | ${customTotals.totalMemoryGB} | ${customTotals.totalStorageTB} |`)
+    if (inventory.includedCount > 0) lines.push(`| VM inventory | ${round2(inventory.totalVCpus)} | ${round2(inventory.totalMemoryGB)} | ${round2(inventory.totalStorageTB)} |`)
     lines.push(`| **Total** | **${workloadSummary.totalVCpus}** | **${workloadSummary.totalMemoryGB}** | **${workloadSummary.totalStorageTB}** |`)
     lines.push('')
+  }
+
+  const fit = assessHardwareFit(state)
+  lines.push('## Workload Fit', '', `Aggregate capacity: **${fit.fits === null ? 'No workloads' : fit.fits ? 'Fits' : 'Gap or configuration constraint'}**. Maintenance reserve: ${fit.reserveNodes} nodes.`, '',
+    `Smallest modeled fit: ${fit.requiredNodes ?? 'none'} nodes within the planner’s 2–16 node range.`, '',
+    `Deficits: ${round2(fit.current.deficits.vCpus)} vCPU; ${round2(fit.current.deficits.memoryGB)} GiB RAM; ${round2(fit.current.deficits.poolTB)} TB pool footprint.`, '',
+    ...fit.current.errors.map(error => `- ${error}`), ...fit.warnings.map(warning => `- ${warning}`), '')
+  if (state.inventory.length > 0) {
+    const cell = (value: string) => value.replace(/\|/g, '\\|').replace(/[\r\n]+/g, ' ')
+    lines.push('## VM Inventory', '', `Sizing: ${state.inventorySettings.sizingBasis}; storage: ${state.inventorySettings.storageBasis}; growth: ${state.inventorySettings.growthPct}%; P95 safety multiplier: ${state.inventorySettings.comfortFactor}.`, '',
+      `Performance evidence: ${inventory.confidence} (${inventory.confidenceScore}/100). CPU fallback: ${inventory.cpuFallbackCount}; memory fallback: ${inventory.memoryFallbackCount}.`, '',
+      '| VM | Included | Tier | vCPU | RAM GiB | Consumed GiB | Provisioned GiB | Source cluster |', '|---|---|---|---:|---:|---:|---:|---|',
+      ...state.inventory.map(vm => `| ${cell(vm.name)} | ${vm.include ? 'Yes' : 'No'} | ${vm.tier} | ${vm.vCpu} | ${vm.memoryGiB} | ${vm.consumedGiB} | ${vm.provisionedGiB} | ${cell(vm.sourceCluster)} |`), '')
   }
 
   // ── AVD Detail ──

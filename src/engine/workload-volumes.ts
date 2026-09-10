@@ -18,6 +18,7 @@ import type { VmScenario } from './types'
 import type { ServicePresetInstance, } from './service-presets'
 import { getCatalogEntry, computeServicePreset } from './service-presets'
 import type { CustomWorkload } from './types'
+import { computeInventory, WORKLOAD_TIERS, type InventoryVm, type InventorySettings } from './inventory'
 
 export interface SuggestedVolume extends VolumeSpec {
   source: string      // which workload generated this suggestion
@@ -25,6 +26,8 @@ export interface SuggestedVolume extends VolumeSpec {
 }
 
 interface WorkloadVolumeInputs {
+  inventory?: InventoryVm[]
+  inventorySettings?: InventorySettings
   advanced: AdvancedSettings
   // AVD
   avdEnabled: boolean
@@ -355,5 +358,22 @@ export function generateWorkloadVolumes(inputs: WorkloadVolumeInputs): Suggested
     }
   }
 
+  const inventory = computeInventory(inputs.inventory, inputs.inventorySettings)
+  for (const tier of WORKLOAD_TIERS) {
+    const size = inventory.storageByTier[tier]
+    if (size <= 0) continue
+    // Split inventory volumes at the existing planner's 64 TB volume ceiling.
+    // Keep extreme inputs bounded; an oversized remainder is rejected by fit/volume validation.
+    const count = Math.min(256, Math.ceil(size / 64))
+    for (let i = 0; i < count; i++) {
+      suggestions.push({
+        id: `inventory-${tier}-${i + 1}`, name: `Inventory-${tier}-${i + 1}`,
+        resiliency: defaultRes, provisioning: 'fixed',
+        plannedSizeTB: Math.ceil(size / count * 100) / 100,
+        source: 'VM inventory',
+        description: `${tier} inventory; ${inputs.inventorySettings?.storageBasis ?? 'provisioned'} storage, including inventory growth. GiB converted to decimal TB.`,
+      })
+    }
+  }
   return suggestions
 }

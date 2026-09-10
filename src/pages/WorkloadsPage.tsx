@@ -1,60 +1,43 @@
+import { computePlanning } from '../engine/planning'
 import WorkloadPlanner from '../components/WorkloadPlanner'
 import { useSurveyorStore } from '../state/store'
 import { computeCompute } from '../engine/compute'
-import { computeAvd } from '../engine/avd'
-import { computeAks } from '../engine/aks'
-import { computeSofs } from '../engine/sofs'
-import { computeMabs } from '../engine/mabs'
 import ComputeReport from '../components/ComputeReport'
+import InventoryPlanner from '../components/InventoryPlanner'
+import { Link } from 'react-router-dom'
 
 export default function WorkloadsPage() {
-  const { hardware, advanced, avd, avdEnabled, aks, virtualMachines, sofs, sofsEnabled, mabs, mabsEnabled } = useSurveyorStore()
+  const state = useSurveyorStore()
+  const { hardware, advanced } = state
   const compute = computeCompute(hardware, advanced)
-  const avdResult = computeAvd(avd, advanced.overrides)
-  const aksResult = computeAks(aks)
-  const sofsResult = computeSofs(sofs, advanced.overrides)
-  const mabsResult = computeMabs(mabs)
+  const { totalVCpus, totalMemoryGB } = computePlanning(state).workloadTotals
+  const reserve = advanced.maintenanceReserveMode ?? 'none'
+  const cpuCapacity = reserve === 'n+2' ? compute.usableVCpusN2 : reserve === 'n+1' ? compute.usableVCpusN1 : compute.usableVCpus
+  const memoryCapacity = reserve === 'n+2' ? compute.usableMemoryGBN2 : reserve === 'n+1' ? compute.usableMemoryGBN1 : compute.usableMemoryGB
 
-  // Aggregate enabled scenarios for utilization bars
-  let totalVCpus = 0
-  let totalMemoryGB = 0
-  if (avdEnabled) { totalVCpus += avdResult.totalVCpus; totalMemoryGB += avdResult.totalMemoryGB }
-  if (aks.enabled) { totalVCpus += aksResult.totalVCpus; totalMemoryGB += aksResult.totalMemoryGB }
-  if (virtualMachines?.enabled) {
-    let rawVmVCpus = 0
-    for (const g of virtualMachines.groups) {
-      rawVmVCpus  += g.vmCount * g.vCpusPerVm
-      totalMemoryGB += g.vmCount * g.memoryPerVmGB
-    }
-    totalVCpus += rawVmVCpus / virtualMachines.vCpuOvercommitRatio
-  }
-  if (sofsEnabled) { totalVCpus += sofsResult.sofsVCpusTotal; totalMemoryGB += sofsResult.sofsMemoryTotalGB }
-  if (mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB }
-
-  const vcpuUsedPct = compute.usableVCpus > 0
-    ? Math.round((totalVCpus / compute.usableVCpus) * 100)
-    : 0
-  const memUsedPct = compute.usableMemoryGB > 0
-    ? Math.round((totalMemoryGB / compute.usableMemoryGB) * 100)
-    : 0
+  const vcpuUsedPct = cpuCapacity > 0 ? Math.round(totalVCpus / cpuCapacity * 100) : totalVCpus > 0 ? 100 : 0
+  const memUsedPct = memoryCapacity > 0 ? Math.round(totalMemoryGB / memoryCapacity * 100) : totalMemoryGB > 0 ? 100 : 0
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="text-2xl font-bold">Workload Planner</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Enable and configure workload scenarios. Toggle each scenario on/off to include it in capacity planning.
+          Import or enter individual VMs, then add specialized workload scenarios. Review the combined demand before sizing hardware.
         </p>
       </div>
 
       {/* Utilization summary */}
       <div className="grid grid-cols-2 gap-4">
-        <UtilBar label="vCPU" used={totalVCpus} total={compute.usableVCpus} pct={vcpuUsedPct} unit="" />
-        <UtilBar label="Memory" used={totalMemoryGB} total={compute.usableMemoryGB} pct={memUsedPct} unit=" GB" />
+        <UtilBar label={`vCPU · reserve ${reserve}`} used={totalVCpus} total={cpuCapacity} pct={vcpuUsedPct} unit="" />
+        <UtilBar label={`Memory · reserve ${reserve}`} used={totalMemoryGB} total={memoryCapacity} pct={memUsedPct} unit=" GiB" />
       </div>
 
+      <InventoryPlanner />
+      <div className="flex flex-wrap gap-4 text-sm"><Link to="/hardware" className="text-brand-600 underline">Configure hardware</Link><Link to="/fit" className="text-brand-600 underline">Assess workload fit →</Link><Link to="/projects" className="text-brand-600 underline">Save or compare a project</Link></div>
+      <h2 className="text-xl font-semibold">Specialized workloads and quick groups</h2>
       <WorkloadPlanner />
-      <ComputeReport result={compute} totalVCpus={Math.round(totalVCpus)} totalMemoryGB={Math.round(totalMemoryGB)} />
+      <ComputeReport result={compute} totalVCpus={totalVCpus} totalMemoryGB={totalMemoryGB} maintenanceReserveMode={reserve} />
     </div>
   )
 }

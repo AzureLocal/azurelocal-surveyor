@@ -1,3 +1,8 @@
+import { computePlanning } from '../engine/planning'
+import { computeInventory } from '../engine/inventory'
+import { computeAllServicePresets } from '../engine/service-presets'
+import { computeAllCustomWorkloads } from '../engine/custom-workloads'
+import { assessHardwareFit } from '../engine/fit'
 /**
  * PDF exporter — jsPDF + jsPDF-autotable (#18: richer PDF export).
  * Branded header, per-section page breaks, utilization bars, health check summary.
@@ -81,7 +86,7 @@ function utilizationBar(
   return y + 7
 }
 
-export function exportPdf(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'workloads' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled'>): void {
+export function exportPdf(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'workloads' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled' | 'servicePresets' | 'customWorkloads' | 'inventory' | 'inventorySettings'>): void {
   const capacity = computeCapacity(state.hardware, state.advanced)
   const volumeSummary = computeVolumeSummary(state.volumes, capacity)
   const compute = computeCompute(state.hardware, state.advanced)
@@ -89,25 +94,7 @@ export function exportPdf(state: Pick<SurveyorState, 'hardware' | 'advanced' | '
   const sofs = computeSofs(state.sofs, state.advanced.overrides)
   const aks = computeAks(state.aks)
   const mabsResult = computeMabs(state.mabs)
-  const workloadSummary = {
-    totalVCpus: 0,
-    totalMemoryGB: 0,
-    totalStorageTB: 0,
-  }
-  if (state.avdEnabled) { workloadSummary.totalVCpus += avd.totalVCpus; workloadSummary.totalMemoryGB += avd.totalMemoryGB; workloadSummary.totalStorageTB += avd.totalStorageTB }
-  if (state.aks.enabled) { workloadSummary.totalVCpus += aks.totalVCpus; workloadSummary.totalMemoryGB += aks.totalMemoryGB; workloadSummary.totalStorageTB += aks.totalStorageTB }
-  if (state.virtualMachines?.enabled) {
-    const vm = state.virtualMachines
-    let rawVCpus = 0
-    for (const group of vm.groups) {
-      rawVCpus += group.vmCount * group.vCpusPerVm
-      workloadSummary.totalMemoryGB += group.vmCount * group.memoryPerVmGB
-      workloadSummary.totalStorageTB += (group.vmCount * group.storagePerVmGB) / 1024
-    }
-    workloadSummary.totalVCpus += rawVCpus / vm.vCpuOvercommitRatio
-  }
-  if (state.sofsEnabled) { workloadSummary.totalVCpus += sofs.sofsVCpusTotal; workloadSummary.totalMemoryGB += sofs.sofsMemoryTotalGB; workloadSummary.totalStorageTB += sofs.totalStorageTB }
-  if (state.mabsEnabled) { workloadSummary.totalVCpus += mabsResult.mabsVCpus; workloadSummary.totalMemoryGB += mabsResult.mabsMemoryGB; workloadSummary.totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB }
+  const workloadSummary = computePlanning(state).workloadTotals
 
   const health = runHealthCheck({
     hardware: state.hardware,
@@ -285,6 +272,13 @@ export function exportPdf(state: Pick<SurveyorState, 'hardware' | 'advanced' | '
   if (state.sofsEnabled) enabledWorkloads.push(['SOFS', String(sofs.sofsVCpusTotal), `${sofs.sofsMemoryTotalGB} GB`, `${round2(sofs.totalStorageTB)} TB`])
   if (state.mabsEnabled) enabledWorkloads.push(['MABS', String(mabsResult.mabsVCpus), `${mabsResult.mabsMemoryGB} GB`, `${round2(mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB)} TB`])
 
+  const inventory = computeInventory(state.inventory, state.inventorySettings)
+  const presets = computeAllServicePresets(state.servicePresets, state.aks.enabled)
+  const custom = computeAllCustomWorkloads(state.customWorkloads)
+  if (inventory.includedCount) enabledWorkloads.push(['VM inventory', String(round2(inventory.totalVCpus)), `${round2(inventory.totalMemoryGB)} GiB`, `${round2(inventory.totalStorageTB)} TB`])
+  if (presets.totalVCpus || presets.totalStorageTB) enabledWorkloads.push(['Arc services (incremental)', String(presets.totalVCpus), `${presets.totalMemoryGB} GB`, `${presets.totalStorageTB} TB`])
+  if (custom.totalVCpus || custom.totalStorageTB) enabledWorkloads.push(['Custom workloads', String(custom.totalVCpus), `${custom.totalMemoryGB} GB`, `${custom.totalStorageTB} TB`])
+
   if (enabledWorkloads.length > 0) {
     if (y > pageH - 60) { doc.addPage(); y = 20 }
     y = section(doc, 'Workload Summary', y)
@@ -416,6 +410,19 @@ export function exportPdf(state: Pick<SurveyorState, 'hardware' | 'advanced' | '
       },
     })
   }
+
+  const fit = assessHardwareFit(state)
+  doc.addPage()
+  y = section(doc, 'Workload fit and inventory evidence', 20)
+  autoTable(doc, { startY: y, head: [['Metric', 'Value']], body: [
+    ['Aggregate capacity fit', fit.fits === null ? 'No workloads' : fit.fits ? 'Fits' : 'Gap or configuration constraint'],
+    ['Smallest fit in modeled 2-16 node range', String(fit.requiredNodes ?? 'None')],
+    ['Maintenance reserve nodes', String(fit.reserveNodes)],
+    ['Deficits', `${round2(fit.current.deficits.vCpus)} vCPU; ${round2(fit.current.deficits.memoryGB)} GiB; ${round2(fit.current.deficits.poolTB)} TB pool`],
+    ['Inventory assumptions', `${state.inventorySettings.sizingBasis}; ${state.inventorySettings.storageBasis} storage; ${state.inventorySettings.growthPct}% growth; ${state.inventorySettings.comfortFactor}x P95 safety`],
+    ['Performance evidence', `${inventory.confidence}; CPU ${round2(inventory.cpuCoveragePct)}%, memory ${round2(inventory.memoryCoveragePct)}% coverage`],
+    ...fit.current.errors.map(error => ['Constraint', error]), ...fit.warnings.map(warning => ['Assumption', warning]),
+  ], styles: { fontSize: 8 }, headStyles: { fillColor: BRAND_BLUE } })
 
   // ── Footer on every page ──────────────────────────────────────────────────
   const totalPages = doc.getNumberOfPages()

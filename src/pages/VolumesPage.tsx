@@ -1,3 +1,4 @@
+import { computePlanning } from '../engine/planning'
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, Wand2, PlusCircle, CheckCircle2, Terminal, CheckCircle, Copy } from 'lucide-react'
 import VolumeTable from '../components/VolumeTable'
@@ -9,10 +10,8 @@ import { computeAvd } from '../engine/avd'
 import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
-import { computeAllCustomWorkloads } from '../engine/custom-workloads'
 import { runHealthCheck } from '../engine/healthcheck'
 import { generateWorkloadVolumes, type SuggestedVolume } from '../engine/workload-volumes'
-import { computeServicePreset, getCatalogEntry } from '../engine/service-presets'
 import { toWacSize, computeQuickStart, generateGenericVolumes, type GenericSuggestion } from '../engine/volumes'
 import type { ResiliencyType } from '../engine/types'
 
@@ -26,43 +25,7 @@ export default function VolumesPage() {
   const aks      = computeAks(state.aks)
   const mabsResult = computeMabs(state.mabs)
 
-  // Aggregate workload demand from all enabled scenarios for accurate health checks
-  let totalVCpus = 0, totalMemoryGB = 0, totalStorageTB = 0
-  if (state.avdEnabled)  { totalVCpus += avd.totalVCpus;  totalMemoryGB += avd.totalMemoryGB;  totalStorageTB += avd.totalStorageTB }
-  if (state.aks.enabled) { totalVCpus += aks.totalVCpus;  totalMemoryGB += aks.totalMemoryGB;  totalStorageTB += aks.totalStorageTB }
-  if (state.virtualMachines?.enabled) {
-    const vm = state.virtualMachines
-    let rawVmVCpus = 0
-    for (const g of vm.groups) {
-      rawVmVCpus    += g.vmCount * g.vCpusPerVm
-      totalMemoryGB += g.vmCount * g.memoryPerVmGB
-      totalStorageTB += (g.vmCount * g.storagePerVmGB) / 1024
-    }
-    totalVCpus += rawVmVCpus / vm.vCpuOvercommitRatio
-  }
-  if (state.sofsEnabled) { totalVCpus += sofs.sofsVCpusTotal; totalMemoryGB += sofs.sofsMemoryTotalGB; totalStorageTB += sofs.totalStorageTB }
-  if (state.mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB; totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB }
-  // Arc-dependent presets run on AKS workers — exclude compute when AKS enabled
-  for (const inst of state.servicePresets) {
-    if (!inst.enabled || inst.instanceCount <= 0) continue
-    const entry = getCatalogEntry(inst.catalogId)
-    const t = computeServicePreset(inst)
-    if (!(state.aks.enabled && entry?.requiresAks)) {
-      totalVCpus    += t.totalVCpus
-      totalMemoryGB += t.totalMemoryGB
-    }
-    totalStorageTB += t.totalStorageTB
-  }
-  const customTotals = computeAllCustomWorkloads(state.customWorkloads)
-  totalVCpus    += customTotals.totalVCpus
-  totalMemoryGB += customTotals.totalMemoryGB
-  totalStorageTB += customTotals.totalStorageTB
-
-  const workloadSummary = {
-    totalVCpus: Math.round(totalVCpus),
-    totalMemoryGB: Math.round(totalMemoryGB),
-    totalStorageTB: Math.round(totalStorageTB * 100) / 100,
-  }
+  const workloadSummary = computePlanning(state).workloadTotals
 
   const health = runHealthCheck({ hardware, settings: advanced, volumes, capacity, compute, workloadSummary })
 
@@ -83,6 +46,8 @@ export default function VolumesPage() {
     mabsResult: mabsResult,
     servicePresets: state.servicePresets,
     customWorkloads: state.customWorkloads,
+    inventory: state.inventory,
+    inventorySettings: state.inventorySettings,
   })
 
   return (

@@ -14,6 +14,8 @@ import DriveLayoutPage from './pages/DriveLayoutPage'
 import MabsPage from './pages/MabsPage'
 import AboutPage from './pages/AboutPage'
 import Layout from './components/Layout'
+import FitPage from './pages/FitPage'
+import ProjectPage from './pages/ProjectPage'
 
 export default function App() {
   return (
@@ -22,6 +24,8 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/hardware" element={<HardwarePage />} />
         <Route path="/workloads" element={<WorkloadsPage />} />
+        <Route path="/fit" element={<FitPage />} />
+        <Route path="/projects" element={<ProjectPage />} />
         <Route path="/avd" element={<AvdPage />} />
         <Route path="/sofs" element={<SofsPage />} />
         <Route path="/aks" element={<AksPage />} />

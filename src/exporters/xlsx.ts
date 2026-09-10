@@ -1,3 +1,6 @@
+import { computePlanning } from '../engine/planning'
+import { computeInventory } from '../engine/inventory'
+import { assessHardwareFit } from '../engine/fit'
 /**
  * XLSX exporter — SheetJS (#18: richer multi-sheet export).
  * Exports the full plan to a workbook matching the Excel sheet structure.
@@ -47,7 +50,7 @@ function makeSheet(header: string[], rows: Row[]): XLSX.WorkSheet {
   return ws
 }
 
-export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'workloads' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled' | 'servicePresets' | 'customWorkloads'>): void {
+export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 'volumes' | 'workloads' | 'avd' | 'sofs' | 'aks' | 'virtualMachines' | 'mabs' | 'avdEnabled' | 'sofsEnabled' | 'mabsEnabled' | 'servicePresets' | 'customWorkloads' | 'inventory' | 'inventorySettings'>): void {
   const capacity = computeCapacity(state.hardware, state.advanced)
   const volumeSummary = computeVolumeSummary(state.volumes, capacity)
   const expansionHeadroom = computeExpansionHeadroom(
@@ -62,36 +65,10 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   const mabsResult = computeMabs(state.mabs)
   const quickStart = computeQuickStart(capacity)
 
-  // Aggregate workload totals
-  let totalVCpus = 0, totalMemoryGB = 0, totalStorageTB = 0
-  if (state.avdEnabled) { totalVCpus += avd.totalVCpus; totalMemoryGB += avd.totalMemoryGB; totalStorageTB += avd.totalStorageTB }
-  if (state.aks.enabled) { totalVCpus += aks.totalVCpus; totalMemoryGB += aks.totalMemoryGB; totalStorageTB += aks.totalStorageTB }
-  if (state.virtualMachines?.enabled) {
-    const vm = state.virtualMachines
-    let rawVCpus = 0
-    for (const group of vm.groups) {
-      rawVCpus += group.vmCount * group.vCpusPerVm
-      totalMemoryGB += group.vmCount * group.memoryPerVmGB
-      totalStorageTB += (group.vmCount * group.storagePerVmGB) / 1024
-    }
-    totalVCpus += rawVCpus / vm.vCpuOvercommitRatio
-  }
-  if (state.sofsEnabled) { totalVCpus += sofs.sofsVCpusTotal; totalMemoryGB += sofs.sofsMemoryTotalGB; totalStorageTB += sofs.totalStorageTB }
-  if (state.mabsEnabled) { totalVCpus += mabsResult.mabsVCpus; totalMemoryGB += mabsResult.mabsMemoryGB; totalStorageTB += mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB }
-  const presetTotals = computeAllServicePresets(state.servicePresets)
-  totalVCpus    += presetTotals.totalVCpus
-  totalMemoryGB += presetTotals.totalMemoryGB
-  totalStorageTB += presetTotals.totalStorageTB
+  const workloadSummary = computePlanning(state).workloadTotals
+  const presetTotals = computeAllServicePresets(state.servicePresets, state.aks.enabled)
   const customTotals = computeAllCustomWorkloads(state.customWorkloads)
-  totalVCpus    += customTotals.totalVCpus
-  totalMemoryGB += customTotals.totalMemoryGB
-  totalStorageTB += customTotals.totalStorageTB
-
-  const workloadSummary = {
-    totalVCpus: Math.round(totalVCpus),
-    totalMemoryGB: Math.round(totalMemoryGB),
-    totalStorageTB: round2(totalStorageTB),
-  }
+  const inventory = computeInventory(state.inventory, state.inventorySettings)
 
   const health = runHealthCheck({
     hardware: state.hardware,
@@ -226,6 +203,7 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
 
   // ── Sheet 5: Workload Planner ─────────────────────────────────────────────
   const wlRows: Row[] = []
+  if (inventory.includedCount) wlRows.push(['VM inventory', inventory.totalVCpus, inventory.totalMemoryGB, inventory.totalStorageTB, 'Included rows'])
   if (state.avdEnabled) wlRows.push(['AVD (Azure Virtual Desktop)', avd.totalVCpus, avd.totalMemoryGB, round2(avd.totalStorageTB), 'Enabled'])
   if (state.aks.enabled) wlRows.push(['AKS on Azure Local', aks.totalVCpus, aks.totalMemoryGB, round2(aks.totalStorageTB), 'Enabled'])
   if (state.virtualMachines?.enabled) {
@@ -237,7 +215,7 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
   }
   if (state.sofsEnabled) wlRows.push(['SOFS Guest Cluster', sofs.sofsVCpusTotal, sofs.sofsMemoryTotalGB, round2(sofs.totalStorageTB), 'Enabled'])
   if (state.mabsEnabled) wlRows.push(['MABS (Azure Backup Server)', mabsResult.mabsVCpus, mabsResult.mabsMemoryGB, round2(mabsResult.totalStorageTB + mabsResult.mabsOsDiskTB), 'Enabled'])
-  if (presetTotals.totalVCpus > 0) wlRows.push(['Arc-Enabled Services', presetTotals.totalVCpus, presetTotals.totalMemoryGB, presetTotals.totalStorageTB, 'Enabled'])
+  if ((presetTotals.totalVCpus > 0 || presetTotals.totalStorageTB > 0)) wlRows.push(['Arc-Enabled Services', presetTotals.totalVCpus, presetTotals.totalMemoryGB, presetTotals.totalStorageTB, 'Enabled'])
   if (customTotals.totalVCpus > 0) wlRows.push(['Custom Workloads', customTotals.totalVCpus, customTotals.totalMemoryGB, customTotals.totalStorageTB, 'Enabled'])
 
   if (wlRows.length > 0) {
@@ -548,5 +526,20 @@ export function exportXlsx(state: Pick<SurveyorState, 'hardware' | 'advanced' | 
     ],
   ), 'Advanced Settings')
 
+  if (state.inventory.length) {
+    XLSX.utils.book_append_sheet(wb, makeSheet(
+      ['VM', 'Included', 'Tier', 'vCPU', 'RAM GiB', 'Consumed GiB', 'Provisioned GiB', 'Source cluster', 'Source host', 'Guest OS', 'CPU P95 %', 'Memory P95 %', 'IOPS P95', 'Throughput MBps P95', 'Observation days'],
+      state.inventory.map(vm => [vm.name, vm.include, vm.tier, vm.vCpu, vm.memoryGiB, vm.consumedGiB, vm.provisionedGiB, vm.sourceCluster, vm.sourceHost, vm.guestOs, vm.measurement?.cpuP95Pct ?? null, vm.measurement?.memoryP95Pct ?? null, vm.measurement?.iopsP95 ?? null, vm.measurement?.throughputMBpsP95 ?? null, vm.measurement?.observationDays ?? null]),
+    ), 'VM Inventory')
+  }
+  const fit = assessHardwareFit(state)
+  XLSX.utils.book_append_sheet(wb, makeSheet(['Metric', 'Value'], [
+    ['Aggregate capacity fit', fit.fits === null ? 'No workloads' : fit.fits],
+    ['Maintenance reserve nodes', fit.reserveNodes], ['Smallest fit in modeled 2–16 node range', fit.requiredNodes],
+    ['vCPU deficit', fit.current.deficits.vCpus], ['RAM deficit GiB', fit.current.deficits.memoryGB], ['Pool footprint deficit TB', fit.current.deficits.poolTB],
+    ['Inventory sizing basis', state.inventorySettings.sizingBasis], ['Inventory storage basis', state.inventorySettings.storageBasis],
+    ['Inventory growth %', state.inventorySettings.growthPct], ['P95 safety multiplier', state.inventorySettings.comfortFactor],
+    ['Performance confidence', inventory.confidence], ...fit.current.errors.map(error => ['Constraint', error] as Row), ...fit.warnings.map(warning => ['Assumption', warning] as Row),
+  ]), 'Workload Fit')
   XLSX.writeFile(wb, 'azure-local-surveyor-plan.xlsx')
 }
