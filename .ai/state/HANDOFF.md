@@ -11,5 +11,6 @@
 - Version 2.8.0 in website/docs packages and lockfiles; release notes in root/docs changelogs and About; README, documentation homepage, planning guide, project format documentation updated.
 - Files: src/App.tsx, scoped state hook/store/project, route-aware links, Layout and planning pages, recommendation engine, storage exporters, shared component hooks, CSS, unit/browser tests and docs.
 - Verification: source review and git diff --check completed. No local build/test invoked; pipeline owns lint, unit tests, TypeScript/Vite, documentation and Chromium build/published checks.
-- Next: commit/push, inspect action failures and fix as needed, verify build-info.json matches final commit and inspect browser evidence. Close AB#9075 only after live acceptance.
+- Pushed implementation b4ad995 and Vite type fix 3ccbe6c. Pipeline confirms lint, 347 tests, website build and documentation build pass. Browser runner required reading package metadata with Node's filesystem API instead of a bare JSON import; corrected before retrying publication.
+- Next: inspect action failures and fix as needed, verify build-info.json matches final commit and inspect browser evidence. Close AB#9075 only after live acceptance.
 - Preferences: use native Windows PowerShell, no WSL, call the product a website. No secrets committed. User authorization covers pushing and publishing through existing pipeline.

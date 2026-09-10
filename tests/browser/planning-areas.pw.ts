@@ -1,6 +1,8 @@
 import { test, expect } from '@playwright/test'
 import { readFile } from 'node:fs/promises'
-import { version } from '../../package.json'
+import { readFileSync } from 'node:fs'
+
+const { version } = JSON.parse(readFileSync(new URL('../../package.json', import.meta.url), 'utf8')) as { version: string }
 
 test('storage and workload projects stay independent through navigation, reload and explicit transfers', async ({ page }) => {
   const errors: string[] = []
