@@ -1,12 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { ExternalLink, Settings, X } from 'lucide-react'
 import { useSurveyorStore } from '../state/usePlanStore'
 import { createProject, downloadProject } from '../state/project'
 import { usePlanningArea } from '../state/planning-area'
+import { journeyPosition } from '../state/journey'
+import { consumeHeadingFocus } from '../state/journey-focus'
 import AdvancedSettings from './AdvancedSettings'
 import { ErrorBoundary } from './ErrorBoundary'
+import JourneyBar from './JourneyBar'
+import WorkflowNav from './WorkflowNav'
 import { version } from '../../package.json'
 
 const storageLinks = [
@@ -27,6 +31,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const { pathname } = useLocation()
   const inPlan = pathname.startsWith('/storage') || pathname.startsWith('/planning')
   const prefix = area === 'storage' ? '/storage' : '/planning'
+  const position = journeyPosition(pathname)
+  const mainRef = useRef<HTMLElement>(null)
+  // After a step link, start the new page at its heading rather than wherever the previous page was scrolled.
+  useEffect(() => {
+    if (!consumeHeadingFocus()) return
+    window.scrollTo({ top: 0 })
+    const heading = mainRef.current?.querySelector<HTMLElement>('h1')
+    if (heading) { heading.tabIndex = -1; heading.focus({ preventScroll: true }) }
+  }, [pathname])
   const [advancedOpen, setAdvancedOpen] = useState(false)
   const [notice, setNotice] = useState('')
   const navClass = ({ isActive }: { isActive: boolean }) => 'block rounded-md px-3 py-2 text-sm transition-colors ' + (isActive ? 'bg-blue-500/30 text-white font-semibold' : 'text-blue-200 hover:bg-white/10 hover:text-white')
@@ -70,7 +83,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
         {notice && <p className="text-xs text-green-700 mt-2" role="status">{notice}</p>}
       </header>}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 py-6"><ErrorBoundary>{children}</ErrorBoundary></main>
+      <main ref={mainRef} className="max-w-7xl mx-auto px-4 sm:px-6 py-6">
+        {position && <JourneyBar position={position} />}
+        <ErrorBoundary>{children}</ErrorBoundary>
+        {position && <WorkflowNav position={position} />}
+      </main>
     </div>
   </div>
 }

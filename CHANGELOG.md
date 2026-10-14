@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Added
+
+- Journey navigation on every Storage Sizing and Workload Planning page: a step bar ("Step n of m", current step highlighted, completed steps ticked, clickable) above the page and a Previous / Continue footer below it. Workload order: Hardware → Workloads → Specialized Workloads (AVD, AKS, SOFS, MABS as sub-steps) → Hardware Options → Fit (Storage Design and Compare Drive Layouts as sub-steps) → Reports → Projects. Storage order: Hardware & Drives → Volume Planning → Compare Drive Layouts → Capacity & Resiliency → Storage Report → Projects. Routes and URLs are unchanged; the home, help and about pages show no bar.
+
 ## [2.8.0] — 2026-09-10
 
 ### Added

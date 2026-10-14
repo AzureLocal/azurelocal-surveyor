@@ -1,5 +1,13 @@
 # Handoff
 
+## Journey navigation — branch feature/nav-journey (14 Oct 2026)
+
+- Goal: give every Storage Sizing and Workload Planning page the step bar and Previous/Continue navigation that Hyper-V Surveyor has. Not merged, not pushed; no work item supplied, so the commit carries no AB# reference yet.
+- State: `src/state/journey.ts` is a navigation-only registry (fixed step order per area, sub-steps for the specialized planners and for Storage Design / Compare Drive Layouts under Fit, `journeyPosition(pathname)`); `src/state/journey-focus.ts` moves focus to the new page heading after a step link. The earlier draft's buy/existing path store (`nav-journey.ts`) was dropped: the owner asked for one fixed order per area.
+- UI: `src/components/JourneyBar.tsx` (above the page) and `WorkflowNav.tsx` (below) are rendered by `Layout.tsx` whenever `journeyPosition` returns a step; home, help and about pages show neither. Routes and URLs unchanged.
+- Verification: `npm run typecheck`, `npm run lint`, `npm test` (357 tests, incl. 10 new in `src/state/journey.test.ts`), `npm run build` all pass; `npx playwright test tests/browser/nav-journey.pw.ts` passes and writes the 1600x900 screenshots in `docs/screenshots/nav-journey/`.
+- Next: owner review of the screenshots, add the AB# work item to the commit, open the PR to main.
+
 ## Surveyor v2.8.0 — AB#9075
 
 - User authorized implementation, commit and push; completion requires a green GitHub Action and published website. Latest request explicitly includes version numbers and documentation.
