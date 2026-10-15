@@ -1,4 +1,4 @@
-# Azure Local Surveyor — v2.8.0
+# Azure Local Surveyor — v2.9.0
 
 Plan storage and workloads in the [Surveyor website](https://azurelocal.cloud/azurelocal-surveyor/). Calculations run in your browser.
 
@@ -28,7 +28,9 @@ Workload Planning combines included individual VMs, optional measured demand, qu
 - [Capacity model](./engine/capacity.md) and [volume sizing](./engine/volumes.md)
 - [Workload calculations](./engine/workloads.md) and [compute](./engine/compute.md)
 - [OEM presets and sources](./reference/oem-presets.md)
-- [Saved projects and plan manifests](./reference/plan-manifest.md)
+- [Saved projects and plan manifests](./reference/plan-manifest.md) and their [JSON Schemas](./reference/plan-manifest.md#json-schemas)
+- [Screen guide](./guide/screens.md), [RVTools import](./guide/rvtools-import.md), [single node and rack aware clusters](./guide/single-node-and-rack-aware.md), [as-built comparison](./guide/as-built-fit.md)
+- [Privacy and data handling](./reference/privacy-and-data.md)
 - [Release notes](./changelog.md)
 
 For Windows Server Hyper-V planning, open [Hyper-V Surveyor](https://labs.hybridsolutions.cloud/hyperv-surveyor/).

@@ -17,10 +17,13 @@ Raw Pool TB
 
 | Mode | Factor | Min nodes |
 |---|---|---|
-| Two-way mirror | 0.5 | 2 |
+| Two-way mirror | 0.5 | 1 (the only option on a single node) |
 | Three-way mirror | 0.333... | 3 |
-| Dual parity | 0.5 to 0.8 depending on node count | 4 |
+| Dual parity | 0.5 to 0.8 all-flash, 0.5 to 0.727 with HDD capacity, by node count | 4 |
 | Nested two-way mirror | 0.25 | 2 |
+| Four-way mirror | 0.25 | 4, rack aware clusters only (2+2 to 4+4) |
+
+A rack aware 1+1 cluster uses two-way mirror. See [single node and rack aware clusters](../guide/single-node-and-rack-aware.md) for the rules and worked numbers, and the in-app References page for the Learn source of each.
 
 ## Key outputs
 
@@ -35,7 +38,7 @@ Raw Pool TB
 | `resiliencyFactor` | Fraction of available pool that becomes usable storage |
 | `effectiveUsableTB` | Final usable TB; feed into volume planner |
 
-The default efficiency factor in Surveyor is `0.92`, matching the current engine default in `src/engine/types.ts`.
+There is no blended efficiency factor: the old `0.92` constant was removed in 2.4.1. Raw drive bytes go through the pipeline above and the TB to TiB conversion happens once, at display.
 
 ## Calculator TB vs WAC GB
 

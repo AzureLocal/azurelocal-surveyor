@@ -44,7 +44,7 @@ graph TB
 
 ## UI Layer
 
-As of v2.8.0, `/storage/*` and `/planning/*` form independent planning areas. A React context selects the appropriate Zustand store for all page and component hooks. Workload Planning retains the legacy `surveyor-state` storage key; Storage Sizing uses `surveyor-storage-state`. Project restore and storage exports sanitize workload fields. Explicit reviewed copy actions are the only normal UI path that changes inputs in the other area. Legacy routes redirect to Workload Planning.
+As of v2.8.0 (unchanged in 2.9.0), `/storage/*` and `/planning/*` form independent planning areas. A React context selects the appropriate Zustand store for all page and component hooks. Workload Planning retains the legacy `surveyor-state` storage key; Storage Sizing uses `surveyor-storage-state`. Project restore and storage exports sanitize workload fields. Explicit reviewed copy actions are the only normal UI path that changes inputs in the other area. Legacy routes redirect to Workload Planning.
 
 The shared layout provides stable area navigation and project controls. Specialized workloads have a single navigation home. The recommendations engine evaluates reviewed OEM examples against the shared fit calculation, while the storage exporter uses only storage inputs.
 

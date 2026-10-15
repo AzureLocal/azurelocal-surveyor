@@ -1,5 +1,13 @@
 # Handoff
 
+## Complete 2.9.0 (Azure Local 12.2609) - branch feature/complete-2610 (15 Oct 2026)
+
+- Goal (owner order 15 Oct): bring Surveyor to 100%. Local branch only; not pushed. Commits carry AB#9075 as the in-flight work item; replace it if another item applies.
+- Engine: nodes 1-16 (single node = two-way mirror, no cache, no N+1), rack aware 1+1 to 4+4 (four-way mirror 25%), drive/cache rules, dual parity all-flash and hybrid tables, `src/engine/facts.ts` registry (Learn URL + verified 2026-10-15), `src/engine/as-built.ts`. Project `stateVersion` 11 (10 still opens); schemas in `docs/reference/*.schema.json`.
+- Dependencies: xlsx replaced by the SheetJS 0.20.3 tarball (integrity in package-lock.json), jsPDF 4.2.1, ajv 8 (dev). pnpm lockfile and workspace removed. `npm audit --omit=dev`: 8 -> 2 moderate (react-router 6).
+- Verification: lint, typecheck, 417 tests, build all pass; `npx playwright test` 7 passed, 1 skipped (docs test needs `docs/.vitepress/dist` copied to `dist/docs`, as CI does).
+- Next: owner review (`npm run dev`), decide AB# and the release tag (v2.9.0 is not created locally), then push the branch and open the PR.
+
 ## Journey navigation — branch feature/nav-journey (14 Oct 2026)
 
 - Goal: give every Storage Sizing and Workload Planning page the step bar and Previous/Continue navigation that Hyper-V Surveyor has. Not merged, not pushed; no work item supplied, so the commit carries no AB# reference yet.

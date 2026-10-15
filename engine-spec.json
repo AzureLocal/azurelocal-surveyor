@@ -3,8 +3,8 @@
   "$id": "engine-spec",
   "title": "Azure Local Surveyor — Engine Specification",
   "version": "1.0.0",
-  "surveyorVersion": "2.0.0",
-  "lastUpdated": "2026-04-14",
+  "surveyorVersion": "2.9.0",
+  "lastUpdated": "2026-10-15",
   "typeNamingNote": "src/engine uses kebab-case enums (e.g. 'three-way-mirror'). reference/temp uses title-case (e.g. 'Three-Way Mirror'). These are the same concepts. All manifest and spec files use kebab-case exclusively.",
   "overrideGap": {
     "implemented": 4,
@@ -15,7 +15,7 @@
       "avdProfileLogicalTb",
       "sofsProfileDemandTb"
     ],
-    "note": "34 override keys from reference/temp/types.ts OverrideKey are not yet implemented. They are tracked as deferred in the Advanced Settings sheet entry below."
+    "note": "34 override keys from reference/temp/types.ts OverrideKey are not implemented: the app exposes the four above through AdvancedSettingsOverrides (src/engine/types.ts). Re-checked 2026-10-15; the count is unchanged since 2.0.0."
   },
   "statusValues": {
     "implemented": "Full formula coverage — output matches workbook to parity-test tolerance.",
@@ -184,9 +184,9 @@
       "parityScenarioCount": 0,
       "divergences": [
         "Workbook defines 38 override keys. App implements 4: driveUsableTb, avdSessionHostsNeeded, avdProfileLogicalTb, sofsProfileDemandTb.",
-        "34 override keys are deferred — see overrideGap at the top of this file."
+        "34 override keys are not implemented — see overrideGap at the top of this file."
       ],
-      "notes": "Core settings (capacityEfficiencyFactor, infraVolumeSizeTB, vCpuOversubscriptionRatio, systemReservedMemoryGB, defaultResiliency) are fully implemented. Override registry is partially implemented."
+      "notes": "Core settings (infraVolumeSizeTB, vCpuOversubscriptionRatio, systemReservedMemoryGB, defaultResiliency) are fully implemented. Override registry is partially implemented."
     },
     "References": {
       "engineModule": null,
@@ -206,5 +206,46 @@
       "divergences": [],
       "notes": "Workbook To Do tab is an internal scratch pad. No implementation required. Feature backlog is tracked in GitHub issues."
     }
+  },
+  "extensions": {
+    "note": "App-specific engine additions beyond the 2.0 workbook port. Facts are traced in src/engine/facts.ts.",
+    "targetRelease": "Azure Local 12.2609",
+    "items": [
+      {
+        "name": "Single node (1 machine)",
+        "engineModule": "src/engine/capacity.ts, src/engine/hardware.ts",
+        "status": "implemented",
+        "tests": "src/engine/__tests__/single-node-rack-aware.test.ts"
+      },
+      {
+        "name": "Rack aware clusters (1+1 to 4+4, four-way mirror)",
+        "engineModule": "src/engine/capacity.ts, src/engine/fit.ts",
+        "status": "implemented",
+        "tests": "src/engine/__tests__/single-node-rack-aware.test.ts"
+      },
+      {
+        "name": "Dual parity all-flash and hybrid efficiency tables",
+        "engineModule": "src/engine/capacity.ts",
+        "status": "implemented",
+        "tests": "src/engine/__tests__/single-node-rack-aware.test.ts"
+      },
+      {
+        "name": "Platform rule checks (drives, cache, zones)",
+        "engineModule": "src/engine/hardware.ts",
+        "status": "implemented",
+        "tests": "src/engine/__tests__/single-node-rack-aware.test.ts"
+      },
+      {
+        "name": "Facts registry",
+        "engineModule": "src/engine/facts.ts",
+        "status": "implemented"
+      },
+      {
+        "name": "As-built comparison",
+        "engineModule": "src/engine/as-built.ts",
+        "status": "implemented",
+        "tests": "src/engine/__tests__/as-built.test.ts"
+      }
+    ]
   }
 }

@@ -1,6 +1,6 @@
 # Storage Sizing and Workload Planning
 
-Surveyor v2.8.0 provides two independent planning areas. Pick the area that matches the decision you need to make. The main navigation always lets you switch between them.
+Surveyor v2.9.0 provides two independent planning areas. Pick the area that matches the decision you need to make. The main navigation always lets you switch between them.
 
 ## Size storage without workloads
 
@@ -35,7 +35,7 @@ An inventory VM whose selected memory demand exceeds one host's usable RAM fails
 
 Allocation is the default inventory sizing basis. Optional P95 measurements use the configured comfort factor and independent allocation fallback when CPU or memory evidence is missing. Measured sizing assumes the proposed right-sizing will actually be applied. Inventory growth is included before the additional hardware-option headroom percentage.
 
-Consumed-storage sizing assumes thin provisioning or reclamation; it does not reserve the full provisioned gap. Fit checks compare workload volume suggestions and the edited volume layout separately and use the larger pool footprint. Maintenance reserve reduces available compute; storage overhead and rebuild reserves remain part of the capacity model. Surveyor models 2–16 nodes; this is the calculator's scope, not a universal platform limit.
+Consumed-storage sizing assumes thin provisioning or reclamation; it does not reserve the full provisioned gap. Fit checks compare workload volume suggestions and the edited volume layout separately and use the larger pool footprint. Maintenance reserve reduces available compute; storage overhead and rebuild reserves remain part of the capacity model. Surveyor models hyperconverged Azure Local at 1–16 nodes (8 for rack aware); disaggregated SAN deployments of up to 64 nodes are out of scope.
 
 Use **Planning assumptions** in the project header to review reserves and other calculation inputs. Changes affect only the active area.
 

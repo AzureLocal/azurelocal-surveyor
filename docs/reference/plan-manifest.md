@@ -1,8 +1,8 @@
 # Plan Manifest Schema
 
-## Reopenable projects in v2.8.0
+## Reopenable projects
 
-**Save project** downloads a separate project format with `kind: "azurelocal-surveyor-project"`, numeric `schemaVersion: 1`, `stateVersion: 10`, `appVersion`, `name`, `savedAt`, `planningArea` and `inputs`. The optional area tag is `storage` or `workload`; legacy files without it default to workload planning. State version 10 remains compatible because project names, planning purpose and the area tag are additive fields.
+**Save project** downloads a separate project format with `kind: "azurelocal-surveyor-project"`, numeric `schemaVersion: 1`, `stateVersion: 11`, `appVersion`, `name`, `savedAt`, `planningArea` and `inputs`. The optional area tag is `storage` or `workload`; legacy files without it default to workload planning. State version 11 (2.9.0) adds the optional `hardware.rackAware` flag and the `four-way-mirror` resiliency value; both are additive, so version 10 files open unchanged and `schemaVersion` stays 1. Importers that read `schemaVersion` keep working; they should map `four-way-mirror` and note `rackAware`.
 
 Open projects in their matching area using **Open / Compare**. Preview comparisons before restoring. Storage projects exclude workload demand. The existing manifest format below remains supported in Workload Planning. See the [planning guide](../guide/planning-areas.md) for explicit transfers between areas.
 
@@ -119,3 +119,12 @@ Per-scenario fields (`avd`, `sofs`, `aks`, `mabs`) are only present when the sce
 ## Round-trip import
 
 A plan exported as JSON can be loaded back into Surveyor in a future release. When loaded, `provenance.source` will be set to `"imported"` to distinguish it from a freshly-typed plan. This feature is not yet implemented in v1.7.0.
+
+## JSON Schemas
+
+Machine-readable, versioned schemas ship in this folder and are checked by tests (`src/state/schema.test.ts`):
+
+- [`project.schema.json`](./project.schema.json) — the saved project (`schemaVersion` 1, `stateVersion` 10 or 11).
+- [`plan-manifest.schema.json`](./plan-manifest.schema.json) — the Export JSON manifest (`schemaVersion` `1.x`; 2.9.0 adds the optional `targetRelease`).
+
+Both use JSON Schema 2020-12. The hardware block is strict (unknown keys are rejected) so typos are caught; other blocks allow additional properties. A schema change that rejects a previously valid file requires a new `schemaVersion` major.

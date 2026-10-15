@@ -7,9 +7,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+## [2.9.0] — 2026-10-15
+
 ### Added
 
+- Single node (1 machine): two-way mirror only, no storage cache, HDD rejected, no N+1. The node range is 1 to 16 and every message says 16 is the maximum; disaggregated SAN deployments (up to 64) are out of scope and the UI says so (AB#9075).
+- Rack aware clusters 1+1 (two-way mirror, 50%) and 2+2 to 4+4 (four-way mirror, 25%): zone validation, all-flash rule, rack-loss compute check, and four-way volumes in capacity, fit, health check, hardware form, volumes and scripts.
+- Drive and cache rules from Microsoft Learn (2 capacity drives minimum; cache needs 2 cache and 4 capacity drives; hybrid 15% ratio, 32 GB cache devices and multiple-of-cache rule; all-HDD without cache rejected) and the Learn all-flash and hybrid dual-parity efficiency tables.
+- Facts registry (`src/engine/facts.ts`): every encoded Azure Local fact with its Learn URL and verified date, shown on the References page, plus a list of planning assumptions that are not Microsoft requirements. A release banner shows Azure Local 12.2609 (latest) in the app, PDF, Markdown and plan JSON (`targetRelease`).
+- Built vs sized page and `docs/guide/as-built-fit.md`: paste an as-built hardware JSON and compare it with sized demand and N+1 headroom.
+- JSON Schemas for the project and plan files in `docs/reference`, validated by tests. Project `stateVersion` is 11; version 10 files still open and the new fields are additive.
+- Screen guide, RVTools import guide, single node and rack aware guide, privacy and data page, and a privacy guard test that fails if network APIs or remote assets are added.
 - Journey navigation on every Storage Sizing and Workload Planning page: a step bar ("Step n of m", current step highlighted, completed steps ticked, clickable) above the page and a Previous / Continue footer below it. Workload order: Hardware → Workloads → Specialized Workloads (AVD, AKS, SOFS, MABS as sub-steps) → Hardware Options → Fit (Storage Design and Compare Drive Layouts as sub-steps) → Reports → Projects. Storage order: Hardware & Drives → Volume Planning → Compare Drive Layouts → Capacity & Resiliency → Storage Report → Projects. Routes and URLs are unchanged; the home, help and about pages show no bar.
+
+### Changed
+
+- Minimum node count is 1 (was 2); fit, recommendations and hardware limits use 1 to 16. Dual parity efficiency follows the matching Learn table. Reports show Azure Local 12.2609 (latest) as the planning basis.
+- Resiliency and volume pickers follow node count and rack aware mode. HDD capacity without a cache tier is now an error because Azure Local does not support it. Planning assumptions (host memory and vCPU reserve, N+1/N+2) are labelled as such.
+- Documentation: README, repo intent, engine spec and AGENTS.md refreshed; the docs changelog page now includes this file instead of duplicating it; the Excel workbook path no longer names a drive letter; the 2.0 planning transcript moved to `archive/`.
+
+### Security
+
+- xlsx 0.18.5 (prototype pollution and ReDoS advisories, no npm fix) replaced by the SheetJS 0.20.3 vendor tarball with its integrity hash pinned in package-lock.json; jsPDF 4.2.1 and jspdf-autotable 5.0.9. `npm audit --omit=dev` went from 8 findings (1 critical, 2 high, 5 moderate) to 2 moderate (react-router 6, which needs a major upgrade). Development-tool advisories (vitest, vite, eslint plugins) remain.
+- Removed the stale pnpm lockfile and workspace file; package-lock.json is the single lockfile.
+
+### Fixed
+
+- vCLS agent VMs named `vCLS (n)` are skipped by the individual RVTools import, and the grouped importer now skips vCLS too.
+- The README no longer claims a Share button: no screen uses the URL serializer in this version (see docs/reference/privacy-and-data.md).
 
 ## [2.8.0] — 2026-09-10
 

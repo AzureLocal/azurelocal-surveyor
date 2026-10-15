@@ -14,7 +14,7 @@ Selecting a preset fills physical cores, RAM, capacity drives and cache drives p
 node. Node count and other planning settings stay unchanged. Boot devices are
 excluded from capacity. A reference panel shows the original example, source and
 review date; editing the sizing fields displays a customization notice. These
-examples use local S2D storage within Surveyor's existing 2–16 node model. GPU,
+examples use local S2D storage within Surveyor's 1–16 node hyperconverged model. GPU,
 single-node and external SAN sizing require separate assessment.
 
 | Vendor | Included models | Reference |

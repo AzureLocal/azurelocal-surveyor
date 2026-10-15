@@ -8,7 +8,7 @@ GitHub Actions tests and builds every push to `main`, publishes the website and 
 documentation to GitHub Pages, and verifies the deployed commit and browser workflow.
 The workflow only turns green after the public website passes verification.
 
-## Planning areas in v2.8.0
+## Planning areas in v2.9.0
 
 Choose **Storage Sizing** for the standalone calculator: Hardware & Drives → Capacity & Resiliency → Volume Planning → Storage Report. No workloads are required. Storage reports export to PDF, XLSX, Markdown, project JSON and a volume creation script.
 
@@ -16,7 +16,7 @@ Choose **Workload Planning** to answer either **What hardware do I need?** or **
 
 Each area keeps its own project name and browser state. **Save project** and **Open / Compare** are available throughout each plan. Explicit reviewed copy actions transfer hardware or a storage design between areas. Existing browser plans and older project files open in Workload Planning.
 
-See the [planning guide](docs/guide/planning-areas.md) for both workflows, project handling and sizing assumptions.
+See the [planning guide](docs/guide/planning-areas.md) for both workflows, project handling and sizing assumptions, the [screen guide](docs/guide/screens.md), the [RVTools import guide](docs/guide/rvtools-import.md) and [single node and rack aware clusters](docs/guide/single-node-and-rack-aware.md).
 
 ## Workload planning
 
@@ -31,8 +31,8 @@ are planning assumptions. Consumed-storage sizing requires thin provisioning or 
 not automatically reserve the gap to provisioned capacity.
 
 **Fit & Recommendations** checks combined demand against your hardware, including the selected N+1/N+2 compute
-reserve, and compares same-spec node counts within the existing S2D model's 2–16 node range. This is a
-calculator scope, not a universal Azure Local platform limit. It evaluates workload volume suggestions and
+reserve, and compares same-spec node counts for hyperconverged Azure Local (1 to 16 nodes; 2, 4, 6 and 8 for rack aware).
+Disaggregated SAN deployments of up to 64 nodes are not modeled. It evaluates workload volume suggestions and
 the edited volume plan separately; the larger footprint controls the capacity check. It does not certify
 per-VM placement, storage performance, networking, or hardware support.
 
@@ -47,24 +47,22 @@ Already deployed your cluster? Use [Azure Local S2DCartographer](https://github.
 
 ---
 
-## What's new in v2.0
+## What's new in v2.9.0
 
-**v2.0** is a comprehensive quality overhaul that delivers multi-workload planning end-to-end:
+Surveyor 2.9.0 plans against **Azure Local 12.2609 (latest)**. Every platform rule it encodes is listed with its Microsoft Learn link and verification date on the in-app References page.
 
 | Area | What changed |
 |---|---|
-| **AKS Multi-Cluster** | Plan multiple independent AKS clusters; each gets its own OS-disk and PVC volumes |
-| **VM Storage Groups** | Organize VMs into named groups; one volume suggestion per group |
-| **SOFS Volume Layout** | Choose `shared` (1+1 volumes) or `per-vm` (N+N volumes); OS disk per VM sized separately |
-| **Per-Volume Resiliency** | Each volume carries its own resiliency type; pool footprint reflects per-volume resiliency |
-| **Per-Volume Provisioning** | Each volume is `fixed` or `thin`; health check enforces fixed-only capacity constraint |
-| **Quick Start Reference** | Two-row hardware reference (three-way + two-way); 1 GiB safety margin on WAC sizes |
-| **Compute Health Check** | Dedicated compute-tier checks: HC_VCPU_HIGH, HC_VCPU_OVER_SUBSCRIBED, HC_MEMORY_HIGH, HC_MEMORY_EXCEEDED |
-| **Reports Page** | Conditional tabs for AVD, AKS, MABS, and SOFS; each tab shows a full solution summary |
-| **Arc → AKS Integration** | Arc-enabled service preset storage folds into AKS-ArcServices-PVC when AKS is enabled |
-| **Custom Workloads** | Internal mirror factor applied to data volume sizing; OS disk volume generated per VM |
-| **Store Migration** | Full v2→v9 migration chain; exports `migratePersistedState` for direct testing |
-| **Test Coverage** | 115 automated tests (up from 63) covering all engine functions and migration logic |
+| **Single node** | 1 to 16 nodes. A single node is two-way mirror only, with no cache and no N+1; the planner warns and explains. |
+| **Rack aware clusters** | 1+1 (two-way mirror) and 2+2 to 4+4 (four-way mirror, 25%); zone checks, rack-loss compute check, four-way volumes. |
+| **Drive and cache rules** | 2 capacity drives minimum; cache needs 2 cache and 4 capacity drives; hybrid 15% ratio, 32 GB and multiple rules; Learn's all-flash and hybrid dual-parity tables. |
+| **Facts registry** | `src/engine/facts.ts`: each platform fact with a Learn URL and a verified date, plus a list of planning assumptions that are not Microsoft requirements. |
+| **Built vs sized** | Paste an as-built hardware JSON and compare it with sized demand and N+1 headroom. |
+| **JSON Schemas** | Versioned schemas for the project and plan files in `docs/reference`, validated by tests. Project `stateVersion` is now 11 (10 still opens). |
+| **Security** | SheetJS 0.20.3 (pinned) replaces xlsx 0.18.5; jsPDF 4. A privacy guard test blocks network calls. |
+| **Documentation** | Screen guide, RVTools import guide, as-built guide, privacy and data page. |
+
+Earlier highlights: v2.8.0 separated Storage Sizing and Workload Planning; v2.0 added AKS multi-cluster, VM groups, SOFS layouts and per-volume resiliency. See the [changelog](CHANGELOG.md).
 
 ---
 
@@ -98,27 +96,20 @@ Open `http://localhost:5173`.
 
 ## Tests
 
-The engine ships with 115 automated tests, including 20+ golden-scenario parity tests validated against the source Excel workbook and 39 new Phase 14 verification tests:
+The engine and application ship with automated tests (run `npm test`): golden-scenario parity tests against the source Excel workbook, Learn-derived tests for single node, rack aware and dual-parity tables (the arithmetic is in the test names), RVTools import parity, project and plan JSON schema validation, a PDF smoke test and a privacy guard.
 
 ```bash
+npm run lint
+npm run typecheck
 npm test
+npm run build
 ```
 
-Tests live in `src/engine/__tests__/` and `src/state/`. All must pass before any change is merged.
+Tests live in `src/engine/__tests__/`, `src/state/` and `src/exporters/`. All must pass before any change is merged. Browser tests (`npx playwright test`, files in `tests/browser`) run in CI against the built site.
 
-**Test scope:**
-- Capacity parity — 20 golden scenarios vs Excel
-- AVD parity — 12 golden scenarios
-- SOFS parity — 8 golden scenarios
-- Compute parity — 6 golden scenarios
-- Engine tests — volume suggestions, health checks, AKS, SOFS layouts, Arc integration
-- Custom workloads — mirror factor, OS disk generation, disabled exclusion
-- Quick Start Reference — rounding, 1 GiB margin, volume count cap
-- Store migration — full v2→v9 chain, each transformation individually tested
+## Saving and privacy
 
-## Sharing scenarios
-
-Hit **Share** on any page to copy a URL encoding your full state as a base64url query parameter. Anyone with the link can open your exact scenario.
+Surveyor makes no network calls; the plan lives in your browser's local storage and in the project files you download. There is no share-by-URL feature in this version. See [privacy and data](docs/reference/privacy-and-data.md).
 
 ## Exporting
 
@@ -126,6 +117,7 @@ From the Reports page:
 
 - **PDF** — printable customer proposal
 - **XLSX** — round-trip workbook with all sheets
+- **JSON** — versioned plan manifest ([schema](docs/reference/plan-manifest.schema.json)); **Save project** writes the project file ([schema](docs/reference/project.schema.json))
 - **PowerShell** — `New-Volume` commands with WAC-ready sizes
 - **Markdown** — table output for wikis or documentation
 
@@ -134,8 +126,8 @@ From the Reports page:
 The source Excel file is not committed to this repo. Copy it from `azurelocal-toolkit`:
 
 ```
-E:\git\azurelocal-toolkit\tools\planning\S2D_Capacity_Calculator.xlsx
-→ reference\S2D_Capacity_Calculator.xlsx
+<your clone of azurelocal-toolkit>/tools/planning/S2D_Capacity_Calculator.xlsx
+→ reference/S2D_Capacity_Calculator.xlsx
 ```
 
 See [reference/README.md](reference/README.md) for details.
@@ -148,8 +140,8 @@ See [reference/README.md](reference/README.md) for details.
 | Styling | Tailwind CSS |
 | State | Zustand (persisted) |
 | Validation | Zod |
-| PDF export | jsPDF + autoTable |
-| XLSX export | SheetJS |
+| PDF export | jsPDF 4 + autoTable 5 |
+| XLSX import and export | SheetJS 0.20.3 (pinned tarball) |
 | Tests | Vitest |
 | Deploy | GitHub Actions → GitHub Pages |
 

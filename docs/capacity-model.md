@@ -67,15 +67,14 @@ All math is in **bytes** internally. Display derives TiB (`÷2^40`) and TB (`÷1
 
 | Resiliency | Copies | Efficiency | Min nodes |
 |---|---|---|---|
-| Two-way mirror | 2 | 50.0% | 2 |
+| Two-way mirror | 2 | 50.0% | 1 (single node: copies across drives), 2 for two fault-domain servers |
 | Three-way mirror | 3 | 33.3% | **3** |
 | Nested two-way mirror | 4 | 25% | 2 |
 | Nested mirror-accelerated parity | — | ~35–40% | 2 |
-| Dual parity | — | 50–80% | 4 |
+| Dual parity | — | 50–80% (all-flash), 50–72.7% (hybrid) | 4 |
+| Four-way mirror (rack aware 2+2 to 4+4) | 4 | 25% | 4 (rack aware only) |
 
-- **3-way requires ≥3 nodes** — on 2 nodes only two-way or nested is valid. Surveyor's engine does **not**
-  hard-block 3-way on 2 nodes today (`capacity.ts` never calls `minNodesForResiliency`; gating is only an
-  advisory health check) → **AB#4636 is a real bug.** For 2-node *production*, surface **nested** resiliency.
+- **3-way requires ≥3 nodes** — on 2 nodes only two-way or nested is valid. The engine clamps an invalid choice to a valid one (`clampResiliency`, AB#4636, fixed) and the health check errors. For 2-node *production*, surface **nested** resiliency. A single node supports two-way mirror only; rack aware clusters offer two-way (1+1) or four-way mirror only.
 - **Reserve = one capacity drive per server, up to 4** (per-server, drive-based — not a flat % or 0.75 TB).
 - `footprint = size × copies`; `efficiency = usable ÷ footprint`.
 - Asymmetric drives → stranded capacity; only capacity present in **every** server is guaranteed usable.

@@ -13,7 +13,7 @@ reference/S2D_Capacity_Calculator.xlsx
 The workbook lives in the `azurelocal-toolkit` repo:
 
 ```
-E:\git\azurelocal-toolkit\tools\planning\S2D_Capacity_Calculator.xlsx
+<your clone of azurelocal-toolkit>/tools/planning/S2D_Capacity_Calculator.xlsx
 ```
 
 Copy it here manually — the file is not committed to source control (`.gitignore` excludes `*.xlsx` from this directory to avoid binary bloat in git history).

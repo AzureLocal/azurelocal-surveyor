@@ -10,9 +10,16 @@
 
 ## What this repo is
 
-Web application repo. Frontend built with TypeScript and React, following HCS development standards and platform conventions.
+Azure Local Surveyor is a static, in-browser capacity planning tool for hyperconverged Azure Local (React, TypeScript, Vite, Zustand, Vitest). It sizes storage, compute and workloads before deployment. It is not a deployment tool, makes no network calls and holds no secrets.
 
-<!-- One paragraph. What the repo is, why it exists, and what it is not. -->
+**Working rules for this repo**
+
+- The engine in `src/engine` is pure TypeScript. Every engine change needs a test with hand-checked numbers (see `CONTRIBUTING.md`).
+- Every Azure Local fact encoded in the engine is registered in `src/engine/facts.ts` with a Microsoft Learn URL and a verified date. Learn wins over any other source; update the registry and the References page together.
+- Public wording: describe the planning basis as Azure Local 12.2609 (latest). No customer or private tenant data; example values only.
+- Validation before any commit: `npm run lint`, `npm run typecheck`, `npm test`, `npm run build`. CI (`.github/workflows/deploy.yml`) runs lint, tests, build and the Playwright checks.
+- `package-lock.json` is the only lockfile. SheetJS is installed from its vendor tarball with the integrity hash pinned in the lockfile; do not replace it with the npm `xlsx` package.
+- The project file `stateVersion` (src/state/project.ts) and the schemas in `docs/reference` change together; downstream importers read `schemaVersion`.
 
 ---
 
