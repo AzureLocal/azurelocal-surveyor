@@ -200,6 +200,13 @@ function mergeObject<T extends object>(defaults: T, value: unknown): T {
   } as T
 }
 
+/** Optional fields stay absent unless they carry a real value, so older exports and imports stay identical. */
+function normalizeHardware(value: unknown): HardwareInputs {
+  const merged = mergeObject(DEFAULT_HARDWARE, value) as HardwareInputs
+  if (merged.rackAware !== true) delete merged.rackAware
+  return merged
+}
+
 function omitUndefined<T extends Record<string, unknown>>(value: T): Partial<T> {
   return Object.fromEntries(Object.entries(value).filter(([, entry]) => entry !== undefined)) as Partial<T>
 }
@@ -306,7 +313,7 @@ export function normalizePersistedState(persisted: unknown): SurveyorPersistedSl
   }
 
   return {
-    hardware: mergeObject(DEFAULT_HARDWARE, state.hardware),
+    hardware: normalizeHardware(state.hardware),
     planName: typeof state.planName === 'string' ? state.planName : 'Azure Local plan',
     planningPurpose: state.planningPurpose === 'existing' ? 'existing' : 'buy',
     inventory: state.inventory === undefined ? [] : validateInventory(state.inventory),
@@ -462,7 +469,7 @@ export const createSurveyorStore = (storageKey = 'surveyor-state') => create<Sur
     }),
     {
       name: storageKey,
-      version: 10,
+      version: 11,
       migrate: migratePersistedState,
       merge: (persisted: unknown, current: SurveyorState) => ({
         ...current,
@@ -479,6 +486,16 @@ export const storagePlanStore = createSurveyorStore('surveyor-storage-state')
 /** @internal — exported for testing only */
 export function migratePersistedState(persisted: unknown, version: number): unknown {
         const state = isRecord(persisted) ? { ...persisted } : {}
+
+        if (version < 11) {
+          // v11: hardware.rackAware (optional) and the four-way-mirror resiliency were added.
+          // Older plans never had them; keep hardware exactly as saved and drop any stray value.
+          if (isRecord(state.hardware)) {
+            const hardware = { ...state.hardware }
+            if (hardware.rackAware !== true) delete hardware.rackAware
+            state.hardware = hardware
+          }
+        }
 
         if (version < 9) {
           // Migrate flat AKS → clusters array

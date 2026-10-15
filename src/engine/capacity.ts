@@ -10,13 +10,16 @@ import type {
 /**
  * Returns the storage efficiency multiplier for a given resiliency type.
  *
- * Dual Parity efficiency is node-count dependent (matches Excel workbook):
- *   4–6 nodes  → 50%
- *   7–8 nodes  → 66.7%
- *   9–15 nodes → 75%   (all-flash tiers)
- *   16 nodes   → 80%   (all-flash tiers)
+ * Dual Parity efficiency is node-count dependent. Learn publishes two tables
+ * (storage-spaces/fault-tolerance); `hybrid` selects the HDD-capacity one:
+ *   nodes    all-flash        hybrid (HDD capacity)
+ *   4–6      50%  RS 2+2      50%
+ *   7–8      66.7% RS 4+2     66.7%
+ *   9–11     75%  RS 6+2      66.7%
+ *   12–15    75%  RS 6+2      72.7% LRC (8,2,1)  (8/11)
+ *   16       80%  LRC(12,2,1) 72.7%
  */
-export function getResiliencyFactor(resiliency: ResiliencyType, nodeCount: number): number {
+export function getResiliencyFactor(resiliency: ResiliencyType, nodeCount: number, hybrid = false): number {
   switch (resiliency) {
     case 'two-way-mirror':
       return 0.5
@@ -25,10 +28,16 @@ export function getResiliencyFactor(resiliency: ResiliencyType, nodeCount: numbe
     case 'dual-parity':
       if (nodeCount <= 6)  return 0.5
       if (nodeCount <= 8)  return 2 / 3
+      if (hybrid) {
+        // Hybrid (HDD capacity) table, Learn fault-tolerance: RS 4+2 up to 11, LRC (8,2,1) from 12.
+        return nodeCount <= 11 ? 2 / 3 : 8 / 11
+      }
       if (nodeCount <= 15) return 0.75
       return 0.8
     case 'nested-two-way':
       return 0.25
+    case 'four-way-mirror':
+      return 0.25 // rack aware 2+2..4+4: four copies (Learn rack-aware-cluster-requirements)
     default:
       return 1 / 3  // fallback to three-way-mirror if resiliency is invalid/stale
   }
@@ -40,10 +49,11 @@ export function getResiliencyFactor(resiliency: ResiliencyType, nodeCount: numbe
  */
 export function minNodesForResiliency(resiliency: ResiliencyType): number {
   switch (resiliency) {
-    case 'two-way-mirror':    return 2
+    case 'two-way-mirror':    return 1  // a single machine runs two-way mirror across its drives
     case 'three-way-mirror':  return 3
     case 'dual-parity':       return 4
     case 'nested-two-way':    return 2
+    case 'four-way-mirror':   return 4  // rack aware only; see clampResiliency
     default:                  return 3  // fallback to three-way-mirror
   }
 }
@@ -51,28 +61,34 @@ export function minNodesForResiliency(resiliency: ResiliencyType): number {
 /**
  * Returns the safest valid resiliency type for a given node count.
  * Preference order: honour the requested type if valid; else fall back
- * to two-way-mirror (always valid for ≥2 nodes).
+ * to two-way-mirror (valid from a single node).
  *
  * Per docs/capacity-model.md: for 2-node, nested-two-way is the
  * production recommendation, but two-way-mirror is also valid.
  */
 export function clampResiliency(
   requested: ResiliencyType,
-  nodeCount: number
+  nodeCount: number,
+  rackAware = false
 ): { resiliency: ResiliencyType; clamped: boolean } {
-  if (nodeCount >= minNodesForResiliency(requested)) {
+  if (rackAware) {
+    // Rack aware: 1+1 = two-way mirror; 2+2 and larger = four-way mirror. No three-way, parity or nested.
+    const allowed: ResiliencyType = nodeCount >= 4 ? 'four-way-mirror' : 'two-way-mirror'
+    return { resiliency: allowed, clamped: requested !== allowed }
+  }
+  if (requested !== 'four-way-mirror' && nodeCount >= minNodesForResiliency(requested)) {
     return { resiliency: requested, clamped: false }
   }
-  // For 2-node: two-way-mirror is simplest valid fallback
-  // nested-two-way is ≥2 as well, but two-way is the safer default
-  const fallback: ResiliencyType = 'two-way-mirror'
-  return { resiliency: fallback, clamped: true }
+  // two-way mirror is valid from one machine up
+  return { resiliency: 'two-way-mirror', clamped: true }
 }
 
 /**
  * Returns a list of resiliency types that are valid for the given node count.
+ * Rack aware clusters only offer two-way (1+1) or four-way mirror (2+2 and larger).
  */
-export function validResiliencyOptions(nodeCount: number): ResiliencyType[] {
+export function validResiliencyOptions(nodeCount: number, rackAware = false): ResiliencyType[] {
+  if (rackAware) return [nodeCount >= 4 ? 'four-way-mirror' : 'two-way-mirror']
   const all: ResiliencyType[] = ['two-way-mirror', 'nested-two-way', 'three-way-mirror', 'dual-parity']
   return all.filter((r) => nodeCount >= minNodesForResiliency(r))
 }
@@ -132,7 +148,7 @@ export function computeCapacity(
   // AB#4636 — Resiliency gating: clamp to a valid resiliency for this node count.
   // minNodesForResiliency is now called here (was previously unused).
   const { resiliency: effectiveResiliency, clamped: resiliencyClamped } =
-    clampResiliency(settings.defaultResiliency, nodeCount)
+    clampResiliency(settings.defaultResiliency, nodeCount, !!inputs.rackAware)
 
   // Stage 1 — Raw pool (true drive bytes, no blended efficiency factor).
   // AB#4641: raw capacity is the true drive byte count; the old 0.92 blended
@@ -151,7 +167,8 @@ export function computeCapacity(
   const reserveTB = reserveDrives * largestRawDriveSizeTB
 
   // Stage 4 — Resiliency factor and infra volume pool footprint.
-  const resiliencyFactor = getResiliencyFactor(effectiveResiliency, nodeCount)
+  const hybrid = inputs.capacityMediaType === 'hdd'
+  const resiliencyFactor = getResiliencyFactor(effectiveResiliency, nodeCount, hybrid)
   // Infra volume pool footprint: logical size ÷ resiliency factor
   // (system CSV always created with the cluster's default resiliency)
   const infraVolumeTB = infraVolumeSizeTB / resiliencyFactor
@@ -196,6 +213,7 @@ export function computeCapacity(
     effectiveUsableTB: round4(effectiveUsableTB),
     resiliencyClamped,
     resiliencyRequested: settings.defaultResiliency,
+    hybridCapacity: hybrid,
   }
 }
 
@@ -231,6 +249,7 @@ export function resiliencyDataCopies(resiliency: ResiliencyType): number {
     case 'three-way-mirror': return 3
     case 'dual-parity':      return 2
     case 'nested-two-way':   return 4
+    case 'four-way-mirror':  return 4
     default:                 return 3  // safe fallback
   }
 }

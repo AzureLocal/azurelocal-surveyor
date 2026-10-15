@@ -3,11 +3,14 @@ import { version } from '../../package.json'
 import { computePlanning } from '../engine/planning'
 import { suggestPlanningVolumes } from '../engine/planning'
 
+/** State versions this build opens. 10 = before rack aware and single-node support (hardware.rackAware absent). */
+export const SUPPORTED_STATE_VERSIONS = [10, 11]
+
 export interface SurveyorProject {
   planningArea?: 'storage' | 'workload'
   kind: 'azurelocal-surveyor-project'
   schemaVersion: 1
-  stateVersion: 10
+  stateVersion: 11
   appVersion: string
   name: string
   savedAt: string
@@ -16,7 +19,7 @@ export interface SurveyorProject {
 
 export function createProject(state: SurveyorState, name: string, planningArea: 'storage' | 'workload' = 'workload'): SurveyorProject {
   return {
-    kind: 'azurelocal-surveyor-project', schemaVersion: 1, stateVersion: 10,
+    kind: 'azurelocal-surveyor-project', schemaVersion: 1, stateVersion: 11,
     planningArea,
     appVersion: version, name: name.trim() || 'Azure Local plan', savedAt: new Date().toISOString(),
     inputs: structuredClone(planningArea === 'storage' ? storageSnapshot(state) : normalizePersistedState(state)),
@@ -40,7 +43,7 @@ export function parseProject(text: string): { name: string; planningArea: 'stora
   const manifest = file.kind === undefined && file.schemaVersion === '1.0' && typeof file.surveyorVersion === 'string'
   if (!project && !manifest) throw new Error('Choose an Azure Local Surveyor project or plan manifest JSON file.')
   if (file.planningArea !== undefined && !['storage', 'workload'].includes(String(file.planningArea))) throw new Error('Invalid planning area.')
-  if (project && (file.schemaVersion !== 1 || file.stateVersion !== 10)) throw new Error('Unsupported project version. Open it with a compatible Surveyor version.')
+  if (project && (file.schemaVersion !== 1 || !SUPPORTED_STATE_VERSIONS.includes(file.stateVersion as number))) throw new Error('Unsupported project version. Open it with a compatible Surveyor version.')
   if (!record(file.inputs)) throw new Error('The project has no input snapshot.')
   const inputs = file.inputs
   for (const key of ['hardware', 'advanced', 'avd', 'aks', 'virtualMachines', 'sofs', 'mabs']) {
@@ -75,7 +78,7 @@ export function parseProject(text: string): { name: string; planningArea: 'stora
     if (typeof entry.id !== 'string' || !entry.id) throw new Error('A workload or volume is missing its ID.')
     if (keys.some(key => typeof entry[key] !== 'number' || !Number.isFinite(entry[key]))) throw new Error('A workload or volume is missing required numeric inputs.')
   }
-  const resiliencies = ['two-way-mirror', 'three-way-mirror', 'dual-parity', 'nested-two-way']
+  const resiliencies = ['two-way-mirror', 'three-way-mirror', 'dual-parity', 'nested-two-way', 'four-way-mirror']
   if (!resiliencies.includes(state.advanced.defaultResiliency) || state.volumes.some(v => !resiliencies.includes(v.resiliency) || !['fixed', 'thin'].includes(v.provisioning) || typeof v.name !== 'string')) throw new Error('Invalid volume resiliency, provisioning, or name.')
   if (state.inventorySources.some(source => !source || typeof source.fileName !== 'string' || typeof source.importedAt !== 'string' || !['rvtools', 'performance'].includes(source.kind) || !Number.isFinite(source.rows))) throw new Error('Invalid inventory import history.')
   const totals = computePlanning(state).workloadTotals

@@ -20,13 +20,14 @@ export type ResiliencyType =
   | 'three-way-mirror'
   | 'dual-parity'
   | 'nested-two-way'
+  | 'four-way-mirror' // rack aware clusters only (2+2 and larger)
 
 export type AvdWorkloadType = 'light' | 'medium' | 'heavy' | 'power'
 
 // ─── Hardware Inputs (Sheet: "Hardware Inputs") ───────────────────────────────
 
 export interface HardwareInputs {
-  nodeCount: number               // 2..16
+  nodeCount: number               // 1..16 hyperconverged (rack aware: 2, 4, 6 or 8 = two equal zones)
   capacityDrivesPerNode: number  // drives in capacity tier
   capacityDriveSizeTB: number    // per drive
   cacheDrivesPerNode: number     // 0 if no cache tier (all-NVMe or NVMe acts as capacity)
@@ -36,6 +37,8 @@ export interface HardwareInputs {
   coresPerNode: number           // physical CPU cores per node
   memoryPerNodeGB: number        // physical RAM per node
   hyperthreadingEnabled: boolean // logical vCPU = physical × 2 when true
+  /** Rack aware cluster: two local zones with nodeCount/2 machines each. Optional; absent means a standard cluster. */
+  rackAware?: boolean
 }
 
 // ─── Advanced Settings (Sheet: "Advanced Settings") ──────────────────────────
@@ -101,6 +104,7 @@ export interface CapacityResult {
   resiliencyFactor: number
   effectiveUsableTB: number            // availableForVolumes × resiliencyFactor — the planning number
   // AB#4636 — resiliency gating (optional for backward compat with test fixtures)
+  hybridCapacity?: boolean            // HDD capacity tier: dual parity uses the hybrid efficiency table
   resiliencyClamped?: boolean          // true when requested resiliency was invalid and was clamped
   resiliencyRequested?: ResiliencyType // the originally-requested resiliency (before clamping)
 }

@@ -12,10 +12,10 @@ export interface HardwareConstraints {
 
 /** Compare the reviewed example BOMs without inventing certified component options. */
 export function recommendHardware(state: FitInputs, constraints: HardwareConstraints) {
-  const min = Math.ceil(Math.max(2, constraints.minNodes))
+  const min = Math.ceil(Math.max(1, constraints.minNodes))
   const max = Math.floor(Math.min(16, constraints.maxNodes))
-  if (![min, max, constraints.headroomPct].every(Number.isFinite) || constraints.minNodes < 2 || constraints.maxNodes > 16 || min > max || constraints.headroomPct < 0 || constraints.headroomPct > 100) {
-    return { options: [], error: 'Enter a node range within 2–16 and additional headroom between 0% and 100%.' }
+  if (![min, max, constraints.headroomPct].every(Number.isFinite) || constraints.minNodes < 1 || constraints.maxNodes > 16 || min > max || constraints.headroomPct < 0 || constraints.headroomPct > 100) {
+    return { options: [], error: 'Enter a node range within 1–16 (hyperconverged) and additional headroom between 0% and 100%.' }
   }
   const growth = 1 + constraints.headroomPct / 100
   const options = ALL_PRESETS.filter(p => !constraints.vendor || p.vendor === constraints.vendor).flatMap(preset => {
@@ -40,7 +40,7 @@ export function estimateAdditionalVms(state: FitInputs, profile: { vCpu: number;
   if (fit.current.errors.length || !fit.current.fits) return 0
   if (state.hardware.nodeCount < minNodesForResiliency(state.advanced.defaultResiliency)) return 0
   if (profile.memoryGiB > state.hardware.memoryPerNodeGB - state.advanced.systemReservedMemoryGB) return 0
-  const diskFootprint = profile.diskGiB * 2 ** 30 / 1e12 / getResiliencyFactor(state.advanced.defaultResiliency, state.hardware.nodeCount)
+  const diskFootprint = profile.diskGiB * 2 ** 30 / 1e12 / getResiliencyFactor(state.advanced.defaultResiliency, state.hardware.nodeCount, state.hardware.capacityMediaType === 'hdd')
   const remaining = [
     (fit.current.cpu - fit.demand.totalVCpus) / profile.vCpu,
     (fit.current.memory - fit.demand.totalMemoryGB) / profile.memoryGiB,

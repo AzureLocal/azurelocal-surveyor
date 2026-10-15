@@ -30,7 +30,7 @@ describe('Hardware buying options', () => {
     expect(recommendHardware(normalizePersistedState({}), constraints).options).toEqual([])
   })
   it('rejects invalid ranges and headroom', () => {
-    for (const override of [{ minNodes: 1 }, { maxNodes: 17 }, { minNodes: 8, maxNodes: 4 }, { headroomPct: -1 }, { headroomPct: NaN }]) {
+    for (const override of [{ minNodes: 0 }, { maxNodes: 17 }, { minNodes: 8, maxNodes: 4 }, { headroomPct: -1 }, { headroomPct: NaN }]) {
       expect(recommendHardware(state(), { ...constraints, ...override }).error).toBeTruthy()
     }
   })

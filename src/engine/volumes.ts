@@ -53,7 +53,7 @@ export function computeVolumeSummary(
 
   // Pool footprint per volume: plannedSizeTB / resiliencyFactor
   const totalPoolFootprintTB = round2(enriched.reduce((sum, v) => {
-    const factor = getResiliencyFactor(v.resiliency, capacity.nodeCount)
+    const factor = getResiliencyFactor(v.resiliency, capacity.nodeCount, capacity.hybridCapacity)
     return sum + v.calculatorSizeTB / factor
   }, 0))
 
@@ -116,7 +116,7 @@ export function generateGenericVolumes(
 
   // AB#4637: use override resiliency if provided (e.g. from two-way/three-way toggle)
   const resiliencyType: ResiliencyType = resiliencyOverride ?? capacity.resiliencyType
-  const resiliencyFactor = getResiliencyFactor(resiliencyType, nodeCount)
+  const resiliencyFactor = getResiliencyFactor(resiliencyType, nodeCount, capacity.hybridCapacity)
   // Recompute effective usable from available pool using the chosen resiliency
   const effectiveUsableTB = availableForVolumesTB * resiliencyFactor
 
@@ -178,6 +178,7 @@ const RESILIENCY_LABELS: Record<ResiliencyType, string> = {
   'three-way-mirror': 'Three-Way Mirror',
   'dual-parity':      'Dual Parity',
   'nested-two-way':   'Nested Two-Way Mirror',
+  'four-way-mirror':  'Four-Way Mirror (rack aware)',
 }
 
 const PS_RESILIENCY: Record<ResiliencyType, { setting: string; redundancy?: number }> = {
@@ -185,6 +186,7 @@ const PS_RESILIENCY: Record<ResiliencyType, { setting: string; redundancy?: numb
   'three-way-mirror': { setting: 'Mirror', redundancy: 2 },
   'dual-parity':      { setting: 'Parity' },
   'nested-two-way':   { setting: 'Mirror', redundancy: 2 },
+  'four-way-mirror':  { setting: 'Mirror', redundancy: 3 }, // four copies = PhysicalDiskRedundancy 3
 }
 
 export function computeQuickStart(capacity: CapacityResult, activePsUtilization = 0.7): QuickStartResult {

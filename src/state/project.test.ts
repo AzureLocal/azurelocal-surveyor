@@ -69,3 +69,30 @@ describe('Reopenable planning projects', () => {
     expect(markdown).toContain('Workload Fit')
   })
 })
+
+describe('State version 11 (rack aware and single node)', () => {
+  it('writes stateVersion 11 and keeps rackAware absent on standard plans', () => {
+    const project = createProject(state(), 'Standard')
+    expect(project.stateVersion).toBe(11)
+    expect('rackAware' in project.inputs.hardware).toBe(false)
+  })
+  it('still opens a version 10 project file unchanged', () => {
+    const project = createProject(state(), 'Old')
+    const reopened = parseProject(JSON.stringify({ ...project, stateVersion: 10 }))
+    expect(reopened.inputs.hardware.nodeCount).toBe(project.inputs.hardware.nodeCount)
+    expect(() => parseProject(JSON.stringify({ ...project, stateVersion: 12 }))).toThrow(/version/)
+  })
+  it('round-trips rackAware, four-way mirror volumes and one node', () => {
+    const base = state()
+    const rack = { ...base, ...normalizePersistedState({ ...base, hardware: { ...base.hardware, nodeCount: 4, rackAware: true }, volumes: [{ id: 'v1', name: 'V1', plannedSizeTB: 1, resiliency: 'four-way-mirror', provisioning: 'fixed' }] }) }
+    const reopened = parseProject(JSON.stringify(createProject(rack, 'Rack')))
+    expect(reopened.inputs.hardware.rackAware).toBe(true)
+    expect(reopened.inputs.volumes[0].resiliency).toBe('four-way-mirror')
+    const single = normalizePersistedState({ hardware: { nodeCount: 1 } })
+    expect(single.hardware.nodeCount).toBe(1)
+  })
+  it('migration drops a stray rackAware value from an older save', () => {
+    const migrated = migratePersistedState({ hardware: { nodeCount: 3, rackAware: 'yes' } }, 10) as { hardware: Record<string, unknown> }
+    expect('rackAware' in migrated.hardware).toBe(false)
+  })
+})

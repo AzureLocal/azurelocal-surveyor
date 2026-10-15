@@ -11,7 +11,8 @@ import type {
   VolumeHealthDetail,
   ResiliencyType,
 } from './types'
-import { getResiliencyFactor } from './capacity'
+import { platformRuleIssues } from './hardware'
+import { getResiliencyFactor, validResiliencyOptions, minNodesForResiliency as coreMinNodesForResiliency } from './capacity'
 
 /**
  * Validate the full planned configuration and return all health issues.
@@ -34,11 +35,13 @@ export function runHealthCheck(params: {
   // ── Resiliency rules ────────────────────────────────────────────────────────
 
   for (const vol of volumes) {
-    if (!isResiliencyAllowed(vol.resiliency, hardware.nodeCount)) {
+    if (!isResiliencyAllowed(vol.resiliency, hardware.nodeCount, !!hardware.rackAware)) {
       addIssue({
         code: 'HC_RESILIENCY_NODE_COUNT',
         severity: 'error',
-        message: `Volume "${vol.name}": ${formatResiliency(vol.resiliency)} requires ${minNodesForResiliency(vol.resiliency)} nodes; cluster has ${hardware.nodeCount}.`,
+        message: hardware.rackAware || vol.resiliency === 'four-way-mirror'
+          ? `Volume "${vol.name}": ${formatResiliency(vol.resiliency)} is not available on this cluster. Rack aware clusters offer two-way mirror (1+1) or four-way mirror (2+2 and larger); standard clusters cannot use four-way mirror.`
+          : `Volume "${vol.name}": ${formatResiliency(vol.resiliency)} requires ${minNodesForResiliency(vol.resiliency)} nodes; cluster has ${hardware.nodeCount}.`,
         details: [
           detail({
             label: 'Node count vs resiliency',
@@ -81,13 +84,13 @@ export function runHealthCheck(params: {
   const hasThinVolumes = volumes.some((v) => v.provisioning === 'thin')
   // Pool-footprint based utilization (12G/12I): pool footprint / available raw pool
   const aggPoolFootprintTB = volumes.reduce((sum, v) => {
-    const factor = getResiliencyFactor(v.resiliency, hardware.nodeCount)
+    const factor = getResiliencyFactor(v.resiliency, hardware.nodeCount, hardware.capacityMediaType === 'hdd')
     return sum + v.plannedSizeTB / factor
   }, 0)
   const fixedPoolFootprintTB = volumes
     .filter((v) => v.provisioning === 'fixed')
     .reduce((sum, v) => {
-      const factor = getResiliencyFactor(v.resiliency, hardware.nodeCount)
+      const factor = getResiliencyFactor(v.resiliency, hardware.nodeCount, hardware.capacityMediaType === 'hdd')
       return sum + v.plannedSizeTB / factor
     }, 0)
   const utilizationPct = capacity.availableForVolumesTB > 0
@@ -210,23 +213,23 @@ export function runHealthCheck(params: {
 
   // ── Minimum node count (#20 expansion) ────────────────────────────────────
 
-  if (hardware.nodeCount < 2) {
+  if (!(hardware.nodeCount >= 1)) {
     addIssue({
       code: 'HC_MIN_NODES',
       severity: 'error',
-      message: 'Azure Local requires at least 2 nodes. Single-node deployments are not supported with S2D.',
+      message: 'Hyperconverged Azure Local supports 1 to 16 nodes; at least one node is required.',
       details: [
         detail({
           label: 'Minimum Azure Local node count',
           status: 'fail',
           calculation: `${hardware.nodeCount} node(s) configured.`,
-          threshold: 'Azure Local with S2D requires at least 2 nodes.',
+          threshold: 'Hyperconverged Azure Local supports 1 to 16 machines.',
           outcome: 'The selected cluster size is below the supported minimum.',
-          ruleSource: 'Azure Local minimum deployment requirement',
+          ruleSource: 'Azure Local scalability and deployment types (Learn)',
         }),
       ],
     })
-  } else if (hardware.nodeCount === 2) {
+  } else if (hardware.nodeCount === 2 && !hardware.rackAware) {
     addIssue({
       code: 'HC_TWO_NODE_ADVISORY',
       severity: 'info',
@@ -239,6 +242,25 @@ export function runHealthCheck(params: {
           threshold: 'Three-way mirror requires 3 nodes; dual parity requires 4 nodes.',
           outcome: 'The configuration is supported, but production resiliency options are limited.',
           ruleSource: 'Azure Local resiliency support matrix',
+        }),
+      ],
+    })
+  }
+
+  // ── Platform rules shared with the Hardware page (single node, rack aware, cache, drives) ──
+  for (const rule of platformRuleIssues(hardware).filter((r) => r.inHealthCheck)) {
+    addIssue({
+      code: rule.code.replace(/^HW_/, 'HC_'),
+      severity: rule.severity,
+      message: rule.message,
+      details: [
+        detail({
+          label: rule.code.replace(/^HW_/, '').replace(/_/g, ' ').toLowerCase(),
+          status: rule.severity === 'error' ? 'fail' : rule.severity === 'warning' ? 'warning' : 'info',
+          calculation: rule.calculation,
+          threshold: rule.threshold,
+          outcome: rule.message,
+          ruleSource: `Microsoft Learn (fact ${rule.factId}, see References)`,
         }),
       ],
     })
@@ -346,8 +368,8 @@ export function runHealthCheck(params: {
   if (hardware.capacityMediaType === 'hdd' && hardware.cacheMediaType === 'none') {
     addIssue({
       code: 'HC_HDD_NO_CACHE',
-      severity: 'warning',
-      message: 'All-HDD configuration without a cache tier will have significantly lower IOPS than recommended for VM workloads. Add NVMe or SSD cache drives.',
+      severity: hardware.nodeCount === 1 && !hardware.rackAware ? 'warning' : 'error',
+      message: 'All-HDD without a flash cache tier is not supported by Azure Local. Add NVMe or SSD cache drives, or use all-flash capacity.',
       details: [
         detail({
           label: 'Cache tier check',
@@ -384,15 +406,15 @@ export function runHealthCheck(params: {
   // #77: compute per-volume health details
   const TB_TO_TiB = 1e12 / Math.pow(1024, 4)
   const totalPoolFootprintTB = Math.round(volumes.reduce((sum, volume) => {
-    const factor = getResiliencyFactor(volume.resiliency, hardware.nodeCount)
+    const factor = getResiliencyFactor(volume.resiliency, hardware.nodeCount, hardware.capacityMediaType === 'hdd')
     return sum + (volume.plannedSizeTB / factor)
   }, 0) * 100) / 100
   const availablePoolTB = capacity.availableForVolumesTB
   const volumeDetails: VolumeHealthDetail[] = volumes.map((v) => {
-    const factor = getResiliencyFactor(v.resiliency, hardware.nodeCount)
+    const factor = getResiliencyFactor(v.resiliency, hardware.nodeCount, hardware.capacityMediaType === 'hdd')
     const plannedSizeTiB = Math.round(v.plannedSizeTB * TB_TO_TiB * 100) / 100
     const poolFootprintTB = Math.round((v.plannedSizeTB / factor) * 100) / 100
-    const nodeCountAllowed = isResiliencyAllowed(v.resiliency, hardware.nodeCount)
+    const nodeCountAllowed = isResiliencyAllowed(v.resiliency, hardware.nodeCount, !!hardware.rackAware)
     const poolCheckStatus = totalPoolFootprintTB > availablePoolTB ? 'fail' : utilizationPct > 70 ? 'warning' : 'pass'
     const checks: HealthDetail[] = [
       detail({
@@ -547,22 +569,12 @@ export function runComputeHealthCheck(params: {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function isResiliencyAllowed(resiliency: ResiliencyType, nodeCount: number): boolean {
-  switch (resiliency) {
-    case 'two-way-mirror':    return nodeCount >= 2
-    case 'three-way-mirror':  return nodeCount >= 3
-    case 'dual-parity':       return nodeCount >= 4
-    case 'nested-two-way':    return nodeCount >= 2
-  }
+function isResiliencyAllowed(resiliency: ResiliencyType, nodeCount: number, rackAware = false): boolean {
+  return validResiliencyOptions(nodeCount, rackAware).includes(resiliency)
 }
 
 function minNodesForResiliency(resiliency: ResiliencyType): number {
-  switch (resiliency) {
-    case 'two-way-mirror':    return 2
-    case 'three-way-mirror':  return 3
-    case 'dual-parity':       return 4
-    case 'nested-two-way':    return 2
-  }
+  return coreMinNodesForResiliency(resiliency)
 }
 
 function formatResiliency(r: ResiliencyType): string {
@@ -571,6 +583,7 @@ function formatResiliency(r: ResiliencyType): string {
     'three-way-mirror': 'Three-Way Mirror',
     'dual-parity':      'Dual Parity',
     'nested-two-way':   'Nested Two-Way Mirror',
+    'four-way-mirror':  'Four-Way Mirror (rack aware)',
   }
   return labels[r]
 }
