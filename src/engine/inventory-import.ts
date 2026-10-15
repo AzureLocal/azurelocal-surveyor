@@ -1,4 +1,5 @@
 import * as XLSX from 'xlsx'
+import { isVclsName } from './rvtools'
 import { validateInventory, type InventoryVm, type VmMeasurement, type WorkloadTier } from './inventory'
 
 type Row = Record<string, unknown>
@@ -49,7 +50,7 @@ export function parseInventoryWorkbook(data: ArrayBuffer | Uint8Array) {
   for (const [index, row] of rows.entries()) {
     const name = String(pick(row, 'VM') ?? '').trim()
     if (!name) continue
-    if (normalized(pick(row, 'Template')) === 'true' || normalized(pick(row, 'SRM Placeholder')) === 'true' || /^vcls(?:-|$)/i.test(name)) { skipped++; continue }
+    if (normalized(pick(row, 'Template')) === 'true' || normalized(pick(row, 'SRM Placeholder')) === 'true' || isVclsName(name)) { skipped++; continue }
     const prov = pick(row, 'Provisioned MiB', 'Provisioned MB', 'Provisioned')
     const used = pick(row, 'In Use MiB', 'In Use MB', 'In Use')
     const partition = consumed.get(normalized(name))

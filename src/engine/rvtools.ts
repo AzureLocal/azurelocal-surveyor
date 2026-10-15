@@ -42,6 +42,8 @@ export interface ParseRvToolsResult {
   poweredOff: number
   /** Template VMs skipped. */
   skippedTemplates: number
+  /** vSphere Cluster Services agent VMs (vCLS) are platform VMs, not workloads, and are skipped. */
+  skippedVcls: number
   /** Which RVTools column the storage figures came from. */
   storageSource: RvToolsStorageSource
   /** Aggregate vCPU across all imported VMs. */
@@ -56,7 +58,7 @@ export interface ParseRvToolsResult {
 
 function emptyResult(error: string | null): ParseRvToolsResult {
   return {
-    workloads: [], imported: 0, vmCount: 0, poweredOff: 0, skippedTemplates: 0,
+    workloads: [], imported: 0, vmCount: 0, poweredOff: 0, skippedTemplates: 0, skippedVcls: 0,
     storageSource: 'none', totalVCpus: 0, totalMemoryGB: 0, totalStorageTB: 0, error,
   }
 }
@@ -71,6 +73,11 @@ function num(v: unknown): number {
     return Number.isFinite(n) ? n : 0
   }
   return 0
+}
+
+/** vCLS agent VMs are named "vCLS-<id>" (vSphere 7+) or "vCLS (1)". They are not customer workloads. */
+export function isVclsName(name: unknown): boolean {
+  return /^vcls(?:[-\s(]|$)/i.test(String(name ?? '').trim())
 }
 
 function isTruthyFlag(v: unknown): boolean {
@@ -134,6 +141,7 @@ export function parseRvToolsWorkbook(data: ArrayBuffer | Uint8Array): ParseRvToo
   const cpuKey = pickKey(keys, (k) => k === 'cpus', (k) => k === 'cpu')
   const memKey = pickKey(keys, (k) => k === 'memory')
   const templateKey = pickKey(keys, (k) => k === 'template')
+  const nameKey = pickKey(keys, (k) => k === 'vm')
   const powerKey = pickKey(keys, (k) => k === 'powerstate')
   const provKey = pickKey(keys, (k) => k.includes('provisioned') && !k.includes('reservation'))
   const inUseKey = pickKey(keys, (k) => k.includes('in use'))
@@ -149,10 +157,15 @@ export function parseRvToolsWorkbook(data: ArrayBuffer | Uint8Array): ParseRvToo
   let vmCount = 0
   let poweredOff = 0
   let skippedTemplates = 0
+  let skippedVcls = 0
 
   for (const row of rows) {
     if (templateKey && isTruthyFlag(row[templateKey])) {
       skippedTemplates++
+      continue
+    }
+    if (nameKey && isVclsName(row[nameKey])) {
+      skippedVcls++
       continue
     }
 
@@ -209,6 +222,7 @@ export function parseRvToolsWorkbook(data: ArrayBuffer | Uint8Array): ParseRvToo
     vmCount,
     poweredOff,
     skippedTemplates,
+    skippedVcls,
     storageSource,
     totalVCpus,
     totalMemoryGB,

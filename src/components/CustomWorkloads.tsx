@@ -111,7 +111,7 @@ export default function CustomWorkloads() {
       }
       const sourceLabel = result.storageSource === 'in-use' ? 'in-use' : 'provisioned'
       const offNote = result.poweredOff > 0 ? `, ${result.poweredOff} powered-off` : ''
-      const tmplNote = result.skippedTemplates > 0 ? `, ${result.skippedTemplates} template${result.skippedTemplates !== 1 ? 's' : ''} skipped` : ''
+      const tmplNote = (result.skippedTemplates > 0 ? `, ${result.skippedTemplates} template${result.skippedTemplates !== 1 ? 's' : ''} skipped` : '') + (result.skippedVcls > 0 ? `, ${result.skippedVcls} vCLS agent VM${result.skippedVcls !== 1 ? 's' : ''} skipped` : '')
       setImportSummary(
         `Imported ${result.vmCount} VM${result.vmCount !== 1 ? 's' : ''} as ` +
         `${result.imported} workload group${result.imported !== 1 ? 's' : ''}` +
