@@ -22,6 +22,7 @@ import StorageReportPage from './pages/StorageReportPage'
 import SpecializedPage from './pages/SpecializedPage'
 import RecommendationsPage from './pages/RecommendationsPage'
 import HelpPage from './pages/HelpPage'
+import AsBuiltPage from './pages/AsBuiltPage'
 import { PlanStoreContext } from './state/usePlanStore'
 import { storagePlanStore, useSurveyorStore as workloadPlanStore } from './state/store'
 
@@ -46,6 +47,7 @@ export default function App() {
         <Route path="/planning/specialized" element={<SpecializedPage />} />
         <Route path="/planning/recommendations" element={<RecommendationsPage />} />
         <Route path="/planning/fit" element={<FitPage />} />
+        <Route path="/planning/as-built" element={<AsBuiltPage />} />
         <Route path="/planning/reports" element={<ReportsPage />} />
         <Route path="/planning/avd" element={<AvdPage />} />
         <Route path="/planning/sofs" element={<SofsPage />} />

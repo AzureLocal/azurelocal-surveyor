@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://azurelocal.cloud/azurelocal-surveyor/schemas/plan-manifest-1.json",
+  "title": "Azure Local Surveyor plan manifest",
+  "description": "The Export JSON handoff file (SurveyorPlan). Consumers check the major part of schemaVersion only; new optional fields arrive in minor versions.",
+  "x-schemaVersion": "1.0",
+  "type": "object",
+  "required": ["schemaVersion", "surveyorVersion", "generatedAt", "provenance", "inputs", "outputs"],
+  "properties": {
+    "schemaVersion": { "type": "string", "pattern": "^1\\.\\d+$" },
+    "surveyorVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+" },
+    "targetRelease": { "type": "string", "description": "Azure Local release the plan was checked against, for example Azure Local 12.2609. Added in surveyor 2.9.0 (minor, optional)." },
+    "generatedAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T" },
+    "provenance": {
+      "type": "object",
+      "required": ["source"],
+      "properties": { "source": { "enum": ["manual", "imported", "url-share"] }, "notes": { "type": "string" }, "approvedBy": { "type": "string" } },
+      "additionalProperties": true
+    },
+    "inputs": {
+      "type": "object",
+      "required": ["hardware", "advanced", "volumes"],
+      "properties": {
+        "hardware": { "$ref": "project-1.json#/$defs/hardware" },
+        "advanced": { "$ref": "project-1.json#/$defs/advanced" },
+        "volumes": { "type": "array", "items": { "$ref": "project-1.json#/$defs/volume" } }
+      },
+      "additionalProperties": true
+    },
+    "outputs": {
+      "type": "object",
+      "required": ["capacity", "compute", "volumeSummary", "workloadTotals", "health", "expansionHeadroom"],
+      "properties": {
+        "capacity": {
+          "type": "object",
+          "required": ["nodeCount", "rawPoolTB", "availableForVolumesTB", "resiliencyType", "resiliencyFactor", "effectiveUsableTB"],
+          "properties": {
+            "nodeCount": { "type": "integer", "minimum": 1 },
+            "rawPoolTB": { "type": "number", "minimum": 0 },
+            "availableForVolumesTB": { "type": "number", "minimum": 0 },
+            "resiliencyType": { "$ref": "project-1.json#/$defs/resiliency" },
+            "resiliencyFactor": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+            "effectiveUsableTB": { "type": "number", "minimum": 0 },
+            "hybridCapacity": { "type": "boolean" }
+          },
+          "additionalProperties": true
+        },
+        "compute": { "type": "object" },
+        "volumeSummary": { "type": "object" },
+        "workloadTotals": { "type": "object" },
+        "health": { "type": "object", "required": ["passed", "issues"], "properties": { "passed": { "type": "boolean" }, "issues": { "type": "array" } } },
+        "expansionHeadroom": { "type": "object" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

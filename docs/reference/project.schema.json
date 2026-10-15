@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://azurelocal.cloud/azurelocal-surveyor/schemas/project-1.json",
+  "title": "Azure Local Surveyor saved project",
+  "description": "The file written by Save project (kind azurelocal-surveyor-project). schemaVersion 1 is the file contract; stateVersion 10 is the pre rack aware state and 11 adds optional hardware.rackAware and the four-way-mirror resiliency. Surveyor opens both.",
+  "x-schemaVersion": 1,
+  "type": "object",
+  "required": ["kind", "schemaVersion", "stateVersion", "appVersion", "name", "savedAt", "inputs"],
+  "properties": {
+    "kind": { "const": "azurelocal-surveyor-project" },
+    "schemaVersion": { "const": 1 },
+    "stateVersion": { "enum": [10, 11] },
+    "planningArea": { "enum": ["storage", "workload"] },
+    "appVersion": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+" },
+    "name": { "type": "string", "minLength": 1 },
+    "savedAt": { "type": "string", "pattern": "^\\d{4}-\\d{2}-\\d{2}T" },
+    "inputs": { "$ref": "#/$defs/inputs" }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "resiliency": { "enum": ["two-way-mirror", "three-way-mirror", "dual-parity", "nested-two-way", "four-way-mirror"] },
+    "hardware": {
+      "type": "object",
+      "required": ["nodeCount", "capacityDrivesPerNode", "capacityDriveSizeTB", "cacheDrivesPerNode", "cacheDriveSizeTB", "cacheMediaType", "capacityMediaType", "coresPerNode", "memoryPerNodeGB", "hyperthreadingEnabled"],
+      "properties": {
+        "nodeCount": { "type": "integer", "minimum": 1, "maximum": 16, "description": "Hyperconverged 1 to 16 machines; rack aware 2, 4, 6 or 8." },
+        "capacityDrivesPerNode": { "type": "number", "minimum": 1 },
+        "capacityDriveSizeTB": { "type": "number", "exclusiveMinimum": 0 },
+        "cacheDrivesPerNode": { "type": "number", "minimum": 0 },
+        "cacheDriveSizeTB": { "type": "number", "minimum": 0 },
+        "cacheMediaType": { "enum": ["nvme", "ssd", "none"] },
+        "capacityMediaType": { "enum": ["nvme", "ssd", "hdd"] },
+        "coresPerNode": { "type": "number", "exclusiveMinimum": 0 },
+        "memoryPerNodeGB": { "type": "number", "exclusiveMinimum": 0 },
+        "hyperthreadingEnabled": { "type": "boolean" },
+        "rackAware": { "const": true, "description": "Optional, state version 11. Absent for a standard cluster; when present, nodeCount is split into two equal zones." }
+      },
+      "additionalProperties": false
+    },
+    "volume": {
+      "type": "object",
+      "required": ["id", "name", "resiliency", "provisioning", "plannedSizeTB"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "resiliency": { "$ref": "#/$defs/resiliency" },
+        "provisioning": { "enum": ["fixed", "thin"] },
+        "plannedSizeTB": { "type": "number", "minimum": 0, "description": "Decimal terabytes (10^12 bytes)." }
+      },
+      "additionalProperties": true
+    },
+    "advanced": {
+      "type": "object",
+      "required": ["infraVolumeSizeTB", "vCpuOversubscriptionRatio", "systemReservedMemoryGB", "systemReservedVCpus", "defaultResiliency"],
+      "properties": {
+        "infraVolumeSizeTB": { "type": "number", "minimum": 0 },
+        "vCpuOversubscriptionRatio": { "type": "number", "minimum": 1 },
+        "systemReservedMemoryGB": { "type": "number", "minimum": 0 },
+        "systemReservedVCpus": { "type": "number", "minimum": 0 },
+        "defaultResiliency": { "$ref": "#/$defs/resiliency" },
+        "maintenanceReserveMode": { "enum": ["none", "n+1", "n+2"] },
+        "overrides": { "type": "object" }
+      },
+      "additionalProperties": true
+    },
+    "inventoryVm": {
+      "type": "object",
+      "required": ["id", "name", "include", "vCpu", "memoryGiB", "consumedGiB", "provisionedGiB", "powerState"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "tier": { "type": "string" },
+        "include": { "type": "boolean" },
+        "vCpu": { "type": "number", "minimum": 0 },
+        "memoryGiB": { "type": "number", "minimum": 0 },
+        "consumedGiB": { "type": "number", "minimum": 0 },
+        "provisionedGiB": { "type": "number", "minimum": 0 },
+        "powerState": { "enum": ["on", "off", "suspended", "unknown"] }
+      },
+      "additionalProperties": true
+    },
+    "inputs": {
+      "type": "object",
+      "required": ["hardware", "advanced", "avd", "aks", "virtualMachines", "sofs", "mabs", "volumes", "customWorkloads", "servicePresets", "avdEnabled", "sofsEnabled", "mabsEnabled", "inventory", "inventorySettings"],
+      "properties": {
+        "hardware": { "$ref": "#/$defs/hardware" },
+        "advanced": { "$ref": "#/$defs/advanced" },
+        "volumes": { "type": "array", "items": { "$ref": "#/$defs/volume" } },
+        "volumeMode": { "type": "string" },
+        "planName": { "type": "string" },
+        "planningPurpose": { "enum": ["buy", "existing"] },
+        "avdEnabled": { "type": "boolean" },
+        "avd": { "type": "object" },
+        "sofsEnabled": { "type": "boolean" },
+        "sofs": { "type": "object" },
+        "mabsEnabled": { "type": "boolean" },
+        "mabs": { "type": "object" },
+        "aks": { "type": "object", "required": ["enabled", "clusters"], "properties": { "enabled": { "type": "boolean" }, "clusters": { "type": "array" } } },
+        "virtualMachines": { "type": "object", "required": ["enabled", "groups"], "properties": { "enabled": { "type": "boolean" }, "groups": { "type": "array" } } },
+        "servicePresets": { "type": "array" },
+        "customWorkloads": { "type": "array" },
+        "inventory": { "type": "array", "items": { "$ref": "#/$defs/inventoryVm" } },
+        "inventorySettings": { "type": "object" },
+        "inventorySources": { "type": "array" }
+      },
+      "additionalProperties": true
+    }
+  }
+}

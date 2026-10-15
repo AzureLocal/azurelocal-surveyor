@@ -7,7 +7,7 @@ export function usePlanningArea() {
 export function planPath(area: 'storage' | 'workload', path: string) {
   const shared = ['/hardware', '/volumes', '/drive-layout', '/reports', '/projects', '/capacity']
   if (shared.includes(path)) return `${area === 'storage' ? '/storage' : '/planning'}${path}`
-  if (['/workloads', '/fit', '/avd', '/aks', '/sofs', '/mabs', '/specialized', '/recommendations'].includes(path)) return `/planning${path}`
+  if (['/workloads', '/fit', '/avd', '/aks', '/sofs', '/mabs', '/specialized', '/recommendations', '/as-built'].includes(path)) return `/planning${path}`
   if (path === '/docs') return '/help'
   return path
 }

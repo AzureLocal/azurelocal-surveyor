@@ -15,7 +15,7 @@ export default function FitPage() {
   ] as const
   return <div className="space-y-6">
     <div><h1 className="text-2xl font-bold">Fit &amp; Recommendations</h1><p className="text-sm text-gray-500 mt-1">Compare workload demand with your hardware, review remaining headroom and assess expansion.</p></div>
-    <Link className="action-secondary" to="/recommendations">Compare alternative hardware configurations →</Link>
+    <div className="flex flex-wrap gap-3"><Link className="action-secondary" to="/recommendations">Compare alternative hardware configurations →</Link><Link className="action-secondary" to="/as-built">Compare with as-built hardware →</Link></div>
     <div className="flex flex-wrap gap-3 text-sm"><Link className="text-brand-600 underline" to="/workloads">1. Review workloads</Link><Link className="text-brand-600 underline" to="/hardware">2. Configure hardware</Link><Link className="text-brand-600 underline" to="/volumes">3. Review volume layout</Link><Link className="text-brand-600 underline" to="/reports">4. Export report</Link></div>
     <section className={`rounded-xl border p-5 space-y-2 ${fit.fits === true ? 'border-green-400 bg-green-50 dark:bg-green-950' : fit.fits === false ? 'border-amber-400 bg-amber-50 dark:bg-amber-950' : 'border-gray-300'}`}>
       <h2 className="text-xl font-semibold">{fit.fits === null ? 'Add workloads to assess fit' : fit.fits ? 'Aggregate capacity fits' : 'Capacity or configuration gap'}</h2>
