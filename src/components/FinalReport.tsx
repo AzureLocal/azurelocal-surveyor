@@ -18,6 +18,7 @@ import { computeMabs } from '../engine/mabs'
 import { computeAllCustomWorkloads } from '../engine/custom-workloads'
 import { computeAllServicePresets } from '../engine/service-presets'
 import { runHealthCheck } from '../engine/healthcheck'
+import { RELEASE_LABEL } from '../engine/facts'
 import CapacityReport from './CapacityReport'
 import ComputeReport from './ComputeReport'
 import HealthCheck from './HealthCheck'
@@ -73,6 +74,7 @@ export default function FinalReport() {
 
   return (
     <div className="space-y-8">
+      <p className="text-xs text-gray-500" data-testid="report-release">Planning basis: {RELEASE_LABEL} (latest). Platform facts and sources are listed on the References page.</p>
       {/* Export bar */}
       <div className="flex flex-wrap gap-2 no-print">
         <ExportBtn icon={<FileDown className="w-4 h-4" />} label="Export PDF" onClick={() => exportPdf(state)} />

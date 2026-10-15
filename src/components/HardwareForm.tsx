@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSurveyorStore } from '../state/usePlanStore'
 import { findPreset, hardwareFromPreset, presetsByVendor } from '../engine/presets/index'
 import type { OemCatalogType } from '../engine/types'
+import { getRecommendedResiliency } from '../engine/hardware'
 
 /** Parse numeric input — returns current value if input is empty or NaN. */
 function num(e: React.ChangeEvent<HTMLInputElement>, current: number): number {
@@ -46,7 +47,9 @@ const CATALOG_LABEL: Record<OemCatalogType, string> = {
 }
 
 export default function HardwareForm() {
-  const { hardware, setHardware } = useSurveyorStore()
+  const { hardware, setHardware, setAdvanced } = useSurveyorStore()
+  const single = hardware.nodeCount === 1 && !hardware.rackAware
+  const maxNodes = hardware.rackAware ? 8 : 16
   const grouped = presetsByVendor()
   const [presetId, setPresetId] = useState('')
   const selectedPreset = findPreset(presetId)
@@ -143,11 +146,39 @@ export default function HardwareForm() {
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        <Field label="Number of nodes" hint="2–16">
-          <input type="number" min={2} max={16} value={hardware.nodeCount}
-            onChange={(e) => setHardware({ nodeCount: num(e, hardware.nodeCount) })}
+        <Field label="Number of nodes" hint={hardware.rackAware ? '2, 4, 6 or 8 — two equal zones' : '1–16'}>
+          <input type="number" min={hardware.rackAware ? 2 : 1} max={maxNodes} step={hardware.rackAware ? 2 : 1} value={hardware.nodeCount}
+            onChange={(e) => {
+              const nodeCount = num(e, hardware.nodeCount)
+              // A single node has no storage cache: clear it so the plan stays valid.
+              setHardware(nodeCount === 1 && !hardware.rackAware
+                ? { nodeCount, cacheMediaType: 'none', cacheDrivesPerNode: 0, cacheDriveSizeTB: 0 }
+                : { nodeCount })
+            }}
             className="input" />
+          <p className="text-xs text-gray-400 mt-1">
+            Hyperconverged Azure Local supports 1 to 16 machines (8 rack aware). Disaggregated SAN deployments of up to 64 machines are not modeled in Surveyor.
+          </p>
         </Field>
+
+        <div role="group" aria-label="Rack aware cluster" className="col-span-2 rounded-md border border-gray-200 dark:border-gray-700 p-3">
+          <label className="flex items-start gap-2 text-sm font-medium">
+            <input type="checkbox" className="mt-1" checked={!!hardware.rackAware}
+              onChange={(e) => {
+                const on = e.target.checked
+                const nodeCount = on ? Math.min(8, Math.max(2, 2 * Math.ceil(hardware.nodeCount / 2))) : hardware.nodeCount
+                const next = { ...hardware, nodeCount, rackAware: on || undefined }
+                setHardware(on ? { nodeCount, rackAware: true } : { rackAware: undefined })
+                setAdvanced({ defaultResiliency: getRecommendedResiliency(next) })
+              }} />
+            <span>Rack aware cluster (two local zones)
+              <span className="block text-xs font-normal text-gray-500">
+                New deployments only. {hardware.nodeCount >= 2 && hardware.rackAware ? `${hardware.nodeCount / 2}+${hardware.nodeCount / 2} zones. ` : ''}
+                Volumes are two-way mirror (1+1, 50%) or four-way mirror (2+2 to 4+4, 25%). All-flash drives, Active Directory identity, cloud witness.
+              </span>
+            </span>
+          </label>
+        </div>
 
         <Field label="Capacity drives / node">
           <input type="number" min={1} value={hardware.capacityDrivesPerNode}
@@ -214,7 +245,7 @@ export default function HardwareForm() {
         </Field>
 
         <Field label="Cache drives / node" hint="0 if all-NVMe">
-          <input type="number" min={0} value={hardware.cacheDrivesPerNode}
+          <input type="number" min={0} disabled={single} value={hardware.cacheDrivesPerNode}
             onChange={(e) => setHardware({ cacheDrivesPerNode: num(e, hardware.cacheDrivesPerNode) })}
             className="input" />
         </Field>
@@ -265,13 +296,14 @@ export default function HardwareForm() {
         </Field>
 
         <Field label="Cache media type">
-          <select value={hardware.cacheMediaType}
+          <select value={hardware.cacheMediaType} disabled={single}
             onChange={(e) => setHardware({ cacheMediaType: e.target.value as 'nvme'|'ssd'|'none' })}
             className="input">
-            <option value="none">None (all-NVMe)</option>
+            <option value="none">None (flat all-flash)</option>
             <option value="nvme">NVMe</option>
             <option value="ssd">SSD</option>
           </select>
+          {single && <p className="text-xs text-gray-400 mt-1">A single node does not support the storage cache.</p>}
         </Field>
 
         <Field label="CPU cores / node" hint="physical">

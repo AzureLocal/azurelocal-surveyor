@@ -139,10 +139,11 @@ const RESILIENCY_OPTION_LABELS: Record<ResiliencyType, string> = {
   'three-way-mirror': 'Three-Way (33%)',
   'dual-parity':      'Dual Parity',
   'nested-two-way':   'Nested Two-Way (25%)',
+  'four-way-mirror':  'Four-Way, rack aware (25%)',
 }
 
 function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/types').CapacityResult }) {
-  const { volumes, addVolume } = useSurveyorStore()
+  const { volumes, addVolume, hardware } = useSurveyorStore()
   const [added, setAdded] = useState<Set<string>>(new Set())
   const [provisioningOverrides, setProvisioningOverrides] = useState<Record<string, 'fixed' | 'thin'>>({})
   const [targetUtilization, setTargetUtilization] = useState<0.7 | 0.8 | 0.9 | 1.0>(0.7)
@@ -151,7 +152,7 @@ function GenericVolumeSuggestions({ capacity }: { capacity: import('../engine/ty
   // This controls which resiliency generateGenericVolumes uses when splitting the pool,
   // so volume sizes recompute correctly for the chosen resiliency efficiency.
   // Gated by validResiliencyOptions so 3-way is not offered on a 2-node cluster.
-  const validOptions = validResiliencyOptions(capacity.nodeCount)
+  const validOptions = validResiliencyOptions(capacity.nodeCount, !!hardware.rackAware)
   const [panelResiliency, setPanelResiliency] = useState<ResiliencyType>(
     validOptions.includes('three-way-mirror') ? 'three-way-mirror' : 'two-way-mirror'
   )
@@ -492,7 +493,7 @@ function QuickStartVolumes({ capacity }: { capacity: import('../engine/types').C
 // ─── Workload Volume Suggestions (#68) ───────────────────────────────────────
 
 function WorkloadVolumeSuggestions({ suggestions }: { suggestions: SuggestedVolume[] }) {
-  const { volumes, addVolume } = useSurveyorStore()
+  const { volumes, addVolume, hardware } = useSurveyorStore()
   const [added, setAdded] = useState<Set<string>>(new Set())
   const [resiliencyOverrides, setResiliencyOverrides] = useState<Record<string, import('../engine/types').ResiliencyType>>({})
   const [provisioningOverrides, setProvisioningOverrides] = useState<Record<string, 'fixed' | 'thin'>>({})
@@ -584,6 +585,7 @@ function WorkloadVolumeSuggestions({ suggestions }: { suggestions: SuggestedVolu
                         <option value="three-way-mirror">Three-Way Mirror</option>
                         <option value="dual-parity">Dual Parity</option>
                         <option value="nested-two-way">Nested Two-Way</option>
+                        {hardware.rackAware && <option value="four-way-mirror">Four-Way Mirror (rack aware)</option>}
                       </select>
                       <select
                         value={getProvisioning(s)}
@@ -737,10 +739,10 @@ function RecommendedVolumes({ nodeCount }: { nodeCount: number }) {
 const RESILIENCY_GUIDE = [
   {
     type: 'Two-Way Mirror',
-    minNodes: 2,
+    minNodes: 1,
     efficiency: '50%',
     footprint: '2× volume size',
-    useCase: 'Development, test, non-critical workloads. 1 simultaneous failure tolerated.',
+    useCase: 'Development, test, non-critical workloads, and the only choice on a single node. 1 simultaneous failure tolerated (on one node: a drive failure only).',
     advisory: 'Not recommended for production — loss of 2 drives (different nodes) can cause data loss.',
     color: 'amber',
   },
@@ -771,9 +773,19 @@ const RESILIENCY_GUIDE = [
     advisory: 'Required for 2-node Azure Local to maintain data availability during node failure.',
     color: 'purple',
   },
+  {
+    type: 'Four-Way Mirror (rack aware)',
+    minNodes: 4,
+    efficiency: '25%',
+    footprint: '4× volume size',
+    useCase: 'Rack aware clusters 2+2, 3+3 and 4+4 only (rack level nested mirror). Tolerates three drive or node faults; after a rack failure the survivor tolerates one more.',
+    advisory: 'Only two-way (1+1) or four-way mirror volumes can be created on a rack aware cluster; three-way mirror is not available.',
+    color: 'purple',
+  },
 ]
 
 function ResiliencyGuide({ nodeCount }: { nodeCount: number }) {
+  const { hardware } = useSurveyorStore()
   const [open, setOpen] = useState(false)
   return (
     <div className="rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
@@ -783,12 +795,12 @@ function ResiliencyGuide({ nodeCount }: { nodeCount: number }) {
       >
         {open ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronRight className="w-4 h-4 shrink-0" />}
         Resiliency Types — Node Count, Efficiency, and Use Cases
-        <span className="ml-2 text-xs font-normal text-gray-400">4 types</span>
+        <span className="ml-2 text-xs font-normal text-gray-400">5 types</span>
       </button>
       {open && (
         <div className="divide-y divide-gray-100 dark:divide-gray-800 border-t border-gray-100 dark:border-gray-800">
           {RESILIENCY_GUIDE.map((r) => {
-            const eligible = nodeCount >= r.minNodes
+            const eligible = r.type.startsWith('Four-Way') ? (!!hardware.rackAware && nodeCount >= 4) : !hardware.rackAware || r.type === 'Two-Way Mirror' ? nodeCount >= r.minNodes : false
             return (
               <div key={r.type} className={`px-4 py-4 ${!eligible ? 'opacity-50' : ''}`}>
                 <div className="flex items-start justify-between gap-4 mb-2">

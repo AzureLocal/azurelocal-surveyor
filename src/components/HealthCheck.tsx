@@ -7,6 +7,7 @@ const RESILIENCY_LABELS: Record<string, string> = {
   'three-way-mirror': 'Three-Way Mirror',
   'dual-parity':      'Dual Parity',
   'nested-two-way':   'Nested Two-Way Mirror',
+  'four-way-mirror':  'Four-Way Mirror (rack aware)',
 }
 
 // Categorize health check codes for grouped display

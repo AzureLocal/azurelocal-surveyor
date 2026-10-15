@@ -69,9 +69,10 @@ function generateNewVolumeCmd(vol: VolumeDetail): string {
     'three-way-mirror': 'Mirror',
     'dual-parity':      'Parity',
     'nested-two-way':   'Mirror',
+    'four-way-mirror':  'Mirror',
   }
   const storageLayout = resiliencyMap[vol.resiliency] ?? 'Mirror'
-  const physicalDiskRedundancy = (vol.resiliency === 'three-way-mirror' || vol.resiliency === 'nested-two-way') ? 2 : 1
+  const physicalDiskRedundancy = vol.resiliency === 'four-way-mirror' ? 3 : (vol.resiliency === 'three-way-mirror' || vol.resiliency === 'nested-two-way') ? 2 : 1
   const sizeBytes = BigInt(vol.wacSizeGB) * BigInt(1024) * BigInt(1024) * BigInt(1024)
 
   return [

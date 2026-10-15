@@ -46,6 +46,7 @@ import { computeSofs } from '../engine/sofs'
 import { computeAks } from '../engine/aks'
 import { computeMabs } from '../engine/mabs'
 import { runHealthCheck } from '../engine/healthcheck'
+import { RELEASE_LABEL } from '../engine/facts'
 
 // ─── Provenance ───────────────────────────────────────────────────────────────
 
@@ -71,6 +72,8 @@ export interface SurveyorPlan {
   schemaVersion: '1.0'
   /** Surveyor app version that generated this file. */
   surveyorVersion: string
+  /** Azure Local release the plan was checked against (additive field, minor-compatible). */
+  targetRelease?: string
   /** ISO 8601 UTC timestamp of when the file was generated. */
   generatedAt: string
 
@@ -163,6 +166,7 @@ export function createPlanManifest(state: ExportState, options?: ExportJsonOptio
   const plan: SurveyorPlan = {
     schemaVersion:   '1.0',
     surveyorVersion: version,
+    targetRelease:   RELEASE_LABEL,
     generatedAt:     new Date().toISOString(),
 
     provenance: {

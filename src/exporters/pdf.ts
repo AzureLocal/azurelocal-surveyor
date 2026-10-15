@@ -11,6 +11,7 @@ import { assessHardwareFit } from '../engine/fit'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { SurveyorState } from '../state/store'
+import { RELEASE_LABEL } from '../engine/facts'
 import { computeCapacity, round2 } from '../engine/capacity'
 import { computeVolumeSummary } from '../engine/volumes'
 import { computeCompute } from '../engine/compute'
@@ -123,7 +124,7 @@ export function exportPdf(state: Pick<SurveyorState, 'hardware' | 'advanced' | '
   doc.text('Cluster Capacity Planning Report', margin, 23)
   doc.setFontSize(9)
   doc.setTextColor(180, 210, 240)
-  doc.text(`Generated ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}`, margin, 31)
+  doc.text(`Generated ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })} | Planning basis: ${RELEASE_LABEL} (latest)`, margin, 31)
   doc.setTextColor(0, 0, 0)
 
   let y = 46

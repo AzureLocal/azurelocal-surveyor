@@ -91,6 +91,7 @@ const RESILIENCY_LABELS: Record<string, string> = {
   'three-way-mirror': 'Three-Way Mirror (33%)',
   'dual-parity':      'Dual Parity',
   'nested-two-way':   'Nested Two-Way (25%)',
+  'four-way-mirror':  'Four-Way Mirror, rack aware (25%)',
 }
 
 const GLOSSARY = [

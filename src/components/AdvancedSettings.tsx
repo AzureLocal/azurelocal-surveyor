@@ -7,6 +7,14 @@ import { DEFAULT_ADVANCED_SETTINGS } from '../engine/types'
 import type { AdvancedSettingsOverrides, ResiliencyType, MaintenanceReserveMode } from '../engine/types'
 import { validResiliencyOptions, minNodesForResiliency } from '../engine/capacity'
 
+const RESILIENCY_CHOICES: { value: ResiliencyType; label: string }[] = [
+  { value: 'two-way-mirror', label: 'Two-Way Mirror (50%)' },
+  { value: 'nested-two-way', label: 'Nested Two-Way (25%)' },
+  { value: 'three-way-mirror', label: 'Three-Way Mirror (33%)' },
+  { value: 'dual-parity', label: 'Dual Parity (50–80%, node-count dependent)' },
+  { value: 'four-way-mirror', label: 'Four-Way Mirror, rack aware (25%)' },
+]
+
 export default function AdvancedSettings() {
   const { advanced, setAdvanced, hardware, setHardware, resetAll } = useSurveyorStore()
   const [overridesOpen, setOverridesOpen] = useState(false)
@@ -49,49 +57,55 @@ export default function AdvancedSettings() {
           <input type="number" min={1} max={10} step={0.5} className="input"
             value={advanced.vCpuOversubscriptionRatio}
             onChange={(e) => setAdvanced({ vCpuOversubscriptionRatio: +e.target.value })} />
-          <p className="text-xs text-gray-400 mt-1">Logical cores × this ratio = total vCPUs before reservation.</p>
+          <p className="text-xs text-gray-400 mt-1">Logical cores × this ratio = total vCPUs before reservation. Planning choice; Microsoft publishes no universal ratio.</p>
         </Field>
 
         <Field label="System reserved memory / node (GB)" hint="default 8">
           <input type="number" min={4} max={64} step={1} className="input"
             value={advanced.systemReservedMemoryGB}
             onChange={(e) => setAdvanced({ systemReservedMemoryGB: +e.target.value })} />
+          <p className="text-xs text-gray-400 mt-1">Planning assumption, not a Learn requirement. Adjust to your measured host overhead.</p>
         </Field>
 
         <Field label="System reserved vCPUs / node" hint="default 4">
           <input type="number" min={2} max={16} step={1} className="input"
             value={advanced.systemReservedVCpus}
             onChange={(e) => setAdvanced({ systemReservedVCpus: +e.target.value })} />
-          <p className="text-xs text-gray-400 mt-1">Reserved for Hyper-V, Arc VM agent, and OS processes.</p>
+          <p className="text-xs text-gray-400 mt-1">Planning assumption for Hyper-V, Arc VM agent and OS processes; not a Learn requirement.</p>
         </Field>
 
         <Field label="Default resiliency">
           {/* AB#4636: only show resiliency options valid for the current node count */}
           <select className="input" value={advanced.defaultResiliency}
             onChange={(e) => setAdvanced({ defaultResiliency: e.target.value as ResiliencyType })}>
-            <option value="two-way-mirror" disabled={hardware.nodeCount < minNodesForResiliency('two-way-mirror')}>
-              Two-Way Mirror (50%){hardware.nodeCount < minNodesForResiliency('two-way-mirror') ? ' — requires 2+ nodes' : ''}
-            </option>
-            <option value="nested-two-way" disabled={hardware.nodeCount < minNodesForResiliency('nested-two-way')}>
-              Nested Two-Way (25%){hardware.nodeCount < minNodesForResiliency('nested-two-way') ? ' — requires 2+ nodes' : ''}
-            </option>
-            <option value="three-way-mirror" disabled={hardware.nodeCount < minNodesForResiliency('three-way-mirror')}>
-              Three-Way Mirror (33%){hardware.nodeCount < minNodesForResiliency('three-way-mirror') ? ` — requires 3+ nodes (you have ${hardware.nodeCount})` : ''}
-            </option>
-            <option value="dual-parity" disabled={hardware.nodeCount < minNodesForResiliency('dual-parity')}>
-              Dual Parity (50–80%, node-count dependent){hardware.nodeCount < minNodesForResiliency('dual-parity') ? ` — requires 4+ nodes (you have ${hardware.nodeCount})` : ''}
-            </option>
+            {RESILIENCY_CHOICES.filter((c) => hardware.rackAware ? c.value === 'four-way-mirror' || c.value === 'two-way-mirror' : c.value !== 'four-way-mirror').map((c) => {
+              const allowed = validResiliencyOptions(hardware.nodeCount, !!hardware.rackAware).includes(c.value)
+              const need = minNodesForResiliency(c.value)
+              return (
+                <option key={c.value} value={c.value} disabled={!allowed}>
+                  {c.label}{!allowed ? (hardware.rackAware ? ' — not available at this zone size' : ` — requires ${need}+ nodes (you have ${hardware.nodeCount})`) : ''}
+                </option>
+              )
+            })}
           </select>
-          {!validResiliencyOptions(hardware.nodeCount).includes(advanced.defaultResiliency) && (
+          {!validResiliencyOptions(hardware.nodeCount, !!hardware.rackAware).includes(advanced.defaultResiliency) && (
             <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
-              This resiliency requires more nodes than configured. The engine will use two-way mirror until the node count meets the minimum requirement.
+              {hardware.rackAware
+                ? 'Rack aware clusters offer two-way mirror (1+1) or four-way mirror (2+2 and larger). The engine uses the allowed type.'
+                : 'This resiliency is not available at the configured node count. The engine will use two-way mirror until the node count meets the minimum requirement.'}
             </p>
           )}
-          {hardware.nodeCount <= 2 && (
+          {hardware.nodeCount === 1 && !hardware.rackAware && (
+            <p className="text-xs text-gray-400 mt-1">A single node supports two-way mirror only (copies across drives).</p>
+          )}
+          {hardware.nodeCount === 2 && !hardware.rackAware && (
             <p className="text-xs text-gray-400 mt-1">
               For 2-node production clusters, consider <strong>Nested Two-Way Mirror</strong> for added resilience.
             </p>
           )}
+          <p className="text-xs text-gray-400 mt-1">
+            Dual parity efficiency follows the Learn fault-tolerance tables: 50% at 4 nodes up to 80% at 16 for all-flash, 72.7% at 12 or more for HDD capacity.
+          </p>
         </Field>
 
         <Field label="WAF compute resiliency target (N+1/N+2)">
@@ -107,7 +121,7 @@ export default function AdvancedSettings() {
           <p className="text-xs text-gray-400 mt-1">
             Per Microsoft WAF, N+1/N+2 reserves one (N+1) or two (N+2) nodes&apos; worth of <strong>CPU and
             memory</strong> so nodes can be drained for updates or survive a node loss without dropping VMs.
-            This is a <strong>compute resiliency</strong> concept — it does <strong>not</strong> reduce storage
+            It is a planning choice (largest single failure for N+1; one node in maintenance plus one failure for N+2), not a platform limit. This is a <strong>compute resiliency</strong> concept — it does <strong>not</strong> reduce storage
             capacity. The storage reserves are the per-drive rebuild reserve and keeping volume footprints within
             the pool. Setting this target highlights the N+1 or N+2 compute headroom rows in the Compute Report.
           </p>

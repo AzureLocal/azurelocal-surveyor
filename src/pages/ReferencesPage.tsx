@@ -4,6 +4,8 @@
  * 17 categorized URLs covering capacity, compute, volumes, networking, and tools.
  */
 
+import { PLATFORM_FACTS, PLANNING_ASSUMPTIONS, RELEASE_LABEL } from '../engine/facts'
+
 interface RefLink {
   title: string
   url: string
@@ -209,6 +211,39 @@ export default function ReferencesPage() {
           All links open in a new tab.
         </p>
       </div>
+
+      <section aria-labelledby="facts-heading">
+        <h2 id="facts-heading" className="text-xl font-semibold mb-2">Platform facts used by the engine ({RELEASE_LABEL})</h2>
+        <p className="text-sm text-gray-500 mb-4">
+          Every Azure Local rule Surveyor encodes, with the Microsoft Learn page it comes from and the date it was last checked.
+          If Learn changes, these are the places to update.
+        </p>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead><tr className="text-left border-b"><th className="p-2">Topic</th><th className="p-2">Fact</th><th className="p-2">Source</th><th className="p-2 whitespace-nowrap">Verified</th></tr></thead>
+            <tbody>
+              {PLATFORM_FACTS.map((f) => (
+                <tr key={f.id} className="border-b align-top" id={`fact-${f.id}`}>
+                  <td className="p-2 whitespace-nowrap">{f.topic}</td>
+                  <td className="p-2">{f.statement}</td>
+                  <td className="p-2"><a className="text-brand-600 dark:text-brand-400 underline break-all" href={f.url} target="_blank" rel="noopener noreferrer">{f.url.replace('https://learn.microsoft.com/', '')}</a></td>
+                  <td className="p-2 whitespace-nowrap">{f.verified}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section aria-labelledby="assumptions-heading">
+        <h2 id="assumptions-heading" className="text-xl font-semibold mb-2">Planning assumptions (not Microsoft requirements)</h2>
+        <p className="text-sm text-gray-500 mb-4">Defaults Surveyor applies so estimates are conservative. Change them in Advanced settings to match your own measurements.</p>
+        <ul className="space-y-2 text-sm">
+          {PLANNING_ASSUMPTIONS.map((a) => (
+            <li key={a.id}><strong>{a.label}.</strong> {a.statement}</li>
+          ))}
+        </ul>
+      </section>
 
       {[COMMUNITY_GUIDES, ...REFERENCES].map((section) => (
         <section key={section.category}>

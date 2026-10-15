@@ -9,7 +9,7 @@ import { computePlanning } from '../engine/planning'
 export default function RecommendationsPage() {
   const state = useSurveyorStore()
   const navigate = useNavigate()
-  const [constraints, setConstraints] = useState({ minNodes: 2, maxNodes: 16, headroomPct: 20, vendor: '' })
+  const [constraints, setConstraints] = useState({ minNodes: 1, maxNodes: 16, headroomPct: 20, vendor: '' })
   const result = useMemo(() => recommendHardware(state, constraints), [state, constraints])
   const demand = computePlanning(state).workloadTotals
   const hasDemand = demand.totalVCpus > 0 || demand.totalMemoryGB > 0 || demand.totalStorageTB > 0
@@ -18,8 +18,8 @@ export default function RecommendationsPage() {
     <div className="panel"><strong>Required by your workloads:</strong> {Math.ceil(demand.totalVCpus)} vCPU · {Math.ceil(demand.totalMemoryGB)} GiB RAM · {demand.totalStorageTB.toFixed(2)} TB logical storage.
       <p className="text-sm mt-2">Current inventory growth and measured-sizing assumptions are included. Additional headroom below is applied to CPU, RAM and the required storage pool footprint.</p></div>
     <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <label className="text-sm">Minimum nodes<input className="input mt-1" type="number" min={2} max={16} value={constraints.minNodes} onChange={e => setConstraints({ ...constraints, minNodes: +e.target.value })} /></label>
-      <label className="text-sm">Maximum nodes<input className="input mt-1" type="number" min={2} max={16} value={constraints.maxNodes} onChange={e => setConstraints({ ...constraints, maxNodes: +e.target.value })} /></label>
+      <label className="text-sm">Minimum nodes<input className="input mt-1" type="number" min={1} max={16} value={constraints.minNodes} onChange={e => setConstraints({ ...constraints, minNodes: +e.target.value })} /></label>
+      <label className="text-sm">Maximum nodes<input className="input mt-1" type="number" min={1} max={16} value={constraints.maxNodes} onChange={e => setConstraints({ ...constraints, maxNodes: +e.target.value })} /></label>
       <label className="text-sm">Additional headroom (%)<input className="input mt-1" type="number" min={0} max={100} value={constraints.headroomPct} onChange={e => setConstraints({ ...constraints, headroomPct: +e.target.value })} /></label>
       <label className="text-sm">OEM vendor<select className="input mt-1" value={constraints.vendor} onChange={e => setConstraints({ ...constraints, vendor: e.target.value })}><option value="">All vendors</option>{PRESET_VENDORS.map(v => <option key={v}>{v}</option>)}</select></label>
     </div>

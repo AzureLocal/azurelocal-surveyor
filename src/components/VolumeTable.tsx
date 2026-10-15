@@ -28,6 +28,7 @@ const RESILIENCY_OPTIONS: { value: ResiliencyType; label: string }[] = [
   { value: 'three-way-mirror', label: 'Three-Way Mirror' },
   { value: 'dual-parity',      label: 'Dual Parity' },
   { value: 'nested-two-way',   label: 'Nested Two-Way' },
+  { value: 'four-way-mirror',  label: 'Four-Way Mirror (rack aware)' },
 ]
 
 export default function VolumeTable() {
@@ -191,7 +192,7 @@ export default function VolumeTable() {
                       value={editResiliency}
                       onChange={(e) => setEditResiliency(e.target.value as ResiliencyType)}
                     >
-                      {RESILIENCY_OPTIONS.map((o) => (
+                      {RESILIENCY_OPTIONS.filter((o) => hardware.rackAware ? o.value === 'two-way-mirror' || o.value === 'four-way-mirror' : o.value !== 'four-way-mirror').map((o) => (
                         <option key={o.value} value={o.value}>{o.label}</option>
                       ))}
                     </select>
@@ -314,7 +315,7 @@ export default function VolumeTable() {
             value={newResiliency}
             onChange={(e) => setNewResiliency(e.target.value as ResiliencyType)}
           >
-            {RESILIENCY_OPTIONS.map((o) => (
+            {RESILIENCY_OPTIONS.filter((o) => hardware.rackAware ? o.value === 'two-way-mirror' || o.value === 'four-way-mirror' : o.value !== 'four-way-mirror').map((o) => (
               <option key={o.value} value={o.value}>{o.label}</option>
             ))}
           </select>
