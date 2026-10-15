@@ -2,6 +2,17 @@ import { version } from '../../package.json'
 
 const RELEASE_HISTORY = [
   {
+    version: '2.9.0',
+    label: 'Single Node, Rack Aware and Verified Platform Facts',
+    items: [
+      'Plan 1 to 16 hyperconverged nodes, including single node (two-way mirror, no cache, no N+1) and rack aware clusters (1+1 to 4+4, four-way mirror)',
+      'Drive, cache and dual-parity rules follow Microsoft Learn for Azure Local 12.2609, each fact listed with its link and verification date on References',
+      'Built vs sized comparison for as-built hardware, with N+1 headroom',
+      'Journey navigation on every planning page; project stateVersion 11 with JSON Schemas for project and plan files',
+      'SheetJS 0.20.3 and jsPDF 4 replace libraries with security advisories; a privacy guard keeps the app free of network calls',
+    ],
+  },
+  {
     version: '2.8.0',
     label: 'Storage Sizing and Workload Planning',
     items: [

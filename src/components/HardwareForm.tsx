@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useSurveyorStore } from '../state/usePlanStore'
 import { findPreset, hardwareFromPreset, presetsByVendor } from '../engine/presets/index'
 import type { OemCatalogType } from '../engine/types'
-import { getRecommendedResiliency } from '../engine/hardware'
+import { getRecommendedResiliency, platformRuleIssues } from '../engine/hardware'
 
 /** Parse numeric input — returns current value if input is empty or NaN. */
 function num(e: React.ChangeEvent<HTMLInputElement>, current: number): number {
@@ -50,6 +50,8 @@ export default function HardwareForm() {
   const { hardware, setHardware, setAdvanced } = useSurveyorStore()
   const single = hardware.nodeCount === 1 && !hardware.rackAware
   const maxNodes = hardware.rackAware ? 8 : 16
+  // Errors appear in the Hardware Health Check below; warnings and notes stay visible here.
+  const notes = platformRuleIssues(hardware).filter((r) => r.severity !== 'error')
   const grouped = presetsByVendor()
   const [presetId, setPresetId] = useState('')
   const selectedPreset = findPreset(presetId)
@@ -327,6 +329,16 @@ export default function HardwareForm() {
         </Field>
 
       </div>
+
+      {notes.length > 0 && (
+        <ul className="space-y-1 text-sm" aria-label="Platform rule notes">
+          {notes.map((r) => (
+            <li key={r.code} className={r.severity === 'warning' ? 'text-amber-700 dark:text-amber-400' : 'text-gray-600 dark:text-gray-400'}>
+              <strong>{r.severity === 'warning' ? 'Note: ' : 'Info: '}</strong>{r.message}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }
