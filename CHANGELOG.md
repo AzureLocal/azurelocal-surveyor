@@ -7,6 +7,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+
+- **Sizing handoff for Trailwright** on the Reports page: `azure-local-sizing-handoff-YYYY-MM-DD.json` (`kind: azurelocal-sizing-handoff`, `schemaVersion: 1.0`) carries the sized cluster in the Azure Local Toolkit infrastructure.yml (schema 5) vocabulary: machines, single rack or rack aware, cores and memory per machine, drives per machine, the volumes with their schema 5 resiliency and New-Volume size, and the frozen sizing results and health check. Azure Local Trailwright imports it. Contract in `docs/reference/sizing-handoff.md`, JSON schema and example next to it, both checked by unit tests.
+
+### Changed
+
+- The planning basis is Azure Local 12.2611 (latest, released 2026-11-20). Its release notes change no sizing fact (OS 26100.33822, reliability fixes, .NET and PowerShell updates, GPU management), so the facts registry is unchanged.
+
 ## [2.9.0] — 2026-10-15
 
 ### Added

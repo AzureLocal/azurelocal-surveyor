@@ -1,0 +1,65 @@
+{
+  "kind": "azurelocal-sizing-handoff",
+  "schemaVersion": "1.0",
+  "generatedBy": "azurelocal-surveyor",
+  "surveyorVersion": "x.y.z",
+  "targetRelease": "Azure Local 12.2611",
+  "generatedAt": "2026-11-23T12:00:00.000Z",
+  "plan": {
+    "name": "Example plan",
+    "purpose": "buy"
+  },
+  "cluster": {
+    "node_count": 4,
+    "topology": "standard"
+  },
+  "hardware": {
+    "cpu_cores": 32,
+    "memory_gib": 256,
+    "hyperthreading": true,
+    "drives": {
+      "capacity": {
+        "media": "nvme",
+        "count": 6,
+        "size_tb": 3.84
+      }
+    }
+  },
+  "storage": {
+    "default_resiliency": "three_way",
+    "infrastructure_volume_tb": 0.25,
+    "volumes": [
+      {
+        "name": "Volume1",
+        "size_gib": 4135,
+        "resiliency": "two_way",
+        "provisioning": "fixed"
+      },
+      {
+        "name": "Volume2",
+        "size_gib": 1862,
+        "resiliency": "two_way",
+        "provisioning": "thin"
+      }
+    ]
+  },
+  "sizing": {
+    "raw_pool_tb": 92.16,
+    "effective_usable_tb": 25.04,
+    "volumes_pool_footprint_tb": 12.88,
+    "utilization_pct": 17.1,
+    "usable_vcpus": 1008,
+    "usable_memory_gb": 992,
+    "usable_vcpus_n_minus_1": 756,
+    "usable_memory_gb_n_minus_1": 744,
+    "workload_vcpus": 0,
+    "workload_memory_gb": 0,
+    "workload_storage_tb": 0,
+    "health": {
+      "passed": true,
+      "errors": 0,
+      "warnings": 0,
+      "issues": []
+    }
+  }
+}

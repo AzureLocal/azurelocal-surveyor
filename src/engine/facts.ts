@@ -7,7 +7,7 @@
  * PLANNING_ASSUMPTIONS so the UI never presents them as platform rules.
  */
 
-export const RELEASE_LABEL = 'Azure Local 12.2609'
+export const RELEASE_LABEL = 'Azure Local 12.2611'
 export const FACTS_VERIFIED = '2026-10-15'
 
 export type FactId =

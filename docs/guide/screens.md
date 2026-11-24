@@ -1,6 +1,6 @@
 # Screen guide
 
-What each screen answers, what it needs, and what it does not claim. Every screen plans against **Azure Local 12.2609 (latest)**; the Microsoft Learn facts behind the rules are listed on the in-app References page with the date each was last checked.
+What each screen answers, what it needs, and what it does not claim. Every screen plans against **Azure Local 12.2611 (latest)**; the Microsoft Learn facts behind the rules are listed on the in-app References page with the date each was last checked.
 
 ## Fit and Recommendations
 
@@ -40,10 +40,11 @@ Question: where does each rule come from?
 
 ## About
 
-- The version, release history and what is included. The sidebar badge and every report show the planning basis, **Azure Local 12.2609 (latest)**.
+- The version, release history and what is included. The sidebar badge and every report show the planning basis, **Azure Local 12.2611 (latest)**.
 
 ## Projects (Open and Compare)
 
+- **Sizing handoff for Trailwright** (Reports) downloads the sized cluster in the infrastructure.yml vocabulary for Azure Local Trailwright to import; see [Sizing Handoff](../reference/sizing-handoff.md).
 - **Download project** saves the active area (storage or workload) as a `.surveyor.json` file; **Open or compare** previews a file against the current plan before restoring it. Plan manifests from Export JSON also open here.
 - Files are described by [JSON Schemas](../reference/plan-manifest.md#json-schemas). Browser storage is not a backup; see [privacy and data](../reference/privacy-and-data.md).
 

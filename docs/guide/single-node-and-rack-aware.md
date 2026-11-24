@@ -1,6 +1,6 @@
 # Single node and rack aware clusters
 
-Surveyor models hyperconverged Azure Local: **1 to 16 machines** (8 when rack aware). Disaggregated deployments on an external SAN scale to 64 machines and are **out of scope**; the hardware page says so. Sources are in the in-app References page (facts registry, `src/engine/facts.ts`), checked 2026-10-15 against Azure Local 12.2609.
+Surveyor models hyperconverged Azure Local: **1 to 16 machines** (8 when rack aware). Disaggregated deployments on an external SAN scale to 64 machines and are **out of scope**; the hardware page says so. Sources are in the in-app References page (facts registry, `src/engine/facts.ts`), checked 2026-10-15 against Azure Local 12.2609; the planning basis is 12.2611 (latest), whose release notes change none of these facts.
 
 ## Single node
 

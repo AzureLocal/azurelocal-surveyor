@@ -29,6 +29,7 @@ Workload Planning combines included individual VMs, optional measured demand, qu
 - [Workload calculations](./engine/workloads.md) and [compute](./engine/compute.md)
 - [OEM presets and sources](./reference/oem-presets.md)
 - [Saved projects and plan manifests](./reference/plan-manifest.md) and their [JSON Schemas](./reference/plan-manifest.md#json-schemas)
+- [Sizing handoff](./reference/sizing-handoff.md): the sized cluster for Azure Local Trailwright
 - [Screen guide](./guide/screens.md), [RVTools import](./guide/rvtools-import.md), [single node and rack aware clusters](./guide/single-node-and-rack-aware.md), [as-built comparison](./guide/as-built-fit.md)
 - [Privacy and data handling](./reference/privacy-and-data.md)
 - [Release notes](./changelog.md)

@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://azurelocal.cloud/azurelocal-surveyor/reference/sizing-handoff.schema.json",
+  "title": "Azure Local Surveyor sizing handoff",
+  "description": "The sized cluster, for a design tool such as Azure Local Trailwright. Key names under hardware and storage follow the Azure Local Toolkit infrastructure.yml (schema 5). Consumers check kind and the major number of schemaVersion only.",
+  "type": "object",
+  "required": ["kind", "schemaVersion", "generatedBy", "surveyorVersion", "targetRelease", "generatedAt", "plan", "cluster", "hardware", "storage", "sizing"],
+  "properties": {
+    "kind": { "const": "azurelocal-sizing-handoff" },
+    "schemaVersion": { "type": "string", "pattern": "^1\\.[0-9]+$" },
+    "generatedBy": { "const": "azurelocal-surveyor" },
+    "surveyorVersion": { "type": "string" },
+    "targetRelease": { "type": "string", "description": "The Azure Local release the plan was checked against, for example Azure Local 12.2611." },
+    "generatedAt": { "type": "string", "format": "date-time" },
+    "plan": {
+      "type": "object",
+      "required": ["name", "purpose"],
+      "properties": {
+        "name": { "type": "string" },
+        "purpose": { "enum": ["buy", "existing"] }
+      }
+    },
+    "cluster": {
+      "type": "object",
+      "required": ["node_count", "topology"],
+      "properties": {
+        "node_count": { "type": "integer", "minimum": 1, "maximum": 16 },
+        "topology": { "enum": ["standard", "rack_aware"], "description": "rack_aware: two local zones with node_count / 2 machines each." }
+      }
+    },
+    "hardware": {
+      "type": "object",
+      "description": "Per machine. infrastructure.yml hardware.cpu_cores, hardware.memory_gib and hardware.drives.",
+      "required": ["cpu_cores", "memory_gib", "hyperthreading", "drives"],
+      "properties": {
+        "cpu_cores": { "type": "integer", "minimum": 1 },
+        "memory_gib": { "type": "integer", "minimum": 1 },
+        "hyperthreading": { "type": "boolean" },
+        "drives": {
+          "type": "object",
+          "required": ["capacity"],
+          "properties": {
+            "capacity": { "$ref": "#/$defs/driveTier" },
+            "cache": { "$ref": "#/$defs/driveTier" }
+          }
+        }
+      }
+    },
+    "storage": {
+      "type": "object",
+      "required": ["default_resiliency", "infrastructure_volume_tb", "volumes"],
+      "properties": {
+        "default_resiliency": { "$ref": "#/$defs/resiliency" },
+        "infrastructure_volume_tb": { "type": "number", "minimum": 0 },
+        "volumes": {
+          "type": "array",
+          "description": "infrastructure.yml storage.volumes[]. size_gib is the planned size (decimal TB) in GiB, rounded down: the size to give New-Volume.",
+          "items": {
+            "type": "object",
+            "required": ["name", "size_gib", "resiliency", "provisioning"],
+            "properties": {
+              "name": { "type": "string" },
+              "size_gib": { "type": "integer", "minimum": 0 },
+              "resiliency": { "$ref": "#/$defs/resiliency" },
+              "provisioning": { "enum": ["fixed", "thin"] }
+            }
+          }
+        }
+      }
+    },
+    "sizing": {
+      "type": "object",
+      "description": "The results the plan was judged on, frozen at export time. Sizes in decimal TB.",
+      "required": ["raw_pool_tb", "effective_usable_tb", "volumes_pool_footprint_tb", "utilization_pct", "usable_vcpus", "usable_memory_gb", "usable_vcpus_n_minus_1", "usable_memory_gb_n_minus_1", "workload_vcpus", "workload_memory_gb", "workload_storage_tb", "health"],
+      "properties": {
+        "raw_pool_tb": { "type": "number" },
+        "effective_usable_tb": { "type": "number" },
+        "volumes_pool_footprint_tb": { "type": "number" },
+        "utilization_pct": { "type": "number" },
+        "usable_vcpus": { "type": "number" },
+        "usable_memory_gb": { "type": "number" },
+        "usable_vcpus_n_minus_1": { "type": "number" },
+        "usable_memory_gb_n_minus_1": { "type": "number" },
+        "workload_vcpus": { "type": "number" },
+        "workload_memory_gb": { "type": "number" },
+        "workload_storage_tb": { "type": "number" },
+        "health": {
+          "type": "object",
+          "required": ["passed", "errors", "warnings", "issues"],
+          "properties": {
+            "passed": { "type": "boolean" },
+            "errors": { "type": "integer", "minimum": 0 },
+            "warnings": { "type": "integer", "minimum": 0 },
+            "issues": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["code", "severity", "message"],
+                "properties": { "code": { "type": "string" }, "severity": { "enum": ["error", "warning"] }, "message": { "type": "string" } }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "driveTier": {
+      "type": "object",
+      "required": ["media", "count", "size_tb"],
+      "properties": {
+        "media": { "enum": ["nvme", "ssd", "hdd"] },
+        "count": { "type": "integer", "minimum": 0 },
+        "size_tb": { "type": "number", "minimum": 0 }
+      }
+    },
+    "resiliency": { "enum": ["two_way", "three_way", "four_way", "parity", "nested_two_way"] }
+  }
+}

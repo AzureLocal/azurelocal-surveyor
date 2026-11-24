@@ -27,7 +27,8 @@ import { exportXlsx } from '../exporters/xlsx'
 import { generatePowerShell } from '../exporters/powershell'
 import { generateMarkdown } from '../exporters/markdown'
 import { exportJson } from '../exporters/json'
-import { FileDown, Table2, Terminal, FileText, Braces, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
+import { exportSizingHandoff } from '../exporters/sizing-handoff'
+import { FileDown, Table2, Terminal, FileText, Braces, Send, CheckCircle2, XCircle, AlertTriangle } from 'lucide-react'
 import type { HardwareInputs, CapacityResult, ComputeResult, VolumeSpec, WorkloadSummaryResult, ExpansionHeadroomResult } from '../engine/types'
 
 export default function FinalReport() {
@@ -82,6 +83,7 @@ export default function FinalReport() {
         <ExportBtn icon={<Terminal className="w-4 h-4" />} label="Copy PowerShell" onClick={copyPowerShell} />
         <ExportBtn icon={<FileText className="w-4 h-4" />} label="Copy Markdown" onClick={copyMarkdown} />
         <ExportBtn icon={<Braces className="w-4 h-4" />} label="Export JSON" onClick={() => exportJson(state)} />
+        <ExportBtn icon={<Send className="w-4 h-4" />} label="Sizing handoff for Trailwright" onClick={() => { const problems = exportSizingHandoff(state); if (problems.length) window.alert(['The sizing handoff was not written:', ...problems].join(' ')) }} />
       </div>
 
       {/* Cluster summary */}

@@ -4,7 +4,7 @@ test('single node and rack aware plans, release banner and Learn facts', async (
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('./')
-  await expect(page.getByTestId('release-banner')).toHaveText('Azure Local 12.2609 (latest)')
+  await expect(page.getByTestId('release-banner')).toHaveText('Azure Local 12.2611 (latest)')
 
   await page.getByRole('link', { name: 'Storage Sizing', exact: true }).click()
   await page.getByRole('link', { name: 'Hardware & Drives', exact: true }).click()
