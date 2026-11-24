@@ -49,7 +49,7 @@ Already deployed your cluster? Use [Azure Local S2DCartographer](https://github.
 
 ## What's new in v2.9.0
 
-Surveyor 2.9.0 plans against **Azure Local 12.2609 (latest)**. Every platform rule it encodes is listed with its Microsoft Learn link and verification date on the in-app References page.
+Surveyor 2.9.0 plans against **Azure Local 12.2611 (latest)**. Every platform rule it encodes is listed with its Microsoft Learn link and verification date on the in-app References page.
 
 | Area | What changed |
 |---|---|
@@ -131,6 +131,7 @@ From the Reports page:
 - **PDF** — printable customer proposal
 - **XLSX** — round-trip workbook with all sheets
 - **JSON** — versioned plan manifest ([schema](docs/reference/plan-manifest.schema.json)); **Save project** writes the project file ([schema](docs/reference/project.schema.json))
+- **Sizing handoff for Trailwright** — `azure-local-sizing-handoff-YYYY-MM-DD.json`: the sized cluster in the key names of the toolkit `infrastructure.yml`, for [Azure Local Trailwright](https://azurelocal.cloud/azurelocal-trailwright/) to start a design from ([contract](docs/reference/sizing-handoff.md))
 - **PowerShell** — `New-Volume` commands with WAC-ready sizes
 - **Markdown** — table output for wikis or documentation
 
