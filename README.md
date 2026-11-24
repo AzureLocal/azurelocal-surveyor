@@ -139,7 +139,7 @@ Surveyor (sizing handoff) -> Trailwright (infrastructure.yml) -> hardware discov
 | Out (record) | The full plan | The plan manifest (JSON) and the project file; Ranger and other automation read the manifest |
 | In (as built) | What was built | The environment's `infrastructure.yml` (schema 5), pasted into **Compare with as-built hardware**; YAML or JSON. The older small as-built JSON still works |
 
-Surveyor reads the file in the browser and uploads nothing. The sizing handoff carries no names, addresses, ports, identity or Azure details; Trailwright asks for those, and hardware discovery fills the serial numbers and MAC addresses.
+Surveyor reads the file in the browser and uploads nothing. The sizing handoff carries no names, addresses, ports, identity or Azure details; Trailwright asks for those (and for the network ports), and hardware discovery fills the serial numbers and MAC addresses.
 
 ## Exporting
 
