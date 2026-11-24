@@ -13,7 +13,7 @@ test('the final report downloads the sizing handoff for Trailwright', async ({ p
   const chunks: Buffer[] = []
   for await (const chunk of stream) chunks.push(chunk as Buffer)
   const handoff = JSON.parse(Buffer.concat(chunks).toString('utf8'))
-  expect(handoff).toMatchObject({ kind: 'azurelocal-sizing-handoff', schemaVersion: '1.0', generatedBy: 'azurelocal-surveyor', targetRelease: 'Azure Local 12.2611' })
+  expect(handoff).toMatchObject({ kind: 'azurelocal-sizing-handoff', schemaVersion: '1.1', generatedBy: 'azurelocal-surveyor', targetRelease: 'Azure Local 12.2611' })
   expect(handoff.cluster.node_count).toBeGreaterThan(0)
   expect(handoff.hardware.drives.capacity.count).toBeGreaterThan(0)
   expect(errors).toEqual([])

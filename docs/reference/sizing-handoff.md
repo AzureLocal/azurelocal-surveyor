@@ -9,7 +9,7 @@ The plan manifest (**Export JSON**, see [Plan Manifest](plan-manifest.md)) stays
 | Field | Meaning |
 | --- | --- |
 | `kind` | Always `azurelocal-sizing-handoff` |
-| `schemaVersion` | `"1.0"`. Consumers check the major number only; a new optional field is a minor bump, a removed or changed field a major bump |
+| `schemaVersion` | `"1.1"`. Consumers check the major number only; a new optional field is a minor bump, a removed or changed field a major bump. 1.1 added `storage.volumes[].provisioning_type` |
 | `generatedBy`, `surveyorVersion`, `generatedAt` | Who wrote the file and when |
 | `targetRelease` | The Azure Local release the plan was checked against, for example `Azure Local 12.2611` |
 | `plan.name`, `plan.purpose` | The plan name, and `buy` (sizing new hardware) or `existing` |
@@ -20,7 +20,7 @@ The plan manifest (**Export JSON**, see [Plan Manifest](plan-manifest.md)) stays
 | `hardware.drives.capacity`, `hardware.drives.cache` | Per machine: `media` (`nvme`, `ssd`, `hdd`), `count`, `size_tb` (infrastructure.yml `hardware.drives`). `cache` is absent without a cache tier |
 | `storage.default_resiliency` | The resiliency the capacity was computed with, in the schema 5 spelling |
 | `storage.infrastructure_volume_tb` | The infrastructure volume the sizing set aside |
-| `storage.volumes[]` | `name`, `size_gib` (the planned size, decimal TB, in GiB rounded down: the size to give `New-Volume`), `resiliency` and `provisioning` (`fixed` or `thin`) |
+| `storage.volumes[]` | `name`, `size_gib` (the planned size, decimal TB, in GiB rounded down: the size to give `New-Volume`), `resiliency` and `provisioning_type` (`fixed` or `thin`). `provisioning` carries the same value for 1.0 readers and is removed in 2.0 |
 | `sizing.*` | The results the plan was judged on, frozen at export: raw pool, effective usable capacity, volume footprint and utilization, usable vCPUs and memory (also with one machine down), the workload totals, and the health check (passed, error and warning counts, and the issues) |
 
 Resiliency values: `two_way`, `three_way`, `four_way` (rack aware only), `parity` (Surveyor's dual parity) and `nested_two_way`.

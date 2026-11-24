@@ -60,7 +60,7 @@ export default function AdvancedSettings() {
           <p className="text-xs text-gray-400 mt-1">Logical cores × this ratio = total vCPUs before reservation. Planning choice; Microsoft publishes no universal ratio.</p>
         </Field>
 
-        <Field label="System reserved memory / node (GB)" hint="default 8">
+        <Field label="System reserved memory / node (GiB)" hint="default 8">
           <input type="number" min={4} max={64} step={1} className="input"
             value={advanced.systemReservedMemoryGB}
             onChange={(e) => setAdvanced({ systemReservedMemoryGB: +e.target.value })} />

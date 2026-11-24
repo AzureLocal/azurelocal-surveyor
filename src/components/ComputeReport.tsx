@@ -111,18 +111,18 @@ export default function ComputeReport({ result, totalVCpus, totalMemoryGB, maint
             />
 
             <Section label="Memory" />
-            <Row label="Physical memory" value={`${result.physicalMemoryGB} GB`} />
-            <Row label="System reserved memory" value={`${result.systemReservedMemoryGB} GB`} />
-            <Row label="Usable memory (all nodes)" value={`${result.usableMemoryGB} GB`} highlight />
+            <Row label="Physical memory" value={`${result.physicalMemoryGB} GiB`} />
+            <Row label="System reserved memory" value={`${result.systemReservedMemoryGB} GiB`} />
+            <Row label="Usable memory (all nodes)" value={`${result.usableMemoryGB} GiB`} highlight />
             <Row
               label={`Usable memory — WAF N+1 (${Math.max(0, nodeCount - 1)} nodes active)`}
-              value={`${result.usableMemoryGBN1} GB`}
+              value={`${result.usableMemoryGBN1} GiB`}
               sub={`WAF compute resiliency: one node drained/lost${reserveMode === 'n+1' ? ' — active target' : ''}`}
               highlight={reserveMode === 'n+1'}
             />
             <Row
               label={`Usable memory — WAF N+2 (${Math.max(0, nodeCount - 2)} nodes active)`}
-              value={`${result.usableMemoryGBN2} GB`}
+              value={`${result.usableMemoryGBN2} GiB`}
               sub={`WAF compute resiliency: two nodes drained/lost${reserveMode === 'n+2' ? ' — active target' : ''}`}
               highlight={reserveMode === 'n+2'}
             />

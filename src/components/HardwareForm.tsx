@@ -109,7 +109,7 @@ export default function HardwareForm() {
             <optgroup key={vendor} label={vendor}>
               {presets.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.model} — {CATALOG_LABEL[p.catalogType]} — {p.coresPerNode}c / {p.memoryPerNodeGB} GB
+                  {p.model} — {CATALOG_LABEL[p.catalogType]} — {p.coresPerNode}c / {p.memoryPerNodeGB} GiB
                 </option>
               ))}
             </optgroup>
@@ -129,7 +129,7 @@ export default function HardwareForm() {
             <p className="font-medium">{selectedPreset.vendor} {selectedPreset.model} · {CATALOG_LABEL[selectedPreset.catalogType]}</p>
             <p>{selectedPreset.notes}</p>
             <p>
-              Example per node: {selectedPreset.coresPerNode} physical cores · {selectedPreset.memoryPerNodeGB} GB RAM
+              Example per node: {selectedPreset.coresPerNode} physical cores · {selectedPreset.memoryPerNodeGB} GiB RAM
               {' · '}{selectedPreset.capacityDrivesPerNode} × {selectedPreset.capacityDriveSizeTB} TB {selectedPreset.capacityMediaType.toUpperCase()} capacity
               {selectedPreset.cacheDrivesPerNode > 0
                 ? ` · ${selectedPreset.cacheDrivesPerNode} × ${selectedPreset.cacheDriveSizeTB} TB ${selectedPreset.cacheMediaType.toUpperCase()} cache`
@@ -314,7 +314,7 @@ export default function HardwareForm() {
             className="input" />
         </Field>
 
-        <Field label="RAM / node (GB)">
+        <Field label="RAM / node (GiB)">
           <input type="number" min={16} value={hardware.memoryPerNodeGB}
             onChange={(e) => setHardware({ memoryPerNodeGB: num(e, hardware.memoryPerNodeGB) })}
             className="input" />

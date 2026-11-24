@@ -2,6 +2,10 @@ import Ajv2020 from 'ajv/dist/2020'
 import { describe, expect, it } from 'vitest'
 import schemaText from '../../docs/reference/sizing-handoff.schema.json?raw'
 import exampleText from '../../docs/reference/sizing-handoff.example.json?raw'
+import hardwareForm from '../components/HardwareForm.tsx?raw'
+import advancedSettings from '../components/AdvancedSettings.tsx?raw'
+import computeReport from '../components/ComputeReport.tsx?raw'
+import recommendationsPage from '../pages/RecommendationsPage.tsx?raw'
 import { normalizePersistedState, useSurveyorStore } from '../state/store'
 import { SCHEMA5_RESILIENCY, createSizingHandoff, sizingHandoffFilename, sizingHandoffProblems, tbToGib } from './sizing-handoff'
 
@@ -15,7 +19,7 @@ describe('sizing handoff for Trailwright', () => {
     const h = createSizingHandoff({ ...useSurveyorStore.getState() }, NOW)
     expect(validate(h), JSON.stringify(validate.errors)).toBe(true)
     const hw = useSurveyorStore.getState().hardware
-    expect(h).toMatchObject({ kind: 'azurelocal-sizing-handoff', schemaVersion: '1.0', generatedBy: 'azurelocal-surveyor', generatedAt: NOW.toISOString() })
+    expect(h).toMatchObject({ kind: 'azurelocal-sizing-handoff', schemaVersion: '1.1', generatedBy: 'azurelocal-surveyor', generatedAt: NOW.toISOString() })
     expect(h.targetRelease).toMatch(/^Azure Local 12\.\d{4}$/)
     expect(h.cluster).toEqual({ node_count: hw.nodeCount, topology: 'standard' })
     expect(h.hardware.cpu_cores).toBe(hw.coresPerNode)
@@ -27,7 +31,7 @@ describe('sizing handoff for Trailwright', () => {
   it('writes the volumes in the infrastructure.yml spelling, the decimal TB plan in GiB rounded down', () => {
     const state = { ...useSurveyorStore.getState(), volumes: [{ id: 'v1', name: 'Data', resiliency: 'three-way-mirror' as const, provisioning: 'fixed' as const, plannedSizeTB: 2.5 }] }
     const h = createSizingHandoff(state, NOW)
-    expect(h.storage.volumes).toEqual([{ name: 'Data', size_gib: 2328, resiliency: 'three_way', provisioning: 'fixed' }])
+    expect(h.storage.volumes).toEqual([{ name: 'Data', size_gib: 2328, resiliency: 'three_way', provisioning_type: 'fixed', provisioning: 'fixed' }])
     expect(validate(h)).toBe(true)
   })
 
@@ -75,5 +79,23 @@ describe('what stops the handoff', () => {
   it('converts decimal TB to GiB, rounded down', () => {
     expect(tbToGib(1)).toBe(931)
     expect(tbToGib(0)).toBe(0)
+  })
+})
+
+describe('memory is labelled GiB wherever it is the per-machine value that goes to memory_gib', () => {
+  it('keeps the value unconverted and the labels in GiB', () => {
+    const state = { ...useSurveyorStore.getState() }
+    expect(createSizingHandoff(state, NOW).hardware.memory_gib).toBe(state.hardware.memoryPerNodeGB)
+    const labels = [
+      [hardwareForm, 'RAM / node (GiB)'],
+      [hardwareForm, 'physical cores · {selectedPreset.memoryPerNodeGB} GiB RAM'],
+      [recommendationsPage, '{option.hardware.memoryPerNodeGB} GiB RAM per node'],
+      [advancedSettings, 'System reserved memory / node (GiB)'],
+      [computeReport, 'value={`${result.physicalMemoryGB} GiB`}'],
+    ] as const
+    for (const [source, label] of labels) expect(source).toContain(label)
+    for (const source of [hardwareForm, recommendationsPage, advancedSettings]) {
+      expect(source).not.toMatch(/RAM \/ node \(GB\)|memoryPerNodeGB\} GB|reserved memory \/ node \(GB\)/)
+    }
   })
 })

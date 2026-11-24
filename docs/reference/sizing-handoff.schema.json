@@ -34,7 +34,7 @@
       "required": ["cpu_cores", "memory_gib", "hyperthreading", "drives"],
       "properties": {
         "cpu_cores": { "type": "integer", "minimum": 1 },
-        "memory_gib": { "type": "integer", "minimum": 1 },
+        "memory_gib": { "type": "integer", "minimum": 1, "description": "Memory per machine in GiB, as entered in Surveyor." },
         "hyperthreading": { "type": "boolean" },
         "drives": {
           "type": "object",
@@ -57,12 +57,14 @@
           "description": "infrastructure.yml storage.volumes[]. size_gib is the planned size (decimal TB) in GiB, rounded down: the size to give New-Volume.",
           "items": {
             "type": "object",
-            "required": ["name", "size_gib", "resiliency", "provisioning"],
+            "required": ["name", "size_gib", "resiliency"],
+            "anyOf": [{ "required": ["provisioning_type"] }, { "required": ["provisioning"] }],
             "properties": {
               "name": { "type": "string" },
               "size_gib": { "type": "integer", "minimum": 0 },
               "resiliency": { "$ref": "#/$defs/resiliency" },
-              "provisioning": { "enum": ["fixed", "thin"] }
+              "provisioning_type": { "enum": ["fixed", "thin"], "description": "infrastructure.yml storage.volumes[].provisioning_type. Written since schemaVersion 1.1." },
+              "provisioning": { "enum": ["fixed", "thin"], "deprecated": true, "description": "The same value as provisioning_type, kept for schemaVersion 1.0 readers. Removed in 2.0." }
             }
           }
         }

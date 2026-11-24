@@ -1,6 +1,6 @@
 {
   "kind": "azurelocal-sizing-handoff",
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "generatedBy": "azurelocal-surveyor",
   "surveyorVersion": "x.y.z",
   "targetRelease": "Azure Local 12.2611",
@@ -33,12 +33,14 @@
         "name": "Volume1",
         "size_gib": 4135,
         "resiliency": "two_way",
+        "provisioning_type": "fixed",
         "provisioning": "fixed"
       },
       {
         "name": "Volume2",
         "size_gib": 1862,
         "resiliency": "two_way",
+        "provisioning_type": "thin",
         "provisioning": "thin"
       }
     ]

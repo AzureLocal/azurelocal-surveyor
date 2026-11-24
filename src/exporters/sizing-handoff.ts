@@ -5,10 +5,13 @@
  * number of machines, rack aware or not, cores and memory per machine, the drives per machine and the volumes. The key
  * names under hardware and storage are the Azure Local Toolkit's infrastructure.yml (schema 5) names, so a consumer can
  * copy them: hardware.cpu_cores, hardware.memory_gib, hardware.drives.{capacity,cache}.{media,count,size_tb} and
- * storage.volumes[].{name,size_gib,resiliency}. The sizing block carries the frozen results the plan was judged on.
+ * storage.volumes[].{name,size_gib,resiliency,provisioning_type}. The sizing block carries the frozen results the plan
+ * was judged on. Memory is GiB throughout (hardware.memory_gib); Surveyor's memory per machine is entered in GiB.
  *
  * Contract: kind "azurelocal-sizing-handoff", schemaVersion "MAJOR.MINOR" (consumers check the major only; a new
- * optional field is a minor bump). Documented in docs/reference/sizing-handoff.md with a JSON schema next to it.
+ * optional field is a minor bump). 1.1 added storage.volumes[].provisioning_type, the schema 5 name; provisioning
+ * carries the same value for 1.0 readers until the next major. Documented in docs/reference/sizing-handoff.md with a
+ * JSON schema next to it.
  */
 
 import { version } from '../../package.json'
@@ -22,7 +25,7 @@ import { computeVolumeSummary } from '../engine/volumes'
 import type { SurveyorState } from '../state/store'
 
 export const SIZING_HANDOFF_KIND = 'azurelocal-sizing-handoff'
-export const SIZING_HANDOFF_VERSION = '1.0'
+export const SIZING_HANDOFF_VERSION = '1.1'
 
 /** infrastructure.yml storage.volumes[].resiliency for each Surveyor resiliency. */
 export const SCHEMA5_RESILIENCY: Record<ResiliencyType, 'two_way' | 'three_way' | 'four_way' | 'parity' | 'nested_two_way'> = {
@@ -65,7 +68,11 @@ export interface SizingHandoff {
     default_resiliency: string
     infrastructure_volume_tb: number
     /** size_gib: the planned size (decimal TB) in GiB, rounded down: the size to give New-Volume. */
-    volumes: { name: string; size_gib: number; resiliency: string; provisioning: 'fixed' | 'thin' }[]
+    /**
+     * provisioning_type is infrastructure.yml storage.volumes[].provisioning_type. provisioning is the same value, kept
+     * for schemaVersion 1.0 readers and removed in 2.0.
+     */
+    volumes: { name: string; size_gib: number; resiliency: string; provisioning_type: 'fixed' | 'thin'; provisioning: 'fixed' | 'thin' }[]
   }
   /** The results the plan was judged on, frozen at export time. Sizes in decimal TB. */
   sizing: {
@@ -103,7 +110,7 @@ export function sizingHandoffProblems(h: SizingHandoff): string[] {
   const whole = (v: number, min: number) => Number.isInteger(v) && v >= min
   if (!whole(h.cluster.node_count, 1) || h.cluster.node_count > 16) out.push(`The number of machines must be a whole number from 1 to 16 (it is ${h.cluster.node_count}).`)
   if (!whole(h.hardware.cpu_cores, 1)) out.push(`Cores per machine must be a whole number of at least 1 (it is ${h.hardware.cpu_cores}).`)
-  if (!whole(h.hardware.memory_gib, 1)) out.push(`Memory per machine must be a whole number of GB of at least 1 (it is ${h.hardware.memory_gib}).`)
+  if (!whole(h.hardware.memory_gib, 1)) out.push(`Memory per machine must be a whole number of GiB of at least 1 (it is ${h.hardware.memory_gib}).`)
   for (const [tier, t] of Object.entries(h.hardware.drives)) if (t && !whole(t.count, 0)) out.push(`The ${tier} drive count must be a whole number (it is ${t.count}).`)
   return out
 }
@@ -142,6 +149,7 @@ export function createSizingHandoff(state: HandoffState, now: Date = new Date())
         name: v.name,
         size_gib: tbToGib(v.plannedSizeTB),
         resiliency: SCHEMA5_RESILIENCY[v.resiliency],
+        provisioning_type: v.provisioning,
         provisioning: v.provisioning,
       })),
     },
