@@ -13,6 +13,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
+- The as-built comparison reads the Azure Local Toolkit's `infrastructure.yml` (schema 5) as its source (owner decision O8): the machine count from `nodes[]`, cores and memory per machine, the drives and a rack aware build. Paste the file as it is (YAML or JSON); the older record, project and manifest forms are still accepted. `js-yaml` (already in the lock file) is now a runtime dependency.
 - Sizing handoff schemaVersion 1.1 (additive): `storage.volumes[].provisioning_type` (`thin` or `fixed`) is the infrastructure.yml schema 5 name. `provisioning` carries the same value for 1.0 readers and is removed in 2.0.
 - Memory per machine is labelled GiB everywhere it is the value written to `hardware.memory_gib` (hardware form, presets, recommendations, advanced settings and the compute report). The value is unchanged.
 - The planning basis is Azure Local 12.2611 (latest, released 2026-11-20). Its release notes change no sizing fact (OS 26100.33822, reliability fixes, .NET and PowerShell updates, GPU management), so the facts registry is unchanged.
@@ -32,8 +33,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Sizing handoff schemaVersion 1.1 (additive): `storage.volumes[].provisioning_type` (`thin` or `fixed`) is the infrastructure.yml schema 5 name. `provisioning` carries the same value for 1.0 readers and is removed in 2.0.
-- Memory per machine is labelled GiB everywhere it is the value written to `hardware.memory_gib` (hardware form, presets, recommendations, advanced settings and the compute report). The value is unchanged.
 - Minimum node count is 1 (was 2); fit, recommendations and hardware limits use 1 to 16. Dual parity efficiency follows the matching Learn table. Reports show Azure Local 12.2609 (latest) as the planning basis.
 - Resiliency and volume pickers follow node count and rack aware mode. HDD capacity without a cache tier is now an error because Azure Local does not support it. Planning assumptions (host memory and vCPU reserve, N+1/N+2) are labelled as such.
 - Documentation: README, repo intent, engine spec and AGENTS.md refreshed; the docs changelog page now includes this file instead of duplicating it; the Excel workbook path no longer names a drive letter; the 2.0 planning transcript moved to `archive/`.
@@ -94,8 +93,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Sizing handoff schemaVersion 1.1 (additive): `storage.volumes[].provisioning_type` (`thin` or `fixed`) is the infrastructure.yml schema 5 name. `provisioning` carries the same value for 1.0 readers and is removed in 2.0.
-- Memory per machine is labelled GiB everywhere it is the value written to `hardware.memory_gib` (hardware form, presets, recommendations, advanced settings and the compute report). The value is unchanged.
 - **Provisioning-aware 70% headroom guidance** — `HC_HIGH_UTILIZATION` health check is now
   provisioning-aware. When utilization exceeds 70% and thin-provisioned volumes are present, the
   issue remains severity `warning` (a full pool takes thin volumes offline). When all volumes are
@@ -168,8 +165,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Sizing handoff schemaVersion 1.1 (additive): `storage.volumes[].provisioning_type` (`thin` or `fixed`) is the infrastructure.yml schema 5 name. `provisioning` carries the same value for 1.0 readers and is removed in 2.0.
-- Memory per machine is labelled GiB everywhere it is the value written to `hardware.memory_gib` (hardware form, presets, recommendations, advanced settings and the compute report). The value is unchanged.
 - Custom Workloads import parsing/validation/normalization extracted from `CustomWorkloads.tsx`
   into a pure, exported `parseCustomWorkloadsJson` in the engine (no behavior change), making the
   import path unit-testable. (AB#154)
@@ -200,8 +195,6 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Changed
 
-- Sizing handoff schemaVersion 1.1 (additive): `storage.volumes[].provisioning_type` (`thin` or `fixed`) is the infrastructure.yml schema 5 name. `provisioning` carries the same value for 1.0 readers and is removed in 2.0.
-- Memory per machine is labelled GiB everywhere it is the value written to `hardware.memory_gib` (hardware form, presets, recommendations, advanced settings and the compute report). The value is unchanged.
 - Capacity engine reconciled to the canonical model. The previous single `0.92` per-drive factor —
   which silently conflated a real metadata overhead with the TB→TiB decimal/binary conversion — is
   decomposed into an explicit ~1% pool metadata overhead (decimal TB) plus a single TB→TiB
@@ -303,8 +296,6 @@ enabled workload.
 
 ### Changed
 
-- Sizing handoff schemaVersion 1.1 (additive): `storage.volumes[].provisioning_type` (`thin` or `fixed`) is the infrastructure.yml schema 5 name. `provisioning` carries the same value for 1.0 readers and is removed in 2.0.
-- Memory per machine is labelled GiB everywhere it is the value written to `hardware.memory_gib` (hardware form, presets, recommendations, advanced settings and the compute report). The value is unchanged.
 - `VolumeSpec`: added `provisioning: 'fixed' | 'thin'` (required); existing volumes migrated to `fixed` in v9
 - `SofsInputs`: added `volumeLayout: 'shared' | 'per-vm'` and `sofsOsDiskPerVmGB: number`; both defaulted in v9 migration
 - `AksInputs.clusters`: flat AKS inputs replaced by `clusters: AksCluster[]` array in v9 (breaking schema, migration provided)
@@ -347,8 +338,6 @@ enabled workload.
 
 ### Changed
 
-- Sizing handoff schemaVersion 1.1 (additive): `storage.volumes[].provisioning_type` (`thin` or `fixed`) is the infrastructure.yml schema 5 name. `provisioning` carries the same value for 1.0 readers and is removed in 2.0.
-- Memory per machine is labelled GiB everywhere it is the value written to `hardware.memory_gib` (hardware form, presets, recommendations, advanced settings and the compute report). The value is unchanged.
 - Navigation: AKS moved before SOFS in the sidebar (order: Workloads → AVD → AKS → SOFS → MABS) (#120)
 - AVD: "Host Pools" planning concept renamed to **Session Host Groups** throughout UI, exports (Markdown, XLSX), and page copy — distinguishes session hosts on Azure Local from the host pool resource in Azure (#121)
 
@@ -372,8 +361,6 @@ enabled workload.
 
 ### Changed
 
-- Sizing handoff schemaVersion 1.1 (additive): `storage.volumes[].provisioning_type` (`thin` or `fixed`) is the infrastructure.yml schema 5 name. `provisioning` carries the same value for 1.0 readers and is removed in 2.0.
-- Memory per machine is labelled GiB everywhere it is the value written to `hardware.memory_gib` (hardware form, presets, recommendations, advanced settings and the compute report). The value is unchanged.
 - AVD planner page copy: removed single-pool caveat; explains native multi-pool planning support
 - SOFS planner page copy: clarifies that only SOFS-targeted AVD pools are counted toward linked AVD demand
 - Zustand store: bumped to version 8; migration converts legacy flat AVD state into the new `pools[]` array format
@@ -395,8 +382,6 @@ enabled workload.
 
 ### Changed
 
-- Sizing handoff schemaVersion 1.1 (additive): `storage.volumes[].provisioning_type` (`thin` or `fixed`) is the infrastructure.yml schema 5 name. `provisioning` carries the same value for 1.0 readers and is removed in 2.0.
-- Memory per machine is labelled GiB everywhere it is the value written to `hardware.memory_gib` (hardware form, presets, recommendations, advanced settings and the compute report). The value is unchanged.
 - Hardware page moved to `/hardware`; the sidebar logo/title and new Home nav item now return users to the landing page
 - AVD guidance now separates concurrent-user sizing from total-user profile storage sizing and documents RemoteApp planning assumptions
 - Surveyor docs were audited, repaired, and cross-linked with S2DCartographer and related Azure Local references
@@ -422,8 +407,6 @@ enabled workload.
 
 ### Changed
 
-- Sizing handoff schemaVersion 1.1 (additive): `storage.volumes[].provisioning_type` (`thin` or `fixed`) is the infrastructure.yml schema 5 name. `provisioning` carries the same value for 1.0 readers and is removed in 2.0.
-- Memory per machine is labelled GiB everywhere it is the value written to `hardware.memory_gib` (hardware form, presets, recommendations, advanced settings and the compute report). The value is unchanged.
 - AVD page: clarified single-pool scope note; added multi-pool approximation guidance; added RemoteApp mention (#95)
 - AKS planner: renamed "Storage resiliency" → "Workload volume resiliency"; storage total row now shows separate OS-disk vs PVC resiliency sub-labels (#89)
 
@@ -444,8 +427,6 @@ enabled workload.
 
 ### Changed
 
-- Sizing handoff schemaVersion 1.1 (additive): `storage.volumes[].provisioning_type` (`thin` or `fixed`) is the infrastructure.yml schema 5 name. `provisioning` carries the same value for 1.0 readers and is removed in 2.0.
-- Memory per machine is labelled GiB everywhere it is the value written to `hardware.memory_gib` (hardware form, presets, recommendations, advanced settings and the compute report). The value is unchanged.
 - SOFS planner: removed all internal issue numbers (`#41`, `#43`, `#45`, `#69`) from user-facing labels and headings (#88)
 - SOFS planner: split inputs into two named sections — FSLogix Storage Demand and SOFS Guest Cluster Configuration (#88)
 - SOFS planner: renamed "SOFS internal mirror type" → "Guest cluster data protection"; "SOFS Cluster Hardware Auto-Sizing" → "Guest Cluster Drive Sizing" with rewritten descriptions clarifying storage layers (#88)
@@ -476,8 +457,6 @@ enabled workload.
 
 ### Changed
 
-- Sizing handoff schemaVersion 1.1 (additive): `storage.volumes[].provisioning_type` (`thin` or `fixed`) is the infrastructure.yml schema 5 name. `provisioning` carries the same value for 1.0 readers and is removed in 2.0.
-- Memory per machine is labelled GiB everywhere it is the value written to `hardware.memory_gib` (hardware form, presets, recommendations, advanced settings and the compute report). The value is unchanged.
 - Lenovo MX: added V4 Premier Solutions (MX630 V4, MX650 V4); V3 models remain as Integrated Systems (#87)
 - HPE ProLiant: DL380 Gen11 elevated to Premier (Ignite 2025); DL145 Gen11 added as Integrated System for edge (May 2025); DL360 Gen11 remains Validated Node (#87)
 - AKS and VM workload resiliency fields renamed from generic "Resiliency" / "Storage resiliency" to "Workload volume resiliency" with context hints (#91)

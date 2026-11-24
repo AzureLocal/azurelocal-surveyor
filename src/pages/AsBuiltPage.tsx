@@ -40,7 +40,7 @@ export default function AsBuiltPage() {
       <h1 className="text-2xl font-bold">Built vs sized</h1>
       <p className="text-sm text-gray-500 mt-2">Paste what was actually built and compare it with the demand sized in this plan. The record is read in your browser and is not saved or uploaded. See the <Link className="underline" to="/help">help</Link> and docs/guide/as-built-fit.md for the format.</p>
     </div>
-    <label className="block text-sm font-medium" htmlFor="as-built-json">As-built hardware JSON</label>
+    <label className="block text-sm font-medium" htmlFor="as-built-json">As-built hardware (infrastructure.yml or JSON)</label>
     <textarea id="as-built-json" className="input font-mono text-xs h-48 w-full" value={text} onChange={e => setText(e.target.value)} spellCheck={false}
       placeholder='{ "kind": "azurelocal-surveyor-asbuilt", "schemaVersion": 1, "hardware": { "nodeCount": 4, ... } }' />
     <div className="flex flex-wrap gap-3">

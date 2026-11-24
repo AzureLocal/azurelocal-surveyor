@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { load as loadYaml } from 'js-yaml'
 import type { HardwareInputs } from './types'
 import { assessHardwareFit, type FitInputs } from './fit'
 
@@ -6,6 +7,9 @@ import { assessHardwareFit, type FitInputs } from './fit'
  * As-built hardware record: what was actually racked, compared with what the plan sized.
  *
  * Accepted shapes (all parsed locally, nothing is uploaded):
+ *   0. the Azure Local Toolkit's infrastructure.yml (schema 5): the one file of the whole chain, and the source of the as-built record
+ *      (owner decision O8). nodes[] gives the machine count, hardware.cpu_cores and memory_gib the machine, hardware.drives the drives
+ *      and scenario.topology a rack aware build. YAML, or the same document as JSON.
  *   1. { "kind": "azurelocal-surveyor-asbuilt", "schemaVersion": 1, "hardware": { ... } }
  *   2. a saved Surveyor project or plan manifest (the inputs.hardware block is used)
  *   3. a bare hardware object { "nodeCount": 4, ... }
@@ -42,13 +46,52 @@ const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v =
 /** Keep only the hardware keys Surveyor knows, so a project or a Ranger-style manifest can be pasted whole. */
 const HARDWARE_KEYS = ['nodeCount', 'coresPerNode', 'memoryPerNodeGB', 'capacityDrivesPerNode', 'capacityDriveSizeTB', 'capacityMediaType', 'cacheDrivesPerNode', 'cacheDriveSizeTB', 'cacheMediaType', 'hyperthreadingEnabled', 'rackAware']
 
+const isInfrastructure = (v: Record<string, unknown>): boolean => isRecord(v._metadata) && (Array.isArray(v.nodes) || isRecord(v.hardware))
+
+/** The hardware block of an infrastructure.yml (schema 5) in the keys of the as-built record. */
+function hardwareFromInfrastructure(doc: Record<string, unknown>): { ok: true; hardware: Record<string, unknown> } | { ok: false; error: string } {
+  const nodes = Array.isArray(doc.nodes) ? doc.nodes : []
+  const hw = isRecord(doc.hardware) ? doc.hardware : {}
+  const drives = isRecord(hw.drives) ? hw.drives : {}
+  const capacity = isRecord(drives.capacity) ? drives.capacity : undefined
+  const cache = isRecord(drives.cache) ? drives.cache : undefined
+  if (nodes.length === 0) return { ok: false, error: 'This infrastructure.yml has no nodes: the as-built record needs the machines that were built.' }
+  if (!capacity) return { ok: false, error: 'This infrastructure.yml has no hardware.drives.capacity (media, count, size_tb): write it with the hardware discovery or by hand.' }
+  const scenario = isRecord(doc.scenario) ? doc.scenario : {}
+  return {
+    ok: true,
+    hardware: {
+      nodeCount: nodes.length,
+      coresPerNode: hw.cpu_cores,
+      memoryPerNodeGB: hw.memory_gib, // GiB in the file; Surveyor's memory per machine is GiB too, so the value is the same
+      capacityDrivesPerNode: capacity.count,
+      capacityDriveSizeTB: capacity.size_tb,
+      capacityMediaType: capacity.media,
+      cacheDrivesPerNode: cache ? cache.count : 0,
+      cacheDriveSizeTB: cache ? cache.size_tb : 0,
+      cacheMediaType: cache ? cache.media : 'none',
+      ...(scenario.topology === 'rack_aware' ? { rackAware: true } : {}),
+    },
+  }
+}
+
 export function parseAsBuilt(text: string): AsBuiltParse {
   let parsed: unknown
-  try { parsed = JSON.parse(text) } catch { return { ok: false, error: 'This is not valid JSON.' } }
+  try {
+    parsed = JSON.parse(text)
+  } catch {
+    // Not JSON: an infrastructure.yml is YAML (flow style included). Text that starts like JSON and is not YAML either keeps the JSON message.
+    try { parsed = loadYaml(text) } catch { return { ok: false, error: /^\s*[{[]/.test(text) ? 'This is not valid JSON.' : 'This is neither valid JSON nor valid YAML.' } }
+  }
   if (!isRecord(parsed)) return { ok: false, error: 'Expected a JSON object.' }
   let source = 'as-built record'
   let hardware: unknown
-  if (parsed.kind === 'azurelocal-surveyor-asbuilt') {
+  if (isInfrastructure(parsed)) {
+    const fromFile = hardwareFromInfrastructure(parsed)
+    if (!fromFile.ok) return { ok: false, error: fromFile.error }
+    source = 'infrastructure.yml'
+    hardware = fromFile.hardware
+  } else if (parsed.kind === 'azurelocal-surveyor-asbuilt') {
     if (parsed.schemaVersion !== 1) return { ok: false, error: 'Unsupported as-built schemaVersion. This Surveyor reads schemaVersion 1.' }
     hardware = parsed.hardware
   } else if (isRecord(parsed.inputs) && isRecord(parsed.inputs.hardware)) {

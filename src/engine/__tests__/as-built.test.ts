@@ -21,6 +21,27 @@ describe('as-built record', () => {
     expect(parseAsBuilt(JSON.stringify(hardware))).toMatchObject({ ok: true })
     expect(parseAsBuilt(JSON.stringify({ kind: 'azurelocal-surveyor-project', inputs: { hardware, volumes: [] } }))).toMatchObject({ ok: true, record: { source: 'Surveyor project' } })
   })
+  it('reads the hardware of an infrastructure.yml (schema 5), as YAML or as JSON', () => {
+    const yml = [
+      '_metadata:', '  schema_version: 5.6.31', '  scope: full',
+      'scenario:', '  topology: standard',
+      'nodes:', '  - name: n1', '  - name: n2', '  - name: n3',
+      'hardware:', '  vendor: Dell', '  cpu_cores: 32', '  memory_gib: 512',
+      '  drives:', '    capacity:', '      media: nvme', '      count: 8', '      size_tb: 3.84', '    cache:', '      media: ssd', '      count: 2', '      size_tb: 1.6',
+    ].join('\n')
+    const result = parseAsBuilt(yml)
+    expect(result).toMatchObject({ ok: true, record: { source: 'infrastructure.yml', hardware: { nodeCount: 3, coresPerNode: 32, memoryPerNodeGB: 512, capacityDrivesPerNode: 8, capacityDriveSizeTB: 3.84, capacityMediaType: 'nvme', cacheDrivesPerNode: 2, cacheMediaType: 'ssd' } } })
+    const asJson = JSON.stringify({ _metadata: { scope: 'full' }, scenario: { topology: 'rack_aware' }, nodes: [{ name: 'a' }, { name: 'b' }, { name: 'c' }, { name: 'd' }], hardware: { cpu_cores: 16, memory_gib: 256, drives: { capacity: { media: 'ssd', count: 4, size_tb: 1.92 } } } })
+    expect(parseAsBuilt(asJson)).toMatchObject({ ok: true, record: { hardware: { nodeCount: 4, rackAware: true, cacheDrivesPerNode: 0, cacheMediaType: 'none' } } })
+    // The record that comes out is the one the comparison takes.
+    if (!result.ok) throw new Error(result.error)
+    expect(compareBuiltToDemand(state(), result.record.hardware).built.fits).toBeTypeOf('boolean')
+  })
+  it('says what an infrastructure.yml lacks, and that text which is neither JSON nor YAML is refused', () => {
+    expect(parseAsBuilt('_metadata:\n  scope: full\nhardware:\n  cpu_cores: 32\n')).toMatchObject({ ok: false, error: expect.stringContaining('no nodes') })
+    expect(parseAsBuilt('_metadata:\n  scope: full\nnodes:\n  - name: a\nhardware:\n  cpu_cores: 32\n')).toMatchObject({ ok: false, error: expect.stringContaining('hardware.drives.capacity') })
+    expect(parseAsBuilt('a: [unclosed\n  b: : :')).toMatchObject({ ok: false })
+  })
   it('rejects bad input with a readable message', () => {
     expect(parseAsBuilt('{nope')).toEqual({ ok: false, error: 'This is not valid JSON.' })
     expect(parseAsBuilt(record({ nodeCount: 17 }))).toMatchObject({ ok: false })

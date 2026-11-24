@@ -4,7 +4,9 @@ Surveyor sizes demand and proposes hardware. After the hardware is racked you ca
 
 ## What you paste
 
-A small JSON record. It is read in the browser, compared and shown; it is not saved into the project and nothing is uploaded.
+The Azure Local Toolkit's `infrastructure.yml` (schema 5) is the source: the same file Trailwright designed and the toolkit deployed (and the hardware discovery filled in). Paste it as it is. Surveyor reads the machine count from `nodes[]`, cores and memory per machine from `hardware.cpu_cores` and `hardware.memory_gib`, the drives from `hardware.drives.capacity` and `cache` (media, count, size_tb) and a rack aware build from `scenario.topology: rack_aware`. A file without `nodes` or without `hardware.drives.capacity` is refused with the missing key named. Hyperthreading is not in the file and stays on.
+
+The other forms are still accepted. A small JSON record. It is read in the browser, compared and shown; it is not saved into the project and nothing is uploaded.
 
 ```json
 {
