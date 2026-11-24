@@ -57,9 +57,10 @@ Surveyor 2.9.0 plans against **Azure Local 12.2611 (latest)**. Every platform ru
 | **Rack aware clusters** | 1+1 (two-way mirror) and 2+2 to 4+4 (four-way mirror, 25%); zone checks, rack-loss compute check, four-way volumes. |
 | **Drive and cache rules** | 2 capacity drives minimum; cache needs 2 cache and 4 capacity drives; hybrid 15% ratio, 32 GB and multiple rules; Learn's all-flash and hybrid dual-parity tables. |
 | **Facts registry** | `src/engine/facts.ts`: each platform fact with a Learn URL and a verified date, plus a list of planning assumptions that are not Microsoft requirements. |
-| **Built vs sized** | Paste an as-built hardware JSON and compare it with sized demand and N+1 headroom. |
+| **Built vs sized** | Paste the environment's `infrastructure.yml` (schema 5: `nodes[]`, `hardware.cpu_cores`, `hardware.memory_gib`, `hardware.drives`, `scenario.topology`) or a small as-built JSON, and compare it with sized demand and N+1 headroom. |
 | **JSON Schemas** | Versioned schemas for the project and plan files in `docs/reference`, validated by tests. Project `stateVersion` is now 11 (10 still opens). |
 | **Security** | SheetJS 0.20.3 (pinned) replaces xlsx 0.18.5; jsPDF 4. A privacy guard test blocks network calls. |
+| **Sizing handoff** | Reports exports `azure-local-sizing-handoff-YYYY-MM-DD.json` (schema 1.1, adds `storage.volumes[].provisioning_type`) in the key names of `infrastructure.yml`, for Trailwright. |
 | **Documentation** | Screen guide, RVTools import guide, as-built guide, privacy and data page. |
 
 Earlier highlights: v2.8.0 separated Storage Sizing and Workload Planning; v2.0 added AKS multi-cluster, VM groups, SOFS layouts and per-volume resiliency. See the [changelog](CHANGELOG.md).
@@ -123,6 +124,22 @@ Tests live in `src/engine/__tests__/`, `src/state/` and `src/exporters/`. All mu
 ## Saving and privacy
 
 Surveyor makes no network calls; the plan lives in your browser's local storage and in the project files you download. There is no share-by-URL feature in this version. See [privacy and data](docs/reference/privacy-and-data.md).
+
+## Where Surveyor fits in the Azure Local tool chain
+
+Surveyor is the **first step**: it sizes the cluster before anything is bought or deployed. It never writes `infrastructure.yml`; it hands the sizing to the tool that does.
+
+```text
+Surveyor (sizing handoff) -> Trailwright (infrastructure.yml) -> hardware discovery -> ZTP -> toolkit OS configuration, gate, ARM deploy -> Ranger / Sonar
+```
+
+| Direction | What | Name |
+|---|---|---|
+| Out (planning) | The sized cluster, in the key names of `infrastructure.yml` | `azure-local-sizing-handoff-YYYY-MM-DD.json`, schema 1.1 ([contract](docs/reference/sizing-handoff.md)); [Trailwright](https://azurelocal.cloud/azurelocal-trailwright/) imports it on Review and export, Import |
+| Out (record) | The full plan | The plan manifest (JSON) and the project file; Ranger and other automation read the manifest |
+| In (as built) | What was built | The environment's `infrastructure.yml` (schema 5), pasted into **Compare with as-built hardware**; YAML or JSON. The older small as-built JSON still works |
+
+Surveyor reads the file in the browser and uploads nothing. The sizing handoff carries no names, addresses, ports, identity or Azure details; Trailwright asks for those, and hardware discovery fills the serial numbers and MAC addresses.
 
 ## Exporting
 
